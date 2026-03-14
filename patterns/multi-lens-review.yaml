@@ -1,0 +1,53 @@
+name: multi-lens-review
+category: verification
+description: >
+  Review code from multiple independent perspectives simultaneously, then
+  synthesize findings into a prioritized verdict. Each lens (security,
+  quality, performance, maintainability) operates in parallel without
+  anchoring to other lenses, preventing the first finding from biasing
+  subsequent analysis. The synthesis phase groups findings by severity
+  and produces a clear approve/revise decision.
+
+structure:
+  phases:
+    - name: scope
+      description: "Read all modified files; identify language, framework, and security-sensitive domains"
+    - name: security-scan
+      description: "Automated grep patterns for hardcoded secrets, injection sinks, unsafe type assertions; then manual OWASP review (injection, auth, sensitive data, crypto, supply chain)"
+    - name: quality-review
+      description: "Evaluate single responsibility, DRY violations, cyclomatic complexity, error handling, edge cases, test coverage"
+    - name: performance-review
+      description: "Identify algorithmic complexity issues, N+1 query patterns, large allocations, blocking I/O in async contexts, unnecessary repeated work"
+    - name: maintainability-review
+      description: "Assess naming clarity, comment quality, coupling, consistency with codebase conventions, magic values, dead code"
+    - name: synthesize
+      description: "Group all findings from all lenses by severity (CRITICAL → HIGH → MEDIUM → LOW); note areas of good practice"
+    - name: verdict
+      description: "Write executive summary: total findings by severity, must-fix items, follow-up items, and final APPROVED / APPROVED WITH CHANGES / NEEDS REVISION decision"
+  control_flow: "scope → [parallel: security-scan, quality-review, performance-review, maintainability-review] → synthesize → verdict"
+
+strengths:
+  - Independent lenses prevent anchoring — security findings do not suppress quality observations
+  - Parallel structure is efficient and naturally maps to multi-agent execution
+  - Severity-based synthesis produces actionable triage rather than an undifferentiated finding list
+  - Explicit verdict prevents ambiguous outcomes — every review ends with a clear gate decision
+
+weaknesses:
+  - Expensive for large changesets — all four lenses must read all files
+  - Security and maintainability lenses may produce redundant findings (dead code, unused imports)
+  - Parallelism is only real in multi-agent mode; in single-agent mode it serializes
+  - Not useful for trivial changes where full four-lens review adds overhead without value
+
+failure_signatures:
+  - "Security dimension consistently low across harnesses — code ships with known OWASP risks"
+  - "code-review harness finds CRITICAL issues that the execution harness missed"
+  - "Post-deployment incidents trace back to edge cases not covered by review"
+  - "Review outputs list findings without prioritization — author cannot determine what to fix first"
+
+best_for:
+  uncertainty: [low, medium]
+  task_types: [review, feature, bugfix]
+  verifiability: [easy, moderate]
+  domain: [backend, infra, fullstack]
+
+existing_harness: code-review

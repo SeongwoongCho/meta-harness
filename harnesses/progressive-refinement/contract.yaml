@@ -1,0 +1,82 @@
+name: progressive-refinement
+version: "1.0.0"
+pool: experimental
+
+trigger:
+  task_types:
+    - feature
+    - bugfix
+  uncertainty:
+    - medium
+    - high
+  verifiability:
+    - easy
+    - moderate
+  blast_radius:
+    - local
+    - cross-module
+  latency_sensitivity: high
+  domains:
+    - "*"
+
+workflow:
+  - "Build rough working solution — correctness only, no quality optimization"
+  - "Score implementation across all quality dimensions (correctness, quality, error handling, security, maintainability, coverage)"
+  - "Identify weakest dimension — target it explicitly"
+  - "Refine the weakest dimension without touching unrelated code"
+  - "Re-measure — confirm improvement and no regressions"
+  - "Repeat identify-refine-re-measure up to 5 passes"
+  - "Run full test suite and build — confirm clean"
+  - "Grep for debug artifacts — remove any found"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Write is used only for new files — Edit for all modifications to existing files"
+    - "Bash is used for running tests, coverage, and build — not ad-hoc execution"
+    - "Do not refine more than one quality dimension per pass"
+
+stopping_criteria:
+  - condition: all_dimensions_at_threshold
+    description: "All quality dimensions score medium or above"
+  - condition: max_passes_reached
+    threshold: 5
+    description: "Five refinement passes completed regardless of remaining scores"
+  - condition: all_tests_pass
+    description: "Every test in the test suite passes with exit code 0"
+  - condition: build_clean
+    description: "Build command exits with code 0 and produces no errors"
+
+verification_steps:
+  - "Run full test suite: all tests green"
+  - "Score each quality dimension: document improvement from rough pass"
+  - "Confirm no regression: dimensions that were passing still pass"
+  - "Run build: no errors"
+  - "Grep modified files for console.log, debugger, TODO, HACK, FIXME — none found"
+
+cost_budget:
+  max_tokens: 600000
+  max_time_minutes: 45
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "rough_pass_fails"
+    description: "Cannot produce a working rough-pass solution — task may be too complex for single harness"
+    action: fallback
+    fallback_harness: divide-and-conquer
+  - condition: "refinement_regression_loop"
+    description: "Improving one dimension repeatedly regresses another — no stable equilibrium found"
+    action: escalate_to_user
+  - condition: "max_passes_exceeded_low_quality"
+    description: "All 5 passes complete but quality remains below threshold across multiple dimensions"
+    action: fallback
+    fallback_harness: ralph-loop

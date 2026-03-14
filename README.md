@@ -111,6 +111,15 @@ That's it. Every task is now routed through the meta-harness pipeline automatica
 | **ralplan-consensus** | Task-type-aware planning with self-review | Opus |
 | **ralph-loop** | Persistent execution until acceptance criteria pass | Sonnet |
 
+### Experimental Harnesses
+
+| Harness | Best For | Model |
+|---------|----------|-------|
+| **progressive-refinement** | Medium-uncertainty tasks needing iterative quality improvement | Sonnet |
+| **divide-and-conquer** | Large cross-module/repo-wide tasks that decompose into parts | Sonnet |
+| **adversarial-review** | Backend/infra features needing security and edge-case hardening | Sonnet |
+| **spike-then-harden** | High-uncertainty features where the problem space is unknown | Sonnet |
+
 The router supports **harness chaining** — e.g. `plan → execute → review` for complex tasks. Chains are **adaptive**: if a harness discovers mid-execution that the next planned step is wrong, it emits a `next_harness_hint` and the orchestrator reroutes dynamically.
 
 ---
@@ -175,7 +184,7 @@ Instead of just combining existing harnesses, the evolution manager reasons abou
 Observed symptoms → Match failure signatures → Score pattern candidates → Generate principled harness
 ```
 
-10 documented workflow patterns, 5 already instantiated as harnesses:
+14 documented workflow patterns, all instantiated as harnesses:
 
 | Pattern | Category | Existing Harness |
 |---------|----------|-----------------|
@@ -184,13 +193,17 @@ Observed symptoms → Match failure signatures → Score pattern candidates → 
 | hypothesis-cycle | scientific | research-iteration |
 | mikado-method | structural | careful-refactor |
 | plan-then-execute | deliberative | ralplan-consensus |
-| **progressive-refinement** | iterative | — |
-| **divide-and-conquer** | decomposition | — |
-| **adversarial-review** | verification | — |
-| **spike-then-harden** | two-phase | — |
-| **bisect-and-isolate** | diagnostic | — |
+| multi-lens-review | verification | code-review |
+| checkpoint-migrate | migration | migration-safe |
+| scope-and-sprint | rapid | rapid-prototype |
+| reproduce-hypothesize-verify | diagnostic | systematic-debugging |
+| bisect-and-isolate | diagnostic | systematic-debugging |
+| progressive-refinement | iterative | progressive-refinement *(experimental)* |
+| divide-and-conquer | decomposition | divide-and-conquer *(experimental)* |
+| adversarial-review | verification | adversarial-review *(experimental)* |
+| spike-then-harden | two-phase | spike-then-harden *(experimental)* |
 
-When evaluation data shows a gap that matches an uninstantiated pattern's failure signatures, the evolution manager generates a **pattern-driven genesis proposal** — a complete new harness grounded in workflow design theory, not ad-hoc combination.
+When evaluation data shows failure signatures matching a pattern, the evolution manager generates a **pattern-driven genesis proposal** — a complete new harness grounded in workflow design theory, not ad-hoc combination.
 
 ### Lifecycle
 

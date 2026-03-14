@@ -1,0 +1,84 @@
+name: adversarial-review
+version: "1.0.0"
+pool: experimental
+
+trigger:
+  task_types:
+    - feature
+    - bugfix
+  uncertainty:
+    - low
+    - medium
+  verifiability:
+    - easy
+    - moderate
+  blast_radius:
+    - local
+    - cross-module
+  latency_sensitivity: any
+  domains:
+    - backend
+    - infra
+
+workflow:
+  - "Implement the primary solution with standard tests — confirm full test suite passes"
+  - "Switch to attacker role: write adversarial tests targeting boundary values, exploit patterns, and edge cases"
+  - "Run adversarial tests — record all failures by severity (CRITICAL / HIGH / MEDIUM / LOW)"
+  - "Fix all CRITICAL and HIGH findings — confirm no regressions"
+  - "Attack round 2: re-attack with new adversarial tests targeting fixed areas and unexplored surface"
+  - "Fix round 2 findings if any — confirm test suite green"
+  - "Attack round 3 (final): confirm stability — document any remaining issues as known limitations"
+  - "Run full test suite and build — confirm clean"
+  - "Grep for debug artifacts — remove any found"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Adversarial tests must be committed alongside production code — do not delete them"
+    - "Bash is used for running tests and build — not ad-hoc execution"
+    - "Edit is preferred for all modifications to existing files"
+    - "CRITICAL issues must be fixed before proceeding to round 2 — do not skip"
+
+stopping_criteria:
+  - condition: all_tests_pass
+    description: "All tests including adversarial tests pass with exit code 0"
+  - condition: no_critical_issues_outstanding
+    description: "No CRITICAL or HIGH severity issues remain unfixed"
+  - condition: max_attack_rounds_complete
+    threshold: 3
+    description: "Three attack-fix cycles have been completed"
+  - condition: build_clean
+    description: "Build command exits with code 0 and produces no errors"
+
+verification_steps:
+  - "Run full test suite including adversarial tests: all green"
+  - "Confirm no CRITICAL or HIGH severity findings remain unresolved"
+  - "Run build: no errors"
+  - "List all adversarial test cases written and their final status"
+  - "Grep modified files for console.log, debugger, TODO, HACK, FIXME — none found"
+
+cost_budget:
+  max_tokens: 700000
+  max_time_minutes: 45
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "implementation_fails_before_attack"
+    description: "Primary implementation cannot pass basic tests — attack phase not yet reached"
+    action: fallback
+    fallback_harness: tdd-driven
+  - condition: "critical_unfixable_within_scope"
+    description: "A CRITICAL issue requires architectural changes outside the task scope"
+    action: escalate_to_user
+  - condition: "attack_loop_unstable"
+    description: "Fixes in one round introduce new CRITICAL issues in the next — no stable state after 3 rounds"
+    action: escalate_to_user

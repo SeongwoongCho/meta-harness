@@ -47,7 +47,7 @@ best_for:
   task_types: [bugfix, incident]
   blast_radius: [cross-module, repo-wide]
 
-existing_harness: null
+existing_harness: systematic-debugging
 genesis_hint: >
   Extend systematic-debugging's hypothesis testing with an explicit
   bisection strategy. Instead of forming arbitrary hypotheses, the

@@ -1,0 +1,54 @@
+name: reproduce-hypothesize-verify
+category: diagnostic
+description: >
+  Evidence-driven debugging through four strict phases. First, establish
+  a reliable automated reproduction case — if it cannot be reproduced,
+  stop and report. Then form and test hypotheses one at a time, each
+  specifically stated and each refuted or confirmed by evidence before the
+  next is formed (maximum 3 hypotheses). Apply only a minimal targeted fix
+  at the isolated root cause. Finally, write a regression test, run the
+  full test suite, and review for side effects before declaring completion.
+  Never guess — every hypothesis must be tested with observable evidence.
+
+structure:
+  phases:
+    - name: reproduce
+      description: "Parse bug report for expected vs actual behavior and entry point; locate relevant code via grep/glob; build a minimal automated reproduction case; confirm it triggers the bug and record REPRODUCE: [command] → [output]"
+    - name: hypothesize
+      description: "State a specific hypothesis: 'I believe the bug is in [function] at [file:line] because [reasoning]'; read the relevant code path from trigger to failure"
+    - name: test-hypothesis
+      description: "Write a focused test or add targeted logging to confirm or refute the hypothesis; run it and observe the result"
+    - name: evaluate
+      description: "If confirmed: record ISOLATE: Root cause is [description]. Evidence: [output]. Location: [file:line]. If refuted: record the refutation and form the next hypothesis (max 3 total)"
+    - name: fix
+      description: "Design and apply the minimal fix — change only lines implementing incorrect behavior; if fix exceeds 10 lines, re-examine whether root cause is truly identified; run the reproduction case to confirm the bug no longer occurs"
+    - name: regression-test
+      description: "Write a test named to describe the bug it prevents; confirm it passes with the fix in place"
+    - name: verify
+      description: "Run the full test suite — all previously passing tests must still pass; review modified code for side effects; run build verification; remove debug artifacts"
+  control_flow: "reproduce → [loop: hypothesize → test-hypothesis → evaluate, max:3] → fix → regression-test → verify"
+
+strengths:
+  - Hypothesis loop prevents intuition-driven debugging that skips to a wrong fix
+  - Maximum hypothesis budget forces escalation if debugging is not converging
+  - Minimal fix constraint prevents scope creep during a bug fix
+  - Regression test ensures the bug cannot silently reappear
+
+weaknesses:
+  - Requires a reliable automated reproduction — flaky bugs or UI-only bugs defeat the pattern
+  - Three-hypothesis limit may be insufficient for bugs in large, deeply nested codebases
+  - Evidence collection via logging adds temporary noise to the codebase
+  - Not suitable for emergent bugs from complex system interactions without clear entry points
+
+failure_signatures:
+  - "Bug fix applied without a regression test — same bug recurs in a future session"
+  - "Fix introduced in one area breaks another — side effect review was skipped"
+  - "Debugging time is high — hypotheses are not distinct and are re-testing the same thing"
+  - "Bug not reproducible but fix applied anyway — fix may not address the actual root cause"
+
+best_for:
+  uncertainty: [medium, high]
+  task_types: [bugfix, incident]
+  verifiability: [easy, moderate]
+
+existing_harness: systematic-debugging

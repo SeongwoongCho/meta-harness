@@ -1,0 +1,82 @@
+name: spike-then-harden
+version: "1.0.0"
+pool: experimental
+
+trigger:
+  task_types:
+    - feature
+  uncertainty:
+    - high
+  verifiability:
+    - moderate
+    - hard
+  blast_radius:
+    - local
+    - cross-module
+  latency_sensitivity: low
+  domains:
+    - "*"
+
+workflow:
+  - "Spike: implement the fastest possible working prototype — no tests, no quality"
+  - "Smoke-test the spike to confirm core mechanic works"
+  - "Assess: extract learnings — what was hard, what emerged, what architecture is wrong"
+  - "Plan-production: design the production architecture using spike learnings"
+  - "Discard or quarantine the spike code"
+  - "Harden: implement production version from scratch with full tests and error handling"
+  - "Verify: run full test suite — all spike behaviors covered with production tests"
+  - "Run build and grep for debug artifacts — confirm clean"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Spike code must be deleted or moved before production implementation begins"
+    - "Do not copy-paste spike code into production — rewrite with quality in mind"
+    - "Write is used for new files (spike and production alike)"
+    - "Bash is used for smoke tests and full test suite — not ad-hoc execution"
+
+stopping_criteria:
+  - condition: all_tests_pass
+    description: "All production tests pass with exit code 0"
+  - condition: spike_behaviors_covered
+    description: "Every behavior demonstrated by the spike is verified by a production test"
+  - condition: spike_discarded
+    description: "Spike code has been deleted or clearly quarantined — not part of production"
+  - condition: build_clean
+    description: "Build command exits with code 0 and produces no errors"
+
+verification_steps:
+  - "Run full test suite: all tests green"
+  - "Confirm spike has been deleted or quarantined — not in production paths"
+  - "Confirm every spike behavior is covered by at least one production test"
+  - "Run build: no errors"
+  - "Grep modified files for console.log, debugger, TODO, HACK, FIXME — none found"
+
+cost_budget:
+  max_tokens: 800000
+  max_time_minutes: 60
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "spike_fails_twice"
+    description: "Two spike attempts fail to produce a working prototype — problem may be too novel"
+    action: fallback
+    fallback_harness: research-iteration
+  - condition: "spike_becomes_production"
+    description: "Agent attempts to ship spike code without hardening pass"
+    action: escalate_to_user
+  - condition: "harden_diverges_from_plan"
+    description: "Production implementation drifts significantly from plan — reassessment needed"
+    action: escalate_to_user
+  - condition: "spike_time_overrun"
+    description: "Spike exceeds 25% of total budget — task is well-understood, skip spike and harden directly"
+    action: report_partial

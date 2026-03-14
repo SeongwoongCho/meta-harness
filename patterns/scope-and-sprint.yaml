@@ -1,0 +1,52 @@
+name: scope-and-sprint
+category: rapid
+description: >
+  Aggressively triage all task requirements into CORE (must-have), NICE
+  (deferrable), and SKIP (out of scope for MVP). Implement only CORE items
+  on the happy path using existing patterns — no new abstractions, minimal
+  error handling. After each CORE item, run a sanity check to catch
+  immediate failures. Smoke test the complete feature end-to-end, then
+  hand off with a structured report that documents everything deferred
+  and the exact command to exercise the feature.
+
+structure:
+  phases:
+    - name: scope-triage
+      description: "Tag every task item as CORE / NICE / SKIP; announce the decision before any implementation begins"
+    - name: map-structure
+      description: "Glob for relevant source files and existing similar features; identify where the new code will live; read 1-2 similar features to learn naming and structural conventions"
+    - name: implement-core-item
+      description: "Read immediate context files; write minimum implementation for one CORE item on the happy path using existing patterns; use Edit for existing files, Write for new files"
+    - name: sanity-check
+      description: "Run a quick command to confirm the code does not crash immediately; fix only syntax or import errors before moving on"
+    - name: smoke-test
+      description: "Run the simplest possible end-to-end test of the complete feature; if it fails, fix only the immediate crash — do not expand scope"
+    - name: handoff-report
+      description: "Document: Implemented (CORE) list, Deferred (NICE) list with effort estimates, Skipped (SKIP) list with rationale, known limitations, how-to-run command, and assumptions made"
+  control_flow: "scope-triage → map-structure → [loop: implement-core-item → sanity-check, per:core-item] → smoke-test → handoff-report"
+
+strengths:
+  - Fastest path to a working feature — scope triage prevents gold-plating
+  - Explicit NICE and SKIP lists make deferred work visible and recoverable
+  - Sanity checks after each CORE item prevent error accumulation
+  - Handoff report transfers full context to the follow-up hardening phase
+
+weaknesses:
+  - Happy-path-only implementation accumulates known gaps in error handling and edge cases
+  - Scope triage requires judgment; incorrect CORE/NICE classification wastes budget
+  - Not suitable for tasks requiring full correctness before they are useful at all
+  - Smoke test may pass while significant edge cases remain broken
+
+failure_signatures:
+  - "rapid-prototype output requires significant follow-up work to reach production quality"
+  - "Feature works in demo but fails in production due to missing error handling"
+  - "Deferred items not documented — follow-up phase does not know what was cut"
+  - "Task budget exhausted before CORE items complete — scope triage was too optimistic"
+
+best_for:
+  uncertainty: [medium, high]
+  task_types: [feature, spike]
+  verifiability: [moderate, hard]
+  latency_sensitivity: high
+
+existing_harness: rapid-prototype

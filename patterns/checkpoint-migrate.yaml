@@ -1,0 +1,53 @@
+name: checkpoint-migrate
+category: migration
+description: >
+  Break a migration into independently reversible atomic steps, each with
+  an explicit success check and a rollback command. After each step, verify
+  a checkpoint before proceeding. If any checkpoint fails, execute the
+  step's rollback and stop — never proceed on a broken intermediate state.
+  The final phase documents the complete rollback sequence so any future
+  operator can reverse the migration safely.
+
+structure:
+  phases:
+    - name: audit
+      description: "Map current state: identify migration type (schema/dependency/API/restructuring), grep all affected usage sites, count breaking changes, assess data risks, record external dependencies that cannot be updated"
+    - name: plan-steps
+      description: "Decompose the migration into the smallest independently reversible steps ordered from least to most risky; document each step's success check command and rollback command"
+    - name: execute-step
+      description: "Apply a single atomic migration step and run its success check command, showing raw output"
+    - name: verify-checkpoint
+      description: "Evaluate success check output — pass or fail"
+    - name: rollback-step
+      description: "On checkpoint failure: execute this step's rollback command, run test suite to confirm system is back to pre-step state, then stop and report"
+    - name: verify-all
+      description: "After all steps complete: run full test suite, run migration-specific verification (schema/dependency/API), smoke test the primary affected feature"
+    - name: document-rollback
+      description: "Write the complete reverse sequence with exact commands, data that would be lost, and estimated execution time"
+  control_flow: "audit → plan-steps → [loop: execute-step → verify-checkpoint → branch(pass→next-step, fail→rollback-step→stop), per:planned-step] → verify-all → document-rollback"
+
+strengths:
+  - Atomic steps mean partial completion is always a valid, working system state
+  - Explicit rollback commands at each step eliminate ambiguity during incident response
+  - Checkpoint verification catches failures immediately before they compound
+  - Audit phase surfaces breaking changes and external dependencies before any change is made
+
+weaknesses:
+  - Step decomposition requires upfront judgment — too-coarse steps risk large rollback scope
+  - Some migrations have irreversible steps (data transformations); these must be explicitly acknowledged
+  - Overhead of checkpoint verification slows execution for simple, low-risk migrations
+  - Rollback documentation becomes stale if migration steps are re-ordered after planning
+
+failure_signatures:
+  - "Migration leaves system in broken intermediate state — no per-step rollback plan"
+  - "Post-migration test suite failures with no clear rollback path"
+  - "Dependency upgrade breaks consumers that were not discovered in the audit phase"
+  - "Data migration is applied but not verified — silent data corruption found later"
+
+best_for:
+  uncertainty: [low, medium]
+  task_types: [migration, refactor]
+  verifiability: [easy, moderate]
+  blast_radius: [module, cross-module, repo-wide]
+
+existing_harness: migration-safe

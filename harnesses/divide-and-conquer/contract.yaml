@@ -1,0 +1,83 @@
+name: divide-and-conquer
+version: "1.0.0"
+pool: experimental
+
+trigger:
+  task_types:
+    - feature
+    - refactor
+    - migration
+  uncertainty:
+    - low
+    - medium
+  verifiability:
+    - easy
+    - moderate
+    - hard
+  blast_radius:
+    - cross-module
+    - repo-wide
+  latency_sensitivity: any
+  domains:
+    - "*"
+
+workflow:
+  - "Analyze full task scope — read all relevant files and map dependencies"
+  - "Decompose into 2-5 independent sub-tasks with explicit interface contracts"
+  - "Solve sub-task 1: implement, write unit tests, confirm green"
+  - "Solve remaining sub-tasks one at a time: implement → test → confirm"
+  - "Integrate all sub-task results — resolve interface mismatches"
+  - "Run full test suite including integration tests — all must pass"
+  - "System-verify: confirm all sub-task contracts satisfied end-to-end"
+  - "Grep for debug artifacts — remove any found"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Changes must stay strictly scoped to the current sub-task until it is verified"
+    - "Edit is preferred for modifications to existing files"
+    - "Bash must be run after every sub-task to confirm isolated green state"
+    - "Never proceed to integration if any sub-task is failing"
+
+stopping_criteria:
+  - condition: all_tests_pass
+    description: "Every test including integration tests passes with exit code 0"
+  - condition: all_subtask_contracts_satisfied
+    description: "Each sub-task interface contract is verified end-to-end after integration"
+  - condition: build_clean
+    description: "Build command exits with code 0 and produces no errors"
+
+verification_steps:
+  - "Run full test suite: all tests green including integration tests"
+  - "Confirm each sub-task contract is satisfied in the integrated result"
+  - "Run build: no errors"
+  - "Grep modified files for console.log, debugger, TODO, HACK, FIXME — none found"
+
+cost_budget:
+  max_tokens: 800000
+  max_time_minutes: 60
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "task_not_decomposable"
+    description: "Task changes are too tightly coupled — no independent sub-tasks can be defined"
+    action: fallback
+    fallback_harness: careful-refactor
+  - condition: "integration_failure_persists"
+    description: "Sub-tasks pass in isolation but integration consistently fails after 3 attempts"
+    action: escalate_to_user
+  - condition: "subtask_count_exceeded"
+    description: "Decomposition requires more than 5 sub-tasks — task scope is too broad"
+    action: escalate_to_user
+  - condition: "subtask_baseline_failing"
+    description: "A sub-task fails before any changes are made — pre-existing failure in scope"
+    action: escalate_to_user

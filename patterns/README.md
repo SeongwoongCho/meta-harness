@@ -13,10 +13,14 @@ Each pattern describes a reusable workflow structure, its strengths, failure sig
 | [hypothesis-cycle](hypothesis-cycle.yaml) | Scientific method for exploration | research-iteration |
 | [mikado-method](mikado-method.yaml) | Atomic reversible refactoring steps | careful-refactor |
 | [plan-then-execute](plan-then-execute.yaml) | Upfront planning with self-review | ralplan-consensus |
-| [progressive-refinement](progressive-refinement.yaml) | Start rough, iteratively improve | *(none yet)* |
-| [divide-and-conquer](divide-and-conquer.yaml) | Decompose, solve parts, merge | *(none yet)* |
-| [adversarial-review](adversarial-review.yaml) | Propose then attack your own work | *(none yet)* |
-| [spike-then-harden](spike-then-harden.yaml) | Quick prototype, then add quality | *(none yet)* |
-| [bisect-and-isolate](bisect-and-isolate.yaml) | Binary search for root cause | systematic-debugging (partial) |
+| [progressive-refinement](progressive-refinement.yaml) | Start rough, iteratively improve | progressive-refinement |
+| [divide-and-conquer](divide-and-conquer.yaml) | Decompose, solve parts, merge | divide-and-conquer |
+| [adversarial-review](adversarial-review.yaml) | Propose then attack your own work | adversarial-review |
+| [spike-then-harden](spike-then-harden.yaml) | Quick prototype, then add quality | spike-then-harden |
+| [bisect-and-isolate](bisect-and-isolate.yaml) | Binary search for root cause | systematic-debugging |
+| [multi-lens-review](multi-lens-review.yaml) | Review from parallel independent lenses, synthesize by severity | code-review |
+| [checkpoint-migrate](checkpoint-migrate.yaml) | Atomic reversible migration steps with per-step checkpoint and rollback | migration-safe |
+| [scope-and-sprint](scope-and-sprint.yaml) | Triage scope to CORE/NICE/SKIP, implement only CORE, hand off with deferred list | rapid-prototype |
+| [reproduce-hypothesize-verify](reproduce-hypothesize-verify.yaml) | Reproduce bug, form/test hypotheses with evidence, minimal fix, regression test | systematic-debugging |
 
-Patterns marked *(none yet)* are not instantiated as harnesses. The evolution manager may propose genesis based on these patterns when evaluation data shows a matching failure signature.
+All 14 patterns are instantiated as harnesses. The evolution manager may propose new genesis harnesses based on these patterns when evaluation data shows a matching failure signature.
