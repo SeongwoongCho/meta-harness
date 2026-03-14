@@ -349,22 +349,22 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
       "total_runs": 24,
       "avg_score": 0.79,
       "trend": "stable",
-      "top_dimension": "test_pass_rate",
-      "weak_dimension": "error_handling"
+      "top_dimension": "correctness",
+      "weak_dimension": "verifiability"
     },
     "systematic-debugging": {
       "total_runs": 11,
       "avg_score": 0.73,
       "trend": "improving",
       "top_dimension": "robustness",
-      "weak_dimension": "readability"
+      "weak_dimension": "clarity"
     },
     "rapid-prototype": {
       "total_runs": 8,
       "avg_score": 0.62,
       "trend": "declining",
-      "top_dimension": "latency",
-      "weak_dimension": "maintainability"
+      "top_dimension": "completeness",
+      "weak_dimension": "quality"
     }
   },
   "proposals_generated": 3,

@@ -95,16 +95,13 @@ When user asks "which harnesses are ready for promotion":
 `.meta-harness/harness-pool.json` structure:
 ```json
 {
-  "version": "1.0",
-  "updated_at": "2026-03-14T12:00:00Z",
   "stable": {
     "tdd-driven": {
       "weight": 1.02,
       "successes": 14,
       "failures": 2,
       "total_runs": 16,
-      "consecutive_successes": 3,
-      "last_run": "2026-03-14T11:55:00Z"
+      "consecutive_successes": 3
     }
   },
   "experimental": {
@@ -114,9 +111,11 @@ When user asks "which harnesses are ready for promotion":
       "failures": 1,
       "total_runs": 3,
       "consecutive_successes": 2,
-      "last_run": "2026-03-14T10:00:00Z"
+      "base_harness": "tdd-driven"
     }
-  }
+  },
+  "last_updated": "2026-03-14T12:00:00Z",
+  "last_merged_session": "session-1234567890-001"
 }
 ```
 

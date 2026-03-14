@@ -9,25 +9,6 @@ config:
       type: string
       description: "Primary project domain (e.g., backend, frontend, ml-research, infra, docs)"
 
-    custom_dimensions:
-      type: array
-      description: "Domain-specific evaluation dimensions added to the bound protocol"
-      items:
-        type: object
-        required: [name, weight, type]
-        properties:
-          name:
-            type: string
-            description: "Dimension name (e.g., model_accuracy, response_time)"
-          weight:
-            type: number
-            minimum: 0
-            maximum: 1
-            description: "Weight in evaluation scoring"
-          type:
-            type: string
-            enum: [binary, percentage, score_0_to_1, numeric]
-
     ensemble_overrides:
       type: object
       description: "Custom ensemble trigger conditions"

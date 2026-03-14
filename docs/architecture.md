@@ -60,7 +60,6 @@ evaluates the result, and evolves its harness pool over time.
 │  Evidence collected via PostToolUse hook (Bash commands)        │
 │  Evaluator agent spawned with:                                  │
 │    - Task results                                               │
-│    - Bound evaluation protocol (protocol.yaml)                  │
 │    - Evidence files (build/test/lint output)                    │
 │  Evaluator produces:                                            │
 │    - Per-dimension scores                                       │
@@ -136,45 +135,20 @@ Claude Code Session
 
 ---
 
-## Harness vs. Evaluation Protocol Separation
+## Evaluation
 
-This is the foundational design decision of meta-harness.
+All tasks are scored on 6 fixed dimensions with fixed weights:
 
-```
-         HARNESS                        EVALUATION PROTOCOL
-    (how to work)                       (what success means)
-         │                                      │
-┌────────▼──────────┐              ┌────────────▼────────────┐
-│ agent.md          │              │ protocol.yaml           │
-│   - Role          │              │   - universal_dimensions│
-│   - Model         │              │   - custom_dimensions   │
-│   - Constraints   │              │   - quality_gates       │
-│                   │              └─────────────────────────┘
-│ skill.md          │
-│   - Workflow steps│         Bound at runtime by the Decision Engine
-│   - Stopping crit.│         based on domain and task context.
-│                   │
-│ contract.yaml     │         Same harness, different protocols:
-│   - trigger       │
-│   - tool_policy   │         research-iteration harness:
-│   - stopping_crit.│           DL project → ml-research protocol
-│   - cost_budget   │           Web project → web-app-performance protocol
-│   - failure_modes │
-└───────────────────┘
-```
+| Dimension | Weight |
+|-----------|--------|
+| correctness | 0.25 |
+| completeness | 0.20 |
+| quality | 0.20 |
+| clarity | 0.15 |
+| robustness | 0.10 |
+| verifiability | 0.10 |
 
-**Why separated?**
-
-1. **Reusability**: The `tdd-driven` harness works for backend and frontend tasks, but a
-   frontend task should be scored on `web-app-performance` dimensions while a backend task
-   uses `universal-standard`.
-
-2. **Evolution independence**: Improving a harness's workflow steps does not require
-   changing evaluation criteria, and vice versa.
-
-3. **Community contribution**: Harness contributors focus on execution mechanics; protocol
-   contributors focus on scoring criteria. These are different skills and different
-   communities.
+These dimensions are hardcoded in the evaluator agent and apply universally to all task types.
 
 ---
 
@@ -236,7 +210,6 @@ other's, not corruption.
   "taxonomy": { "task_type": "...", "uncertainty": "...", ... },
   "selected_harness": "harness-name",
   "ensemble": false,
-  "bound_protocol": "protocol-name",
   "scores": {
     "correctness": 1.0,
     "completeness": 0.95,
@@ -307,7 +280,7 @@ Demoted: revert to previous stable version from git history
 | Agent | Model | Inputs | Outputs |
 |-------|-------|--------|---------|
 | **router** | Sonnet | Task description, harness pool state | Taxonomy JSON, selected harness, ensemble flag, reasoning |
-| **evaluator** | Opus | Task results, protocol definition, evidence files | Dimension scores, overall score, quality gate, suggestions |
+| **evaluator** | Opus | Task results, evidence files | Dimension scores, overall score, quality gate, suggestions |
 | **synthesizer** | Opus | Multiple subagent results with scores | Merged result, score comparison, merge reasoning |
 | **evolution-manager** | Opus | Evaluation history, current harness files | Evolution proposals as file diffs |
 

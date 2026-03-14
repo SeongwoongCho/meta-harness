@@ -10,8 +10,7 @@ contribute to any one of them without touching the others.
 | Layer | What you write | Effort |
 |-------|---------------|--------|
 | **1. Harnesses** | Execution workflows (markdown only) | Medium |
-| **2. Evaluation Protocols** | Scoring criteria (YAML only) | Small |
-| **3. Task Fixtures** | Benchmark scenarios (markdown + JSON) | Small |
+| **2. Task Fixtures** | Benchmark scenarios (markdown + JSON) | Small |
 
 No compiled code is required for any layer. Contributors write markdown and YAML.
 
@@ -193,111 +192,7 @@ Before submitting, validate your harness against at least one fixture:
 
 ---
 
-## Layer 2: Contributing an Evaluation Protocol
-
-An evaluation protocol defines *what success means* — independent from how the work was done.
-
-### Directory Structure
-
-```
-protocols/your-protocol-name/
-└── protocol.yaml
-```
-
-### `protocol.yaml` Format
-
-```yaml
-name: your-protocol-name
-version: 1.0.0
-description: "What domain or scenario this protocol evaluates"
-
-# Universal dimensions are always included. You may re-weight them
-# but the total weight across ALL dimensions must sum to 1.0.
-universal_dimensions:
-  - name: correctness
-    weight: 0.20          # re-weighted from default 0.25 to accommodate custom dims
-    type: score_0_to_1
-    description: "Output satisfies stated requirements"
-  - name: completeness
-    weight: 0.15
-    type: score_0_to_1
-    description: "Output covers the full scope of the task"
-  - name: quality
-    weight: 0.15
-    type: score_0_to_1
-    description: "Structural and stylistic quality of the output"
-  - name: robustness
-    weight: 0.10
-    type: score_0_to_1
-    description: "Edge case and failure mode handling"
-  - name: clarity
-    weight: 0.10
-    type: score_0_to_1
-    description: "Output clearly communicates its intent and reasoning"
-  - name: verifiability
-    weight: 0.05
-    type: score_0_to_1
-    description: "Output can be independently verified"
-
-# Custom dimensions specific to this domain.
-# Weights here plus universal_dimensions weights must sum to 1.0.
-custom_dimensions:
-  - name: your_custom_metric
-    weight: 0.15
-    type: score_0_to_1
-    description: "What this metric measures and how the evaluator should score it"
-  - name: another_metric
-    weight: 0.15
-    type: score_0_to_1
-    description: "Description"
-
-# Quality gate configuration
-quality_gates:
-  minimum_overall_score: 0.65   # below this = evaluation fails
-  required_passing_dimensions:
-    - correctness                # dimensions that must individually pass
-  hooks:
-    role: early_warning
-    checks: [lint, type_check]
-  ci:
-    role: final_authority
-    outputs: [structured_json_report]
-```
-
-**Weight constraint:** All `universal_dimensions` weights + all `custom_dimensions` weights
-must sum exactly to `1.0`. Validation is enforced at load time.
-
-**Dimension types:**
-- `binary`: 0.0 (fail) or 1.0 (pass) — e.g., a deployment success gate
-- `percentage`: 0.0–1.0 representing 0%–100% — e.g., test pass rate
-- `score_0_to_1`: continuous score from 0.0 to 1.0 — e.g., correctness, quality
-
-### Testing Your Protocol
-
-Bind your protocol to an existing fixture:
-
-```
-/meta-harness-eval --protocol=your-protocol-name --session=last
-```
-
-Verify:
-- Total weight of all dimensions sums to 1.0
-- The evaluator agent produces a score for every dimension
-- Quality gates fire correctly when the minimum score threshold is crossed
-
-### Submission
-
-1. Fork and create a branch: `git checkout -b protocol/your-protocol-name`
-2. Add your `protocols/your-protocol-name/protocol.yaml`
-3. Open a pull request with:
-   - The domain this protocol targets
-   - Justification for each custom dimension and its weight
-   - An example task where this protocol produces meaningfully different scores than
-     `universal-standard`
-
----
-
-## Layer 3: Contributing Task Fixtures
+## Layer 2: Contributing Task Fixtures
 
 Fixtures are reproducible benchmark scenarios. They let the community measure whether the
 router selects the right harness and whether evaluation scores are consistent.
@@ -382,15 +277,14 @@ Be respectful. Focus on technical substance. Assume good faith.
 ### Review Process
 
 All PRs are reviewed for:
-1. **Schema conformance** — harness/protocol/fixture files validate against their schemas
+1. **Schema conformance** — harness/fixture files validate against their schemas
 2. **Trigger specificity** — harness triggers are specific enough to be useful
-3. **Weight validity** — protocol dimension weights sum to 1.0
-4. **Fixture realism** — task descriptions reflect real-world usage
-5. **Documentation** — reasoning fields are complete and accurate
+3. **Fixture realism** — task descriptions reflect real-world usage
+4. **Documentation** — reasoning fields are complete and accurate
 
 ### Versioning
 
-- Harness/protocol changes that alter behavior increment the minor version (`1.0.0` → `1.1.0`)
+- Harness changes that alter behavior increment the minor version (`1.0.0` → `1.1.0`)
 - Breaking changes to `contract.yaml` schema increment the major version
 - Fixtures do not have versions — they are living benchmarks
 

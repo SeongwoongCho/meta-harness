@@ -29,7 +29,7 @@ strengths:
 
 weaknesses:
   - Rough pass may establish patterns that are hard to refine
-  - Dimension measurement requires evaluation protocol awareness
+  - Dimension measurement requires awareness of evaluation criteria
   - Not suitable for tasks where quality cannot be incrementally improved
   - Refinement may not be possible if rough architecture is fundamentally wrong
 

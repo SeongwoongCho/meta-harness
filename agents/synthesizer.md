@@ -116,7 +116,7 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
         "Skipped error handling entirely in rapid iteration mode",
         "No rollback plan for repo-wide changes"
       ],
-      "dimensions_won": ["test_pass_rate", "maintainability", "code_quality"]
+      "dimensions_won": ["correctness", "quality", "completeness"]
     },
     {
       "harness": "careful-refactor",
@@ -129,7 +129,7 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
         "Conservative approach missed the algorithmic optimization opportunity",
         "Test additions were minimal (only regression tests)"
       ],
-      "dimensions_won": ["robustness", "error_handling", "security"]
+      "dimensions_won": ["robustness", "clarity", "verifiability"]
     }
   ],
   "synthesized_result": {

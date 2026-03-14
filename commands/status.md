@@ -43,7 +43,7 @@ Format and display the full status report:
 ```
 ═══════════════════════════════════════════════
   META-HARNESS STATUS
-  Project: {domain} | Protocol: {default_protocol}
+  Project: {domain}
   Pipeline mode: {auto|run|off}
   Pool initialized: {initialized_at}
 ═══════════════════════════════════════════════
@@ -77,7 +77,6 @@ EVOLUTION PROPOSALS
 
 CONFIGURATION
   Domain:              {domain}
-  Default protocol:    {default_protocol}
   Pipeline mode:       {auto|run|off}
   Ensemble mode:       {auto|always|never}
   Evolution:           {enabled (threshold: N successes) | disabled}

@@ -36,13 +36,7 @@ To run a task first: /meta-harness-run <task description>
 
 Read the specified file(s) to use as evaluation input. Accept glob patterns (e.g., `--file=src/**/*.py`).
 
-### Step 2: Determine Evaluation Protocol
-
-1. Check `.meta-harness/sessions/{session_id}/` for the most recent `eval-{timestamp}.json` to find the `bound_protocol`
-2. If no previous eval exists, read `.meta-harness/config.yaml` for `evaluation.default_protocol`
-3. If no config exists, use `universal-standard`
-
-### Step 3: Collect Evidence
+### Step 2: Collect Evidence
 
 Read all evidence files from `.meta-harness/sessions/{session_id}/evidence/` sorted by timestamp:
 
@@ -56,23 +50,22 @@ git diff --stat HEAD 2>/dev/null || echo "no git"
 git diff HEAD 2>/dev/null | head -200
 ```
 
-### Step 4: Spawn Evaluator Agent
+### Step 3: Spawn Evaluator Agent
 
 ```
 Task(
   subagent_type="meta-harness:evaluator",
-  prompt="Manually evaluate this task result.\n\nEvaluation target: {description of what's being evaluated}\nBound protocol: {bound_protocol}\n\nRead protocols/{bound_protocol}/protocol.yaml for scoring dimensions.\n\nEvidence:\n{evidence_summary}\n\nGit diff (if available):\n{diff_output}"
+  prompt="Manually evaluate this task result.\n\nEvaluation target: {description of what's being evaluated}\n\nEvidence:\n{evidence_summary}\n\nGit diff (if available):\n{diff_output}"
 )
 ```
 
-### Step 5: Display Results
+### Step 4: Display Results
 
 Show evaluation scores and write to state:
 
 ```
 Manual evaluation complete.
 
-Protocol: {bound_protocol}
 Overall score: {score} ({PASS|FAIL})
 
 Dimension scores:
@@ -82,7 +75,6 @@ Dimension scores:
   robustness:      {score}  — {brief_reasoning}
   clarity:         {score}  — {brief_reasoning}
   verifiability:   {score}  — {brief_reasoning}
-  {custom_dims...}
 
 Quality gate: {PASSED|FAILED — reason}
 

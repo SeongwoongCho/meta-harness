@@ -47,7 +47,7 @@ User Task
 │  1. Classify    6-axis taxonomy     │
 │  2. Route       best harness(es)    │
 │  3. Execute     subagent pipeline   │
-│  4. Evaluate    protocol scoring    │
+│  4. Evaluate    6-dim scoring       │
 │  5. Evolve      update weights      │
 └─────────────────────────────────────┘
 ```
@@ -139,19 +139,20 @@ Every task is classified by LLM reasoning (not keyword matching):
 
 ---
 
-## Evaluation Protocols
+## Evaluation Dimensions
 
-| Protocol | Best For |
-|----------|----------|
-| **universal-standard** | General tasks (bugfix, feature, refactor, migration, research) |
-| **research-standard** | Codebase analysis, architecture research, tech evaluation |
-| **ml-research** | ML model training, fine-tuning, benchmarking |
-| **web-app-performance** | Web applications |
-| **cli-tool-ux** | CLI tools |
+Every task result is scored on **6 fixed dimensions** with fixed weights:
 
-Protocols share **6 universal dimensions** (correctness, completeness, quality, robustness, clarity, verifiability) that are re-weighted per domain. The evaluator model is auto-routed — Sonnet for simple tasks, Opus for complex ones.
+| Dimension | Weight | What it measures |
+|-----------|--------|-----------------|
+| **correctness** | 0.25 | Does the output satisfy stated requirements? |
+| **completeness** | 0.20 | Does the output cover the full scope? |
+| **quality** | 0.20 | Structural and stylistic quality |
+| **robustness** | 0.10 | Edge case and failure mode handling |
+| **clarity** | 0.15 | Clear communication of intent |
+| **verifiability** | 0.10 | Can the output be independently verified? |
 
-Custom dimensions (e.g. `api_response_time`, `model_accuracy`) are fully supported via `config.yaml`.
+These dimensions apply universally to all task types — code, research, planning, writing, documentation. The evaluator model is auto-routed: Sonnet for simple tasks, Opus for complex ones.
 
 ---
 
@@ -217,6 +218,32 @@ Eval accumulates → evolution-manager analyzes (Phase 1→2→2b→2c→3)
 
 All proposals go to the experimental pool first. Promotion to stable requires 5 consecutive successful evaluations.
 
+### Evolution in Action
+
+Here's what `/meta-harness:evolve` actually produces after a few sessions:
+
+```
+tdd-driven — verifiability: 0.725 avg (2 runs, both low)
+
+  Root cause:  Harness runs tests and coverage but never captures output.
+               Evaluator finds empty evidence files — can't confirm results.
+
+  Fix:         Add step "Capture verification evidence"
+               → re-run tests/coverage/build with verbose output, record stdout/stderr
+```
+
+```
+careful-refactor — completeness: 0.82, quality: 0.80 (repo-wide refactor)
+
+  Root cause:  Mikado method maps code call-sites but ignores .md and .yaml files.
+               Stale references survive the refactor.
+
+  Fix:         Add "Secondary Concerns Sweep" phase
+               → grep docs for stale identifiers, check config format consistency
+```
+
+Each fix is applied as an experimental variant that competes with the original. 5 consecutive wins → auto-promoted to stable.
+
 ---
 
 ## Why meta-harness?
@@ -224,7 +251,7 @@ All proposals go to the experimental pool first. Promotion to stable requires 5 
 | | Static skills | Manual orchestration | **meta-harness** |
 |---|---|---|---|
 | Workflow selection | Fixed | You decide | **Auto-routed** |
-| Quality measurement | None | Ad-hoc | **Protocol scoring** |
+| Quality measurement | None | Ad-hoc | **6-dimension scoring** |
 | Improvement over time | None | None | **Self-evolving** |
 
 meta-harness doesn't replace your existing tools — it's a **meta-layer** that orchestrates them and learns which workflows work best in *your* codebase.
@@ -245,7 +272,6 @@ harnesses/              # Harness workflows and contracts
     contract.yaml       #   Triggers, cost budget, failure modes
     metadata.json       #   Pool state
   ...
-protocols/              # Evaluation scoring dimensions
 patterns/               # Workflow design patterns for genesis
 hooks/                  # Session lifecycle hooks
 skills/                 # Orchestration skills (SKILL.md files)
@@ -262,7 +288,6 @@ meta-harness grows through community contributions — all in pure markdown, no 
 
 - **Harnesses** — new execution workflows: agent in `agents/your-name.md`, workflow in `harnesses/your-name/`
 - **Patterns** — workflow design patterns for evolution genesis (`patterns/your-name.yaml`)
-- **Protocols** — domain-specific scoring criteria (`protocols/your-name/`)
 - **Fixtures** — reproducible benchmark scenarios (`fixtures/your-name/`)
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details.

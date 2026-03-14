@@ -30,11 +30,9 @@ run_report:
 
     decision:
       type: object
-      required: [selected_harness, bound_protocol, reasoning]
+      required: [selected_harness, reasoning]
       properties:
         selected_harness:
-          type: string
-        bound_protocol:
           type: string
         ensemble_required:
           type: boolean
@@ -70,16 +68,11 @@ run_report:
 
     evaluation:
       type: object
-      required: [protocol_used, universal_scores, overall_score]
+      required: [scores, overall_score]
       properties:
-        protocol_used:
-          type: string
-        universal_scores:
+        scores:
           type: object
-          description: "Scores for each universal dimension"
-        custom_scores:
-          type: object
-          description: "Scores for each custom dimension"
+          description: "Scores for each of the 6 universal dimensions"
         overall_score:
           type: number
           minimum: 0

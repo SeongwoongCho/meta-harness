@@ -107,7 +107,6 @@ Routing decision:
   Domain:        {domain}
 
   Selected harness: {selected_harness}
-  Bound protocol:   {bound_protocol}
   Ensemble:         {yes|no}
   Reasoning: {reasoning}
 ```
@@ -135,7 +134,7 @@ After subagent completion:
 
 **Do not skip this step.** Spawn the evaluator immediately when the harness subagent returns, before responding to the user.
 1. Read evidence from `.meta-harness/sessions/{session_id}/evidence/`
-2. Spawn evaluator agent with results + bound protocol
+2. Spawn evaluator agent with results
 3. Display evaluation scores
 
 ### Step 6: Report Results
@@ -146,14 +145,15 @@ Display final report:
 Run complete.
 
 Harness: {selected_harness}
-Protocol: {bound_protocol}
 Overall score: {score} ({pass|FAIL})
 
 Dimension scores:
-  build_success:   {score}
-  test_pass_rate:  {score}
-  code_quality:    {score}
-  ...
+  correctness:     {score}
+  completeness:    {score}
+  quality:         {score}
+  robustness:      {score}
+  clarity:         {score}
+  verifiability:   {score}
 
 {improvement_suggestions if score < 0.8}
 

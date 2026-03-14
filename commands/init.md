@@ -12,9 +12,7 @@ Initialize meta-harness for this project by running an interactive Q&A to define
 If `--general` is passed as an argument, **skip ALL questions** and initialize with sensible defaults that work for any project:
 
 - domain: `general`
-- default_protocol: `universal-standard`
 - primary_metrics: `[correctness, completeness, quality]`
-- custom_dimensions: (none)
 - ensemble mode: `auto`
 - evolution: `conservative` (promote after 5 successes)
 
@@ -57,41 +55,7 @@ AskUserQuestion(
 
 Default if skipped: `["Test pass rate", "Build success", "Maintainability"]`
 
-### Question 3: Custom Evaluation Dimensions
-
-```
-AskUserQuestion(
-  "Do you want to add custom evaluation dimensions beyond the universal ones? (You can add these later with /meta-harness-eval)",
-  options=["Yes, let me define them now", "No, use the standard dimensions"]
-)
-```
-
-If "Yes": ask for up to 3 custom dimensions. For each:
-```
-AskUserQuestion("Custom dimension name (e.g., api_response_time, model_accuracy):")
-AskUserQuestion("Description (what does 1.0 look like for this dimension?):")
-AskUserQuestion("Weight (0.05 to 0.30):")
-```
-
-### Question 4: Default Evaluation Protocol
-
-```
-AskUserQuestion(
-  "Which built-in evaluation protocol best fits your project?",
-  options=[
-    "universal-standard (task-agnostic: correctness, completeness, quality, robustness, clarity, verifiability)",
-    "research-standard (deep research: adds analysis_depth, methodology_rigor, actionability)",
-    "ml-research (ML accuracy + reproducibility)",
-    "web-app-performance (response time + Lighthouse)",
-    "cli-tool-ux (UX + help text + documentation)",
-    "I'll define a custom protocol later"
-  ]
-)
-```
-
-Default if skipped: `universal-standard`
-
-### Question 5: Ensemble Mode Preference
+### Question 3: Ensemble Mode Preference
 
 ```
 AskUserQuestion(
@@ -106,7 +70,7 @@ AskUserQuestion(
 
 Default if skipped: `auto`
 
-### Question 6: Evolution Aggressiveness
+### Question 4: Evolution Aggressiveness
 
 ```
 AskUserQuestion(
@@ -136,14 +100,9 @@ project:
   domain: "{domain}"                    # backend|frontend|ml|cli|infra|general
 
 evaluation:
-  default_protocol: "{protocol}"        # universal-standard|research-standard|ml-research|web-app-performance|cli-tool-ux
   primary_metrics:                      # from Question 2
     - correctness
     - completeness
-  custom_dimensions:                    # from Question 3 (empty if skipped)
-    # example_dimension:
-    #   weight: 0.15
-    #   description: "What 1.0 looks like"
 
 ensemble:
   mode: "{auto|always|never}"           # from Question 5
@@ -173,8 +132,6 @@ Initialize `.meta-harness/harness-pool.json` from built-in harness defaults if i
 
 ```json
 {
-  "version": "1.0",
-  "updated_at": "{iso_timestamp}",
   "stable": {
     "tdd-driven":           {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
     "systematic-debugging": {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
@@ -186,7 +143,9 @@ Initialize `.meta-harness/harness-pool.json` from built-in harness defaults if i
     "ralplan-consensus":    {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
     "ralph-loop":           {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0}
   },
-  "experimental": {}
+  "experimental": {},
+  "last_updated": "{iso_timestamp}",
+  "last_merged_session": null
 }
 ```
 
@@ -198,7 +157,6 @@ meta-harness initialized for {domain} project.
 
 Config written to: .meta-harness/config.yaml
 Pool state initialized: .meta-harness/harness-pool.json (9 stable harnesses)
-Default protocol: {protocol}
 Ensemble mode: {mode}
 Evolution: {enabled/disabled} ({threshold} consecutive successes for promotion)
 

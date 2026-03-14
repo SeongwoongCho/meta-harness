@@ -31,7 +31,7 @@ Bash("rm -f .meta-harness/.pipeline-mode")
 
 After removal, the prompt-interceptor hook will stop injecting routing reminders, and subsequent tasks will NOT be auto-routed through the pipeline. The user can still use `/meta-harness:run` for one-shot execution.
 
-**Plugin root**: `{{PLUGIN_ROOT}}` — all plugin-internal file paths (agents, harnesses, protocols, patterns) use this absolute prefix. Project state paths (`.meta-harness/`) are relative to the user's project directory.
+**Plugin root**: `{{PLUGIN_ROOT}}` — all plugin-internal file paths (agents, harnesses, patterns) use this absolute prefix. Project state paths (`.meta-harness/`) are relative to the user's project directory.
 
 ---
 
@@ -88,7 +88,6 @@ The router returns structured JSON:
     "domain": "backend|frontend|ml-research|infra|docs"
   },
   "selected_harness": "tdd-driven",
-  "bound_protocol": "universal-standard",
   "ensemble_required": false,
   "skip_routing": false,
   "reasoning": "Explanation of selection"
@@ -165,7 +164,6 @@ Write(".meta-harness/sessions/{session_id}/eval-{timestamp}.json", {
   "task": "{task_description}",
   "timestamp": "{iso_timestamp}",
   "harness": "fast-path",
-  "protocol": "none",
   "taxonomy": {"task_type": "trivial", "skip_routing": true},
   "scores": {},
   "overall_score": null,
@@ -230,7 +228,7 @@ Task(subagent_type="meta-harness:{harness_2}", prompt="...")
 ```
 Task(
   subagent_type="meta-harness:synthesizer",
-  prompt="Merge these parallel harness results into an optimal combined result.\n\nHarness 1 ({harness_1}) result:\n{result_1}\n\nHarness 2 ({harness_2}) result:\n{result_2}\n\nBound protocol: {bound_protocol}"
+  prompt="Merge these parallel harness results into an optimal combined result.\n\nHarness 1 ({harness_1}) result:\n{result_1}\n\nHarness 2 ({harness_2}) result:\n{result_2}"
 )
 ```
 
@@ -242,17 +240,9 @@ After subagent completion (detected when the subagent's Task() call returns):
 
 1. Read evidence files from `.meta-harness/sessions/{session_id}/evidence/` — these are populated by the `collect-evidence.sh` PostToolUse hook during subagent execution.
 
-2. Read the protocol file to check for evaluator model routing:
-
-```
-Read("{{PLUGIN_ROOT}}/protocols/{bound_protocol}/protocol.yaml")
-# Check evaluator.model field:
-#   - "claude-opus-4-6" or "claude-sonnet-4-6" → use that model directly
-#   - "auto" → select model based on task complexity:
-#       Sonnet: task_type in [bugfix, feature] AND uncertainty in [low, medium] AND blast_radius = local
-#       Opus: everything else
-evaluator_model = determine_evaluator_model(protocol, taxonomy)
-```
+2. Determine evaluator model based on task complexity:
+   - **Sonnet**: task_type in [bugfix, feature] AND uncertainty in [low, medium] AND blast_radius = local
+   - **Opus**: everything else
 
 3. Spawn the evaluator agent with the appropriate model:
 
@@ -260,7 +250,7 @@ evaluator_model = determine_evaluator_model(protocol, taxonomy)
 Task(
   subagent_type="meta-harness:evaluator",
   model=evaluator_model,  # "sonnet" or "opus" based on routing
-  prompt="Score this task result against the bound evaluation protocol.\n\nTask: {task_description}\nTask type: {taxonomy.task_type}\nSelected harness: {selected_harness}\nBound protocol: {bound_protocol}\nResult summary: {result_summary}\nPlugin root: {{PLUGIN_ROOT}}\n\nRead {{PLUGIN_ROOT}}/protocols/{bound_protocol}/protocol.yaml for scoring dimensions.\nCheck for task_type_overrides matching task_type '{taxonomy.task_type}'.\nRead .meta-harness/sessions/{session_id}/evidence/ for collected evidence."
+  prompt="Score this task result.\n\nTask: {task_description}\nTask type: {taxonomy.task_type}\nSelected harness: {selected_harness}\nResult summary: {result_summary}\n\nRead .meta-harness/sessions/{session_id}/evidence/ for collected evidence."
 )
 ```
 
@@ -277,7 +267,6 @@ On evaluator response:
   "task": "{task_description}",
   "timestamp": "{iso_timestamp}",
   "harness": "{selected_harness}",
-  "protocol": "{bound_protocol}",
   "taxonomy": {taxonomy_object},
   "scores": {dimension_scores},
   "overall_score": 0.82,
@@ -366,7 +355,6 @@ When an OMC skill (`sciomc`, `ralph`, `autopilot`, `ultrawork`, etc.) or superpo
      "task": "{task_description}",
      "timestamp": "{iso_timestamp}",
      "harness": "external:{skill_name}",
-     "protocol": "none",
      "taxonomy": {},
      "scores": {},
      "overall_score": null,
@@ -404,4 +392,4 @@ Default stable pool (canonical trigger conditions in `agents/router.md`):
 - `ralplan-consensus` — Upfront planning with self-review (first step in chains for medium/high uncertainty)
 - `ralph-loop` — Persistent execution loop (iterates until acceptance criteria pass, max 10 iterations)
 
-Default protocol: `universal-standard` (unless `.meta-harness/config.yaml` specifies otherwise or task domain suggests a specialized protocol). The universal-standard protocol uses 6 task-agnostic dimensions — correctness, completeness, quality, robustness, clarity, verifiability — that apply to any task type.
+All tasks are evaluated using 6 fixed dimensions: correctness, completeness, quality, robustness, clarity, verifiability.
