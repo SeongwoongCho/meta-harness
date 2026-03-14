@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # session-end.sh — Merge per-session weight updates into state/harness-pool.json.
 # Fires on Stop. Uses atomic write (tmp + mv). Creates backup. Cleans old sessions.
-set -euo pipefail
+# Consume stdin
+cat > /dev/null 2>&1 || true
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 # Use git root if available, otherwise PWD
