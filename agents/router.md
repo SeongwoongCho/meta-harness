@@ -94,6 +94,7 @@ After selecting the primary harness, decide whether to form a `harness_chain` (s
 - **Medium difficulty or cross-module blast**: may benefit from a planning step first (e.g., `["ralplan-consensus", "tdd-driven"]`)
 - **High difficulty / high uncertainty / repo-wide blast**: full plan → execute → review cycle (e.g., `["ralplan-consensus", "careful-refactor", "code-review"]`)
 - **Persistence needed (iterative convergence)**: wrap execution in ralph-loop (e.g., `["ralplan-consensus", "ralph-loop"]`)
+- **Greenfield tasks (building from scratch)**: Skip `ralplan-consensus`. The planning harness's primary value is codebase exploration (reading existing files to understand architecture). For greenfield projects with no existing source code, pass requirements directly to the execution harness. Detection: task says "build from scratch", "create new project", "implement X" with no existing source files, or the working directory has no `src/` or `lib/` directories.
 
 General-capable harnesses available for chaining:
 - `ralplan-consensus` — upfront planning with self-review; use as first step when approach is unclear
@@ -101,6 +102,18 @@ General-capable harnesses available for chaining:
 
 Always set `selected_harness` to the primary execution harness (first non-planning harness in the chain, for backward compatibility).
 </chaining_guidelines>
+
+<experimental_exploration>
+After selecting the primary harness, check `.meta-harness/harness-pool.json` for experimental variants of the selected harness (entries in the `"experimental"` pool whose `"base_harness"` matches the selected stable harness).
+
+If an experimental variant exists:
+- With **20% probability** (exploration rate), select the experimental variant instead of the stable harness. This enables A/B testing of evolution-manager proposals.
+- To determine the 20% probability: if `total_runs` of the experimental variant is less than 5, always select it (forced exploration for new variants). Otherwise, select it if `total_runs % 5 == 0` (every 5th run).
+- When selecting an experimental variant, set `"experimental": true` and `"experimental_harness_path": "harnesses/experimental/{variant-name}/"` in the output JSON.
+- The orchestrator will read agent.md/skill.md from the experimental path instead of the stable path.
+
+If no experimental variants exist, proceed normally with the stable harness.
+</experimental_exploration>
 
 <selection_algorithm>
 Follow this process:
@@ -112,8 +125,9 @@ Follow this process:
 5. If no harness matches perfectly, select the closest match and explain the mismatch in `reasoning`
 6. Default to `tdd-driven` for ambiguous bugfix/feature tasks (conservative, well-tested approach)
 7. Decide whether a `harness_chain` is warranted (see chaining_guidelines above)
-8. Bind the evaluation protocol
-9. Produce the output JSON
+8. Check for experimental variants of the selected harness (see experimental_exploration above)
+9. Bind the evaluation protocol
+10. Produce the output JSON
 </selection_algorithm>
 
 <output_format>
@@ -185,6 +199,20 @@ For ensemble execution:
     "research-iteration": 0.80,
     "careful-refactor": 0.75
   }
+}
+```
+
+For experimental variant selection:
+```json
+{
+  "taxonomy": { ... },
+  "selected_harness": "tdd-driven",
+  "harness_chain": ["tdd-driven"],
+  "bound_protocol": "code-quality-standard",
+  "ensemble_required": false,
+  "experimental": true,
+  "experimental_harness_path": "harnesses/experimental/tdd-driven-v1.1/",
+  "reasoning": "Selecting experimental variant tdd-driven-v1.1 for A/B testing (forced exploration: only 2 prior runs)."
 }
 ```
 

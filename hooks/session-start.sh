@@ -12,7 +12,176 @@ STATE_DIR="$(state_dir)"
 # Generate a stable session ID and create directories
 SESSION_ID="${CLAUDE_SESSION_ID:-session-$(date +%s)-$$}"
 mkdir -p "${STATE_DIR}/sessions/${SESSION_ID}/evidence" 2>/dev/null || true
+mkdir -p "${STATE_DIR}/evaluation-logs" 2>/dev/null || true
+mkdir -p "${STATE_DIR}/evolution-proposals" 2>/dev/null || true
 printf '%s' "${SESSION_ID}" > "${STATE_DIR}/.current-session-id" 2>/dev/null || true
+
+# --- Fix 1: Bootstrap harness-pool.json if it doesn't exist ---
+POOL_FILE="${STATE_DIR}/harness-pool.json"
+if [ ! -f "$POOL_FILE" ]; then
+  HARNESS_DIR="${PLUGIN_ROOT}/harnesses"
+  if [ -d "$HARNESS_DIR" ]; then
+    python3 - "$HARNESS_DIR" "$POOL_FILE" <<'BOOTSTRAP_POOL'
+import json, sys, os
+harnesses_dir, pool_file = sys.argv[1], sys.argv[2]
+pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
+skip = {"experimental", "archived", "__pycache__", "_shared"}
+for name in sorted(os.listdir(harnesses_dir)):
+    full = os.path.join(harnesses_dir, name)
+    if os.path.isdir(full) and name not in skip and not name.startswith("."):
+        pool["stable"][name] = {
+            "weight": 1.0,
+            "total_runs": 0,
+            "successes": 0,
+            "failures": 0,
+            "consecutive_successes": 0
+        }
+with open(pool_file, 'w') as f:
+    json.dump(pool, f, indent=2)
+print(f"[meta-harness session-start] Bootstrapped harness-pool.json with {len(pool['stable'])} stable harnesses.", file=sys.stderr)
+BOOTSTRAP_POOL
+  fi
+fi
+
+# --- Fix 6: Apply pending promotion/demotion proposals on session start ---
+PROPOSALS_DIR="${STATE_DIR}/evolution-proposals"
+if [ -d "$PROPOSALS_DIR" ]; then
+  python3 - "$PROPOSALS_DIR" "$POOL_FILE" "$PLUGIN_ROOT/harnesses" <<'APPLY_PROPOSALS'
+import json, sys, os, shutil, glob
+
+proposals_dir = sys.argv[1]
+pool_file = sys.argv[2]
+harnesses_dir = sys.argv[3]
+
+if not os.path.isfile(pool_file):
+    sys.exit(0)
+
+with open(pool_file, 'r') as f:
+    pool = json.load(f)
+
+applied = []
+for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
+    try:
+        with open(pf, 'r') as f:
+            proposal = json.load(f)
+    except Exception:
+        continue
+
+    if proposal.get("status") != "pending":
+        continue
+
+    ptype = proposal.get("proposal_type")
+    harness = proposal.get("harness", "")
+    exp_path = proposal.get("experimental_harness_path", "")
+
+    # --- Fix 4: Apply content_modification proposals ---
+    if ptype == "content_modification" and exp_path:
+        src_harness = os.path.join(harnesses_dir, harness)
+        dst_harness = os.path.join(os.path.dirname(harnesses_dir), exp_path) if not os.path.isabs(exp_path) else exp_path
+        # Resolve relative to plugin root
+        if not os.path.isabs(dst_harness):
+            dst_harness = os.path.join(os.path.dirname(harnesses_dir), exp_path)
+
+        if os.path.isdir(src_harness) and not os.path.exists(dst_harness):
+            shutil.copytree(src_harness, dst_harness)
+
+        change = proposal.get("proposed_change", {})
+        target = change.get("file_path", "")
+        if target and dst_harness:
+            # Rewrite target path to experimental copy
+            target_basename = os.path.basename(target)
+            exp_target = os.path.join(dst_harness, target_basename)
+
+            ctype = change.get("change_type", "")
+            content = change.get("content", "")
+            location = change.get("location", "")
+
+            if ctype == "add_section" and os.path.isfile(exp_target) and content:
+                with open(exp_target, 'r') as f:
+                    original = f.read()
+                # Append the new section at the end (safest default)
+                with open(exp_target, 'w') as f:
+                    f.write(original.rstrip() + "\n\n" + content + "\n")
+            elif ctype == "modify_trigger" and os.path.isfile(exp_target):
+                old_val = change.get("current_value", "")
+                new_val = change.get("new_value", "")
+                if old_val and new_val:
+                    with open(exp_target, 'r') as f:
+                        text = f.read()
+                    text = text.replace(old_val, new_val)
+                    with open(exp_target, 'w') as f:
+                        f.write(text)
+
+        # Register in experimental pool
+        exp_name = os.path.basename(dst_harness.rstrip("/")) if dst_harness else ""
+        if exp_name and "experimental" in pool:
+            pool["experimental"][exp_name] = {
+                "weight": 1.0, "total_runs": 0, "successes": 0,
+                "failures": 0, "consecutive_successes": 0,
+                "base_harness": harness
+            }
+
+        proposal["status"] = "applied"
+        applied.append(pf)
+
+    # --- Fix 6: Execute promotion proposals ---
+    elif ptype == "promotion":
+        exp_dir = os.path.join(harnesses_dir, "experimental", harness)
+        # Find the experimental variant
+        for exp_candidate in glob.glob(os.path.join(harnesses_dir, "experimental", f"{harness}-*")):
+            if os.path.isdir(exp_candidate):
+                exp_dir = exp_candidate
+                break
+
+        stable_dir = os.path.join(harnesses_dir, harness)
+        if os.path.isdir(exp_dir):
+            # Backup current stable
+            backup = stable_dir + ".bak"
+            if os.path.isdir(stable_dir):
+                if os.path.exists(backup):
+                    shutil.rmtree(backup)
+                shutil.copytree(stable_dir, backup)
+                shutil.rmtree(stable_dir)
+            shutil.copytree(exp_dir, stable_dir)
+            shutil.rmtree(exp_dir)
+
+            # Move from experimental to stable in pool
+            exp_name = os.path.basename(exp_dir)
+            if exp_name in pool.get("experimental", {}):
+                entry = pool["experimental"].pop(exp_name)
+                entry["consecutive_successes"] = 0  # reset after promotion
+                pool["stable"][harness] = entry
+
+        proposal["status"] = "applied"
+        applied.append(pf)
+
+    # --- Fix 6: Execute demotion proposals ---
+    elif ptype == "demotion":
+        stable_dir = os.path.join(harnesses_dir, harness)
+        exp_dir = os.path.join(harnesses_dir, "experimental", harness + "-demoted")
+        if os.path.isdir(stable_dir) and not os.path.exists(exp_dir):
+            os.makedirs(os.path.join(harnesses_dir, "experimental"), exist_ok=True)
+            shutil.copytree(stable_dir, exp_dir)
+            # Move from stable to experimental in pool
+            if harness in pool.get("stable", {}):
+                entry = pool["stable"].pop(harness)
+                pool["experimental"][harness + "-demoted"] = entry
+
+        proposal["status"] = "applied"
+        applied.append(pf)
+
+    # Write back updated proposal status
+    if proposal.get("status") == "applied":
+        with open(pf, 'w') as f:
+            json.dump(proposal, f, indent=2)
+
+if applied:
+    with open(pool_file, 'w') as f:
+        json.dump(pool, f, indent=2)
+    names = [os.path.basename(p) for p in applied]
+    print(f"[meta-harness session-start] Applied {len(applied)} proposals: {', '.join(names)}", file=sys.stderr)
+APPLY_PROPOSALS
+fi
 
 # Read SKILL.md — exit cleanly if not found
 if [ ! -f "$SKILL_FILE" ]; then

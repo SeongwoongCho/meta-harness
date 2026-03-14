@@ -251,7 +251,9 @@ keyword matching):
 ```
 Session Start
     │  session-start.sh
-    │  Inject using-meta-harness-default/SKILL.md as additionalContext
+    │  1. Bootstrap harness-pool.json if missing (scan harnesses/ directory)
+    │  2. Apply pending evolution proposals (create experimental harnesses, execute promotions/demotions)
+    │  3. Inject using-meta-harness-default/SKILL.md as additionalContext
     ▼
 User Message (every turn)
     │  prompt-interceptor.sh
@@ -276,8 +278,9 @@ Session End
 ```
 Router agent
   → taxonomy JSON + selected_harness + bound_protocol
+  → Check experimental pool for A/B testing variants (20% exploration rate)
 Orchestrator (SKILL.md in main context)
-  → Spawn harness subagent (agent.md + skill.md injected)
+  → Spawn harness subagent (agent.md + skill.md injected; experimental path if selected)
   → subagent executes task
   → Evidence collected via PostToolUse hook
 Evaluator agent
@@ -286,6 +289,8 @@ Evaluator agent
 Orchestrator
   → Update in-memory weights
   → Write eval-{timestamp}.json to .meta-harness/sessions/{id}/
+  → Copy eval to .meta-harness/evaluation-logs/{harness}/ (trend accumulation)
+  → Every 5 evaluations: auto-trigger evolution-manager agent
 ```
 
 ### Ensemble Flow (Conditional)
@@ -301,22 +306,58 @@ Orchestrator
   → Synthesizer merges into final result
 ```
 
+### Self-Improvement Loop
+
+meta-harness improves at two levels: **routing optimization** (which harness to pick) and **content evolution** (what the harness actually does).
+
+```
+                        ┌─────────────────────────────────────────┐
+                        │         Self-Improvement Loop           │
+                        │                                         │
+Task ──► Router ──► Execute ──► Evaluator ──► Weight Update       │
+           ▲                       │                              │
+           │                       ▼                              │
+           │              evaluation-logs/ (accumulate)           │
+           │                       │                              │
+           │              Every 5 evals: Evolution Manager        │
+           │                       │                              │
+           │              evolution-proposals/*.json              │
+           │                       │                              │
+           │              Next session: Apply to experimental/    │
+           │                       │                              │
+           │              Router selects experimental (20%)       │
+           │                       │                              │
+           │              5 consecutive successes → Promote       │
+           └───────────── Updated stable harness ◄────────────────┘
+```
+
+**Level 1 — Routing optimization (automatic):**
+Every evaluation adjusts the selected harness's weight. Higher-scoring harnesses are preferred by the router in future tasks with similar taxonomy.
+
+**Level 2 — Content evolution (automatic with A/B testing):**
+1. Every 5 evaluations per harness, the evolution-manager analyzes trends and proposes changes to `agent.md`/`skill.md`
+2. On next session start, proposals are applied to an experimental copy of the harness
+3. The router selects experimental variants with 20% probability for A/B testing
+4. After 5 consecutive successful evaluations, the experimental variant is promoted to stable
+5. Underperforming harnesses (avg score < 0.55, declining trend) are demoted to experimental
+
 ### State Layout
 
 ```
 .meta-harness/
-├── harness-pool.json           # Shared pool state (weights, pool membership)
+├── harness-pool.json           # Shared pool state (weights, pool membership, stable + experimental)
 ├── harness-pool.json.bak       # Backup before last write
+├── config.yaml                 # Project-specific configuration (created by /meta-harness:init)
 ├── sessions/
 │   └── {session-id}/
-│       ├── weights.json        # Session-local weight updates
+│       ├── weights.json        # Session-local weight updates (flushed on session end)
 │       ├── evidence/           # Collected evidence (build, test, lint output)
 │       └── eval-{timestamp}.json  # Evaluation results
 ├── evaluation-logs/
 │   └── {harness-name}/
-│       └── {date}-{hash}.json  # Historical evaluations per harness
+│       └── eval-{timestamp}.json  # Historical evaluations per harness (accumulated across sessions)
 └── evolution-proposals/
-    └── {proposal-id}.json      # Pending harness content modifications
+    └── {proposal-id}.json      # Pending harness modifications (applied on next session start)
 ```
 
 All state files are stored in `.meta-harness/` in your project root and should be gitignored. The `meta-harness-init` command adds `.meta-harness/` to your `.gitignore` automatically.
@@ -389,6 +430,9 @@ The router decides freely whether to chain based on task complexity:
 | Medium uncertainty, cross-module | `["ralplan-consensus", "tdd-driven"]` — plan then execute |
 | High uncertainty, repo-wide | `["ralplan-consensus", "careful-refactor", "code-review"]` — full cycle |
 | Needs iterative convergence | `["ralplan-consensus", "ralph-loop"]` — plan then persist |
+| **Greenfield** (no existing code) | `["tdd-driven"]` — skip planning, go straight to execution |
+
+**Greenfield detection:** The router automatically skips `ralplan-consensus` for "build from scratch" tasks where no existing source code exists, since the planner's primary value is codebase exploration.
 
 Evaluation runs **once** at the end of the full chain, not after each step.
 
@@ -401,7 +445,7 @@ Evaluation runs **once** at the end of the full chain, not after each step.
 | **rapid-prototype** | Fast MVP when latency matters | `task_type: [feature]`, `uncertainty: [low]`, `latency_sensitivity: high` | Sonnet |
 | **research-iteration** | Exploratory research with unclear requirements | `task_type: [research, benchmark]`, `uncertainty: [high]` | Opus |
 | **careful-refactor** | Safe structural refactoring (Mikado method) | `task_type: [refactor]`, `blast_radius: [cross-module, repo-wide]` | Sonnet |
-| **code-review** | Multi-perspective code review | `task_type: [*]`, `post_execution: true` | Opus |
+| **code-review** | Multi-perspective code review with mandatory automated security scans (grep for secrets, unsafe casts, dead code) | `task_type: [*]`, `post_execution: true` | Opus |
 | **migration-safe** | Dependency upgrades and migrations | `task_type: [migration]`, `blast_radius: [repo-wide]` | Sonnet |
 | **ralplan-consensus** | Upfront planning with self-review (first step in chains) | `uncertainty: [medium, high]`, `blast_radius: [cross-module, repo-wide]` | Opus |
 | **ralph-loop** | Persistent execution until acceptance criteria pass | `uncertainty: [medium, high]`, max 10 iterations | Sonnet |

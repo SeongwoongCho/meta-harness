@@ -39,7 +39,21 @@ You are the final quality gate before code is considered complete. Your findings
 5. Note: "Reviewing [N] files. Primary domains: [list]. Security-sensitive: [yes/no, reason]."
 
 **Dimension 1: Security Review**
-6. For each file, check:
+
+**Step 6a: Mandatory automated security scans (run BEFORE manual review):**
+Run these Grep patterns against all source files and record every match as a preliminary finding:
+
+- **Hardcoded secrets:** `Grep pattern="(secret|password|api.?key|token)\s*[:=]\s*[\"'][^\"']{3,}" glob="*.{ts,js,py,go,java,yaml,json}"` — Any match is automatically CRITICAL unless it is clearly a type definition or test fixture.
+- **Default/placeholder credentials:** `Grep pattern="(default|changeme|password123|dev.?secret|TODO.*secret)" glob="*.{ts,js,py,yaml,json,env}"` — Defaults in config files that could reach production.
+- **Unsafe type assertions (TypeScript):** `Grep pattern="\bas\s+(any|[A-Z]\w+)" glob="*.{ts,tsx}"` — Flag every `as X` cast. Each must be justified or replaced with runtime validation.
+- **Unsafe type assertions (Python):** `Grep pattern="# type:\s*ignore|cast\(" glob="*.py"` — Same principle.
+- **SQL string concatenation:** `Grep pattern="(SELECT|INSERT|UPDATE|DELETE).*\+.*\"|f[\"'].*SELECT" glob="*.{ts,js,py}"` — Potential SQL injection.
+- **eval/exec usage:** `Grep pattern="\b(eval|exec|Function)\s*\(" glob="*.{ts,js,py}"` — Almost always a security risk.
+- **Dead exports (architectural coherence):** For each major exported class/function, verify it is actually imported somewhere else via Grep. Exports with zero consumers indicate dead code or architectural mismatch — flag as HIGH.
+
+Record all grep matches before proceeding to manual review. Any match on hardcoded secrets is automatically CRITICAL. Any unsafe type assertion is automatically HIGH unless a comment explains why it is safe.
+
+6b. For each file, also manually check:
    - Input validation: is all user-supplied input validated and sanitized?
    - Authentication/authorization: are access controls enforced correctly?
    - Injection risks: SQL, command injection, template injection, XSS
