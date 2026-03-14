@@ -24,15 +24,42 @@ Evaluate code changes across four dimensions: security, quality, performance, an
 
    Any match on hardcoded secrets → CRITICAL. Any unsafe type assertion → HIGH unless a comment justifies it.
 
-3. **Manual security review**
-   For each file, also evaluate:
-   - Input validation: is all user-supplied input validated and sanitized before use?
-   - Authentication/authorization: are access controls enforced at the right layer?
-   - Injection risks: SQL injection, command injection, template injection, XSS
-   - Hardcoded secrets: API keys, passwords, tokens in source code
-   - Dependency vulnerabilities: new dependencies with known CVEs
-   - Cryptography: weak algorithms (MD5, SHA1 for security), custom crypto, improper key/IV reuse
-   - Information leakage: error messages that expose internal paths, stack traces, or credentials
+3. **Manual security review (OWASP-aligned)**
+   For each file, evaluate against these categories:
+
+   **Injection (OWASP A03)**
+   - SQL injection: string concatenation in queries, unsanitized parameters
+   - Command injection: user input in shell commands, `exec()`, `subprocess` without sanitization
+   - Template injection: user input rendered in templates without escaping (SSTI)
+   - XSS: user input rendered in HTML/DOM without sanitization (reflected, stored, DOM-based)
+   - Path traversal: user input in file paths without normalization (e.g., `../../etc/passwd`)
+
+   **Authentication & Access Control (OWASP A01/A07)**
+   - Are access controls enforced at the right layer (not just frontend)?
+   - Missing authentication on sensitive endpoints
+   - Broken authorization: horizontal/vertical privilege escalation paths
+   - Session management: secure cookie flags (HttpOnly, Secure, SameSite), token rotation
+
+   **Sensitive Data (OWASP A02)**
+   - Hardcoded secrets: API keys, passwords, tokens, private keys in source code
+   - Sensitive data in logs: PII, credentials, tokens logged at info/debug level
+   - Insecure transmission: HTTP instead of HTTPS, missing TLS validation
+   - Information leakage: error messages exposing internal paths, stack traces, credentials, or schema
+
+   **Cryptography**
+   - Weak algorithms: MD5, SHA1 for security purposes (acceptable for checksums/hashing)
+   - Custom crypto implementations (always flag — use standard libraries)
+   - Improper key/IV reuse, hardcoded encryption keys
+   - Insufficient key length (RSA < 2048, AES < 128)
+
+   **Dependencies & Supply Chain (OWASP A06)**
+   - New dependencies with known CVEs (check if lockfile was updated)
+   - Unpinned dependency versions that could introduce breaking changes
+   - Dependencies from untrusted sources or with very low download counts
+
+   **Deserialization & Data Integrity (OWASP A08)**
+   - Unsafe deserialization of user-controlled data (pickle, yaml.load, JSON.parse of untrusted input passed to eval)
+   - Missing integrity checks on downloaded artifacts or config files
 
    For each finding: record `[SEVERITY] [file:line] — security: [description]`
 
