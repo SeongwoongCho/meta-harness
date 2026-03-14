@@ -110,7 +110,7 @@ That's it. Every task is now routed through the meta-harness pipeline automatica
 | **ralplan-consensus** | Upfront planning with self-review | Opus |
 | **ralph-loop** | Persistent execution until acceptance criteria pass | Sonnet |
 
-The router also supports **harness chaining** — e.g. `plan → execute → review` for complex tasks.
+The router supports **harness chaining** — e.g. `plan → execute → review` for complex tasks. Chains are **adaptive**: if a harness discovers mid-execution that the next planned step is wrong, it emits a `next_harness_hint` and the orchestrator reroutes dynamically.
 
 ---
 
@@ -133,10 +133,13 @@ Every task is classified by LLM reasoning (not keyword matching):
 
 | Protocol | Best For |
 |----------|----------|
-| **code-quality-standard** | General purpose |
-| **ml-research** | ML / AI projects |
+| **code-quality-standard** | General code tasks (bugfix, feature, refactor, migration) |
+| **research-standard** | Codebase analysis, architecture research, tech evaluation |
+| **ml-research** | ML model training, fine-tuning, benchmarking |
 | **web-app-performance** | Web applications |
 | **cli-tool-ux** | CLI tools |
+
+Protocols are **task-type-aware**: `code-quality-standard` automatically adjusts dimension weights per task type (e.g. research tasks de-weight `build_success` and add `analysis_depth`). The evaluator model is auto-routed — Sonnet for simple tasks, Opus for complex ones.
 
 Custom dimensions (e.g. `api_response_time`, `model_accuracy`) are fully supported via `config.yaml`.
 
