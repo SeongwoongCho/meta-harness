@@ -34,11 +34,13 @@ Pipeline execution order — no step may be skipped:
 
 ### Step 1: Receive Task
 
-When a new user task arrives, determine whether it is substantive (requires coding, analysis, research, or multi-step work) or trivial (clarification question, typo fix, one-liner comment).
+When a new user task arrives, **always proceed to Step 2**. Do NOT classify the task as "trivial" or "substantive" yourself — the router makes that decision via `skip_routing`. You are not qualified to skip the pipeline; the router is.
+
+The only exception: bare acknowledgments with zero task content ("ok", "thanks", "got it") do not need routing. Everything else — including short requests like "fix that", "add a comment", or "refactor this" — goes to the router.
 
 ### Step 2: Route via Router Agent
 
-For substantive tasks, spawn the router agent:
+Spawn the router agent for every task (the router will return `skip_routing: true` for genuinely trivial follow-ups):
 
 ```
 Task(
@@ -134,7 +136,23 @@ If `harness_chain` has only 1 entry (or is absent), skip this step and proceed t
 
 ### Step 4a: Fast-Path (skip_routing = true)
 
-If the router returns `skip_routing: true` (trivial follow-ups like "fix that typo", "add a comment", "clarify X"), execute the task directly without spawning a harness subagent. Skip to user response.
+If the router returns `skip_routing: true`, execute the task directly without spawning a harness subagent. **After completing the task, write a lightweight eval record** (no evaluator agent needed):
+
+```
+Write(".meta-harness/sessions/{session_id}/eval-{timestamp}.json", {
+  "task": "{task_description}",
+  "timestamp": "{iso_timestamp}",
+  "harness": "fast-path",
+  "protocol": "none",
+  "taxonomy": {"task_type": "trivial", "skip_routing": true},
+  "scores": {},
+  "overall_score": null,
+  "quality_gate_passed": null,
+  "fast_path": true
+})
+```
+
+This ensures every task leaves an audit trail. Fast-path evals do NOT update harness weights or trigger evolution. Then proceed to user response.
 
 ### Step 4b: Single Harness Execution (ensemble_required = false)
 
@@ -154,7 +172,10 @@ If the router returns `skip_routing: true` (trivial follow-ups like "fix that ty
    - `{harness_dir}/skill.md` — workflow steps
    - `{harness_dir}/contract.yaml` — execution contract (from stable dir as fallback if missing in experimental)
 
-3. Spawn the harness subagent, injecting the harness content as the agent prompt:
+3. **MANDATORY: Spawn a subagent.** Do NOT read the harness instructions and follow them yourself in the main context. You MUST use the Task() tool to spawn a subagent. This is required because:
+   - The SubagentStop hook fires only when a subagent completes (triggers evidence collection)
+   - Evaluation in Step 5 depends on the subagent having run
+   - The orchestrator orchestrates; subagents execute. Never conflate these roles.
 
 ```
 Task(
@@ -163,7 +184,7 @@ Task(
 )
 ```
 
-4. Wait for subagent completion.
+4. Wait for subagent completion. **Then immediately proceed to Step 5 (evaluation).** Do not respond to the user first.
 
 ### Step 4c: Ensemble Execution (ensemble_required = true)
 
@@ -295,9 +316,49 @@ Use the environment variable `CLAUDE_SESSION_ID` if available. Otherwise, read `
 
 ---
 
+## Pre-Response Evaluation Gate
+
+**Before generating ANY response to the user after receiving a task, verify:**
+
+1. Did the router run? → If yes, check which path was taken:
+   - `skip_routing: true` → verify lightweight eval JSON was written
+   - Harness subagent ran → verify Steps 5-6 completed (eval JSON exists in `.meta-harness/sessions/{session_id}/`)
+   - External skill handled the task → verify lightweight eval JSON was written with `harness: "external:{skill_name}"`
+2. If NO eval JSON exists for this task, **STOP and run evaluation now** before responding.
+
+This gate is the last line of defense against skipped evaluation. The pipeline is not complete until an eval record exists.
+
+---
+
+## Interaction with External Skills (OMC, superpowers)
+
+When an OMC skill (`sciomc`, `ralph`, `autopilot`, `ultrawork`, etc.) or superpowers skill activates for the current task instead of the meta-harness pipeline, evaluation STILL applies:
+
+1. Let the external skill complete its work
+2. After it completes, write a lightweight eval JSON:
+   ```
+   {
+     "task": "{task_description}",
+     "timestamp": "{iso_timestamp}",
+     "harness": "external:{skill_name}",
+     "protocol": "none",
+     "taxonomy": {},
+     "scores": {},
+     "overall_score": null,
+     "quality_gate_passed": null,
+     "external_skill": true
+   }
+   ```
+3. Do NOT update harness weights (external results don't affect the pool)
+
+This ensures observability — the evolution manager can detect when tasks are being handled outside the pipeline and whether those tasks would benefit from a harness.
+
+---
+
 ## Key Design Constraints
 
 - **You are the orchestrator** — this skill runs in the main conversation context. Do not spawn an "orchestrator" subagent.
+- **Never execute harness work in the main context** — When the router selects a harness (`skip_routing=false`), you MUST spawn a Task() subagent. Do not read the harness `agent.md`/`skill.md` and follow those instructions yourself. The main context orchestrates; subagents execute. This separation is required for evaluation to work.
 - **Subagents cannot spawn sub-subagents** — all fan-out (router, harness execution, evaluator, synthesizer) happens from the main context.
 - **Evidence collection is automatic** — the `collect-evidence.sh` hook captures Bash tool output from harness subagents. You read it after subagent completion, you do not collect it manually.
 - **Weights are in-memory during session** — maintain a simple dict of `{harness_name: adjusted_weight}` updates. Flush at session end via the Stop hook.
