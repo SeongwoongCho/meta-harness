@@ -24,7 +24,13 @@ if [ -n "$SESSION_ID" ]; then
   fi
 fi
 
-REMINDER='[meta-harness] A subagent completed. If this was a harness execution subagent, check the results and trigger evaluation via the evaluator agent. Evidence is in .meta-harness/sessions/'
+cat <<'EOF'
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SubagentStop",
+    "additionalContext": "[meta-harness] A subagent completed. If this was a harness execution subagent, check the results and trigger evaluation via the evaluator agent. Evidence is in .meta-harness/sessions/"
+  }
+}
+EOF
 
-printf '{"hookSpecificOutput":{"additionalContext":"%s"}}\n' "$REMINDER"
 exit 0
