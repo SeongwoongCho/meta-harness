@@ -1,11 +1,18 @@
 name: code-quality-standard
 version: "1.0.0"
+deprecated: true
+deprecation_notice: >
+  DEPRECATED: Use `universal-standard` instead. The universal-standard protocol
+  replaces code-quality-standard as the default with 6 task-agnostic dimensions
+  (correctness, completeness, quality, robustness, clarity, verifiability) that
+  apply to any task type, not just code tasks. This file is retained for backward
+  compatibility with existing eval records that reference code-quality-standard.
 description: >
-  Standard evaluation protocol for general software development tasks.
-  Covers the full spectrum of code quality concerns: correctness (build + tests),
-  structural quality, robustness, security, and readability. Applies to any
-  task type across all domains. Used as the default protocol when no
-  domain-specific protocol is configured.
+  [DEPRECATED — use universal-standard] Standard evaluation protocol for general
+  software development tasks. Covers the full spectrum of code quality concerns:
+  correctness (build + tests), structural quality, robustness, security, and
+  readability. Applies to any task type across all domains. Used as the default
+  protocol when no domain-specific protocol is configured.
 
 universal_dimensions:
   - name: build_success

@@ -29,7 +29,7 @@ You: Fix the login bug where empty email crashes the server
   3. Run test suite (47/47 pass)               ✓
 
 [evaluator]
-  build: 1.00 | tests: 1.00 | quality: 0.91 | robustness: 0.88
+  correctness: 1.00 | completeness: 1.00 | quality: 0.91 | robustness: 0.88
   overall: 0.94  ← harness weight updated: 1.00 → 1.02
 ```
 
@@ -57,7 +57,7 @@ User Task
 | Level | What improves | How |
 |-------|--------------|-----|
 | **Routing** | Which harness gets picked | Weights adjust after every evaluation |
-| **Content** | What the harness actually does | Evolution manager rewrites `agent.md`/`skill.md` via A/B testing |
+| **Content** | What the harness actually does | Evolution manager rewrites agent personas and `skill.md` via A/B testing |
 | **Genesis** | Which harnesses exist | Evolution manager creates new harnesses by combining existing ones |
 
 Hard tasks (`uncertainty=high`) automatically trigger **ensemble mode** — two harnesses run in parallel, a synthesizer merges the best of both.
@@ -134,13 +134,13 @@ Every task is classified by LLM reasoning (not keyword matching):
 
 | Protocol | Best For |
 |----------|----------|
-| **code-quality-standard** | General code tasks (bugfix, feature, refactor, migration) |
+| **universal-standard** | General tasks (bugfix, feature, refactor, migration, research) |
 | **research-standard** | Codebase analysis, architecture research, tech evaluation |
 | **ml-research** | ML model training, fine-tuning, benchmarking |
 | **web-app-performance** | Web applications |
 | **cli-tool-ux** | CLI tools |
 
-Protocols are **task-type-aware**: `code-quality-standard` automatically adjusts dimension weights per task type (e.g. research tasks de-weight `build_success` and add `analysis_depth`). The evaluator model is auto-routed — Sonnet for simple tasks, Opus for complex ones.
+Protocols share **6 universal dimensions** (correctness, completeness, quality, robustness, clarity, verifiability) that are re-weighted per domain. The evaluator model is auto-routed — Sonnet for simple tasks, Opus for complex ones.
 
 Custom dimensions (e.g. `api_response_time`, `model_accuracy`) are fully supported via `config.yaml`.
 
@@ -218,11 +218,36 @@ meta-harness doesn't replace your existing tools — it's a **meta-layer** that 
 
 ---
 
+## Project Structure
+
+```
+agents/                 # Agent personas (Claude Code agent registry)
+  router.md             #   Task classifier
+  evaluator.md          #   Result scorer
+  tdd-driven.md         #   TDD harness agent
+  ...                   #   One per harness
+harnesses/              # Harness workflows and contracts
+  tdd-driven/
+    skill.md            #   Step-by-step workflow
+    contract.yaml       #   Triggers, cost budget, failure modes
+    metadata.json       #   Pool state
+  ...
+protocols/              # Evaluation scoring dimensions
+patterns/               # Workflow design patterns for genesis
+hooks/                  # Session lifecycle hooks
+skills/                 # Orchestration skills (SKILL.md files)
+commands/               # Slash commands (/run, /evolve, /status)
+```
+
+Agent personas live in `agents/` (registered in the Claude Code agent registry). Harness workflows, contracts, and metadata live in `harnesses/{name}/`. This separation ensures agents are discoverable by Claude Code while keeping workflow details with the harness.
+
+---
+
 ## Contributing
 
 meta-harness grows through community contributions — all in pure markdown, no code required:
 
-- **Harnesses** — new execution workflows (`harnesses/your-name/`)
+- **Harnesses** — new execution workflows: agent in `agents/your-name.md`, workflow in `harnesses/your-name/`
 - **Patterns** — workflow design patterns for evolution genesis (`patterns/your-name.yaml`)
 - **Protocols** — domain-specific scoring criteria (`protocols/your-name/`)
 - **Fixtures** — reproducible benchmark scenarios (`fixtures/your-name/`)

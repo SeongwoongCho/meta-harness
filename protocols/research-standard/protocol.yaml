@@ -3,68 +3,53 @@ version: "1.0.0"
 description: >
   Evaluation protocol for general research and analysis tasks that do not involve
   ML model training. Covers codebase analysis, architecture research, technology
-  evaluation, performance investigation, and exploratory tasks. Unlike ml-research,
-  this protocol does not assume model training is involved. Unlike code-quality-standard,
-  this protocol weights analytical rigor and methodology over build/test metrics.
+  evaluation, performance investigation, and exploratory tasks. Extends universal-standard
+  with research-specific custom dimensions (analysis_depth, methodology_rigor, actionability).
   Use this protocol when task_type is "research" and domain is NOT "ml-research".
 
 universal_dimensions:
-  - name: build_success
-    weight: 0.05
-    type: binary
-    description: >
-      If code was modified, it still builds. For pure analysis tasks with no code
-      changes, auto-score 1.0. Evidence: build command exit code if present.
-
-  - name: test_pass_rate
-    weight: 0.05
-    type: percentage
-    description: >
-      If tests exist and code was modified, they still pass. For pure analysis
-      with no code changes, auto-score 1.0. Reduced weight because research
-      tasks often produce analysis artifacts rather than code changes.
-
-  - name: code_quality
-    weight: 0.05
-    type: score_0_to_1
-    description: >
-      Quality of any code written (scripts, benchmarks, prototypes). If no code
-      was produced, score based on quality of structured output (markdown, YAML).
-
-  - name: robustness
-    weight: 0.03
-    type: score_0_to_1
-    description: >
-      For research: are conclusions robust to alternative interpretations? Are
-      edge cases in the analysis acknowledged? For code: standard robustness.
-
-  - name: maintainability
-    weight: 0.02
-    type: score_0_to_1
-    description: >
-      Are research artifacts organized and maintainable? Can someone else
-      follow the analysis and extend it? Low weight for pure research tasks.
-
-  - name: security
-    weight: 0.02
-    type: score_0_to_1
-    description: >
-      No sensitive data exposed in research artifacts. Defaults to 1.0 for
-      most research tasks unless external systems are involved.
-
-  - name: readability
+  - name: correctness
     weight: 0.08
     type: score_0_to_1
     description: >
-      Clarity of the research output. Are findings communicated clearly?
-      Is the reasoning easy to follow? Are technical terms defined when needed?
+      Output satisfies stated requirements. For research: does the analysis correctly
+      answer the question asked? Are factual claims accurate? For code artifacts:
+      does the code work as intended?
 
-  - name: error_handling
-    weight: 0.02
+  - name: completeness
+    weight: 0.05
     type: score_0_to_1
     description: >
-      For code artifacts: standard error handling. For analysis: are limitations
-      and potential errors in methodology acknowledged?
+      Covers the full scope of the task. Reduced weight because the custom dimension
+      'analysis_depth' captures research-specific completeness more precisely.
+
+  - name: quality
+    weight: 0.08
+    type: score_0_to_1
+    description: >
+      Structural and stylistic quality of the output. Well-organized research artifacts,
+      clean code for scripts/benchmarks, coherent writing.
+
+  - name: robustness
+    weight: 0.05
+    type: score_0_to_1
+    description: >
+      For research: are conclusions robust to alternative interpretations? Are edge
+      cases in the analysis acknowledged? For code: standard robustness.
+
+  - name: clarity
+    weight: 0.07
+    type: score_0_to_1
+    description: >
+      How clearly the research output communicates findings. Is reasoning easy to
+      follow? Are technical terms defined when needed?
+
+  - name: verifiability
+    weight: 0.07
+    type: score_0_to_1
+    description: >
+      Can findings be independently verified? Are evidence sources cited? Are
+      methodology steps reproducible? For code: do tests exist?
 
 custom_dimensions:
   - name: analysis_depth
@@ -108,16 +93,6 @@ custom_dimensions:
       Score 0.7 = actionable with some ambiguity.
       Score 0.5 = informative but requires further work to act on.
       Score 0.0 = no actionable conclusions.
-
-  - name: completeness
-    weight: 0.08
-    type: score_0_to_1
-    description: >
-      Coverage of the research scope. Were all aspects of the question addressed?
-      Are there obvious gaps or areas left unexplored without justification?
-      Score 1.0 = all aspects covered, scope fully addressed.
-      Score 0.5 = major aspects covered, some gaps acknowledged.
-      Score 0.0 = significant scope left unaddressed.
 
 quality_gates:
   hooks:

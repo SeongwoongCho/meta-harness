@@ -50,72 +50,60 @@ description: "What domain or use case this protocol evaluates. One sentence."
 # ─────────────────────────────────────────────
 # Universal Dimensions
 # ─────────────────────────────────────────────
-# These 8 dimensions are present in every protocol.
-# You MUST include all 8. You may re-weight them to accommodate custom dimensions,
+# These 6 dimensions are present in every protocol.
+# You MUST include all 6. You may re-weight them to accommodate custom dimensions,
 # but they must all be present with weight > 0.
 #
 # CONSTRAINT: sum of ALL universal_dimensions weights
 #           + sum of ALL custom_dimensions weights = 1.0 exactly
 #
 universal_dimensions:
-  - name: build_success
-    weight: 0.15          # Default: 0.20. Reduced here to make room for custom dims.
-    type: binary
-    description: "Project builds without errors after the change"
-    scoring_guide: "1.0 if build succeeds with zero errors. 0.0 if build fails.
-                    0.5 if build succeeds with warnings that did not exist before."
-
-  - name: test_pass_rate
-    weight: 0.15
-    type: percentage
-    description: "Fraction of tests passing after the change"
-    scoring_guide: "Score = (passing tests / total tests). If no tests exist,
-                    score 0.5 as neutral (not penalized for pre-existing gap)."
-
-  - name: code_quality
-    weight: 0.10
+  - name: correctness
+    weight: 0.20          # Default: 0.25. Reduced here to make room for custom dims.
     type: score_0_to_1
-    description: "Static analysis, style conformance, and structural quality"
-    scoring_guide: "Consider: lint warnings introduced (deduct), complexity increase
-                    (deduct), code duplication (deduct), follows existing conventions
-                    (add). Score 0.7 as baseline for clean but unremarkable code."
+    description: "Output satisfies stated requirements"
+    scoring_guide: "1.0 if all requirements met with no errors. 0.7 if most requirements
+                    met with minor gaps. 0.4 if significant gaps. 0.0 if output fails
+                    to address the stated task."
+
+  - name: completeness
+    weight: 0.15
+    type: score_0_to_1
+    description: "Output covers the full scope of the task"
+    scoring_guide: "1.0 if full scope addressed. 0.7 if most scope covered, minor gaps
+                    acknowledged. 0.4 if significant portions of scope unaddressed.
+                    0.0 if task is barely started or major scope missing."
+
+  - name: quality
+    weight: 0.15
+    type: score_0_to_1
+    description: "Structural and stylistic quality of the output"
+    scoring_guide: "Consider: clean structure, appropriate naming, no unnecessary
+                    complexity, follows established patterns. Score 0.7 as baseline
+                    for clean but unremarkable output."
 
   - name: robustness
     weight: 0.10
     type: score_0_to_1
-    description: "Edge case and error condition handling"
-    scoring_guide: "Score based on: null/undefined guards present, error propagation
-                    correct, boundary conditions handled. Deduct for each obvious
-                    unhandled edge case."
+    description: "Handles edge cases, failure modes, and adversarial conditions"
+    scoring_guide: "Score based on: error handling present, boundary conditions handled,
+                    limitations acknowledged. Deduct for each obvious unhandled edge case."
 
-  - name: maintainability
+  - name: clarity
+    weight: 0.10
+    type: score_0_to_1
+    description: "Output clearly communicates its intent and reasoning"
+    scoring_guide: "Consider: readable structure, meaningful names, non-obvious logic
+                    explained. Score 0.7 for generally clear output with some ambiguous
+                    sections."
+
+  - name: verifiability
     weight: 0.05
     type: score_0_to_1
-    description: "Readability, modularity, and ease of future modification"
-    scoring_guide: "Consider: function length, naming clarity, comment quality,
-                    single responsibility. Score 0.7 for acceptable maintainability."
-
-  - name: security
-    weight: 0.05
-    type: score_0_to_1
-    description: "No obvious security vulnerabilities introduced"
-    scoring_guide: "Score 1.0 if no security concerns. Deduct for: SQL injection risk,
-                    unvalidated input, exposed secrets, insecure defaults. Score 0.0
-                    if a critical vulnerability is introduced."
-
-  - name: readability
-    weight: 0.05
-    type: score_0_to_1
-    description: "Code is clear, self-documenting, and easy to understand"
-    scoring_guide: "Consider: variable naming, function naming, inline comments where
-                    non-obvious logic exists. Score 0.7 as baseline for readable code."
-
-  - name: error_handling
-    weight: 0.05
-    type: score_0_to_1
-    description: "Errors are handled gracefully and informatively"
-    scoring_guide: "Consider: error messages are descriptive, errors are not swallowed,
-                    recovery paths exist where appropriate."
+    description: "Output can be independently verified"
+    scoring_guide: "1.0 if fully verifiable with clear evidence or acceptance criteria.
+                    0.7 if mostly verifiable, some claims require trust. 0.0 if no
+                    way to verify correctness."
 
 # ─────────────────────────────────────────────
 # Custom Dimensions
@@ -144,8 +132,8 @@ custom_dimensions:
 quality_gates:
   minimum_overall_score: 0.65     # Evaluation fails if weighted score < this value
   required_passing_dimensions:
-    - build_success               # These dimensions must individually score >= 0.5
-    # - test_pass_rate            # Add dimensions that are non-negotiable
+    - correctness                 # These dimensions must individually score >= 0.5
+    # - completeness              # Add dimensions that are non-negotiable
 
   hooks:
     role: early_warning
@@ -163,23 +151,21 @@ quality_gates:
 
 ## Universal Dimensions
 
-These 8 dimensions are present in every protocol with their default weights:
+These 6 dimensions are present in every protocol with their default weights:
 
 | Dimension | Default Weight | Type | What it measures |
 |-----------|---------------|------|-----------------|
-| `build_success` | 0.20 | binary | Does the project build? |
-| `test_pass_rate` | 0.20 | percentage | What fraction of tests pass? |
-| `code_quality` | 0.15 | score_0_to_1 | Static analysis and style |
-| `robustness` | 0.10 | score_0_to_1 | Edge case handling |
-| `maintainability` | 0.10 | score_0_to_1 | Readability and modularity |
-| `security` | 0.10 | score_0_to_1 | No vulnerabilities introduced |
-| `readability` | 0.10 | score_0_to_1 | Self-documenting code |
-| `error_handling` | 0.05 | score_0_to_1 | Graceful error handling |
+| `correctness` | 0.25 | score_0_to_1 | Does the output satisfy requirements? |
+| `completeness` | 0.20 | score_0_to_1 | Does the output cover the full scope? |
+| `quality` | 0.20 | score_0_to_1 | Structural and stylistic quality |
+| `robustness` | 0.10 | score_0_to_1 | Edge case and failure mode handling |
+| `clarity` | 0.15 | score_0_to_1 | Clear communication of intent |
+| `verifiability` | 0.10 | score_0_to_1 | Can the output be independently verified? |
 
 Default total: **1.00**
 
 When you add custom dimensions, you must reduce universal dimension weights to maintain
-the 1.0 sum. The typical approach is to reduce `build_success` and `test_pass_rate`
+the 1.0 sum. The typical approach is to reduce `correctness` and `completeness`
 proportionally since they dominate the default weighting.
 
 ---
@@ -190,7 +176,7 @@ proportionally since they dominate the default weighting.
 |------|-------|-------------|-------------|
 | `binary` | `0.0` or `1.0` | Pass/fail only | Go/no-go criteria (build passes, deployment succeeds) |
 | `percentage` | `0.0` to `1.0` | Continuous 0%–100% | Coverage, test pass rate, benchmark scores |
-| `score_0_to_1` | `0.0` to `1.0` | Evaluator judgment | Qualitative assessments (code quality, readability) |
+| `score_0_to_1` | `0.0` to `1.0` | Evaluator judgment | Qualitative assessments (correctness, clarity, quality) |
 
 ---
 
@@ -203,12 +189,12 @@ will fail to load.
 
 **Recommended weight budget allocation:**
 
-| Scenario | Build/Test | Custom dims | Notes |
-|----------|-----------|-------------|-------|
-| General purpose (no custom) | 0.40 (build+test) | 0 | Use `code-quality-standard` |
-| One important custom dim | 0.30 | 0.30 | Halve build/test weight |
-| Two important custom dims | 0.25 | 0.45 | Split build/test to 0.10 each |
-| Three+ custom dims | 0.20 | 0.60 | Minimum build/test floor: 0.10 each |
+| Scenario | Universal dims | Custom dims | Notes |
+|----------|---------------|-------------|-------|
+| General purpose (no custom) | 1.00 | 0 | Use `universal-standard` |
+| One important custom dim | 0.70 | 0.30 | Reduce correctness/completeness proportionally |
+| Two important custom dims | 0.55 | 0.45 | Split reductions across all 6 dims |
+| Three+ custom dims | 0.40 | 0.60 | Keep each universal dim above 0.05 |
 
 ---
 
@@ -241,10 +227,10 @@ across sessions.
 
 Study these for patterns you can adapt:
 
-### `code-quality-standard` — No custom dimensions
+### `universal-standard` — No custom dimensions
 
-All 8 universal dimensions at default weights. Use as the baseline.
-Best for: projects without strong domain-specific quality criteria.
+All 6 universal dimensions at default weights. Use as the baseline.
+Best for: any task type without strong domain-specific quality criteria.
 
 ### `ml-research` — Research quality emphasis
 
@@ -294,12 +280,12 @@ print(f'Total weight: {total:.4f} — {\"PASS\" if abs(total - 1.0) < 0.001 else
 
 This re-evaluates the most recent session using your protocol.
 
-### 3. Compare with `code-quality-standard`
+### 3. Compare with `universal-standard`
 
 Run the same task twice with different protocols and compare scores:
 
 ```
-/meta-harness-run --protocol=code-quality-standard "your test task"
+/meta-harness-run --protocol=universal-standard "your test task"
 /meta-harness-run --protocol=your-protocol-name "your test task"
 ```
 
@@ -314,7 +300,7 @@ score your custom dimensions.
 | Pattern | Example | When to use |
 |---------|---------|-------------|
 | `{domain}-{aspect}` | `ml-research`, `web-app-performance` | Domain-specific protocols |
-| `{aspect}-standard` | `code-quality-standard` | General-purpose baselines |
+| `{aspect}-standard` | `universal-standard` | General-purpose baselines |
 | `{tool}-{aspect}` | `cli-tool-ux` | Tool category protocols |
 
 Use lowercase kebab-case. The name must be unique across all protocols in the pool.
@@ -333,7 +319,7 @@ evidence your protocol needs.
 **Pitfall 2: Too many custom dimensions**
 
 Adding 5+ custom dimensions at 0.10 weight each gives each one equal importance to
-`error_handling` in the default protocol. The result is a protocol that measures
+`verifiability` in the default protocol. The result is a protocol that measures
 everything and prioritizes nothing. Focus on 2-3 custom dimensions that genuinely
 differentiate your domain.
 

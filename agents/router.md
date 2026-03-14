@@ -83,21 +83,19 @@ Read `.meta-harness/harness-pool.json` if it exists for current weights. Full ha
 <protocol_binding>
 Bind the evaluation protocol based on the project domain and task type:
 
-- `code-quality-standard` — Default for backend, infra, and general code tasks (bugfix, feature, refactor, migration, incident)
-- `research-standard` — For task_type=research/benchmark when domain is NOT ml-research. Covers codebase analysis, architecture research, technology evaluation, performance investigation.
-- `ml-research` — For domain=ml-research AND task involves model training/fine-tuning/benchmarking
-- `web-app-performance` — For domain=frontend
-- `cli-tool-ux` — For CLI tools (detectable from codebase context: presence of CLI frameworks, command parsers)
+- `universal-standard` — Default for all tasks. Six task-agnostic dimensions (correctness, completeness, quality, robustness, clarity, verifiability) apply to any task type: code, research, planning, writing, refactoring, documentation.
+- `research-standard` — For task_type=research/benchmark when domain is NOT ml-research AND deep analytical rigor is required. Adds analysis_depth, methodology_rigor, actionability dimensions.
+- `ml-research` — For domain=ml-research AND task involves model training/fine-tuning/benchmarking.
+- `web-app-performance` — For domain=frontend with performance-critical requirements.
+- `cli-tool-ux` — For CLI tools where UX and ergonomics are the primary concern.
 
 Protocol selection priority:
 1. If `.meta-harness/config.yaml` specifies a preferred protocol, use that
 2. If domain=ml-research AND task involves ML model work → `ml-research`
-3. If task_type in [research, benchmark] AND domain != ml-research → `research-standard`
-4. If domain=frontend → `web-app-performance`
-5. If CLI tool detected → `cli-tool-ux`
-6. Default → `code-quality-standard`
-
-Note: `code-quality-standard` also has `task_type_overrides` for research, refactor, migration, and benchmark tasks. If `research-standard` is selected, the evaluator uses that protocol directly. If `code-quality-standard` is selected for a research task (e.g., because config.yaml forces it), the evaluator applies the task_type_override automatically.
+3. If task_type in [research, benchmark] AND domain != ml-research AND deep analysis required → `research-standard`
+4. If domain=frontend AND performance is the primary concern → `web-app-performance`
+5. If CLI tool detected AND UX is the primary concern → `cli-tool-ux`
+6. Default → `universal-standard`
 </protocol_binding>
 
 <chaining_guidelines>
@@ -159,7 +157,7 @@ For a standard routing decision:
   },
   "selected_harness": "tdd-driven",
   "harness_chain": ["tdd-driven"],
-  "bound_protocol": "code-quality-standard",
+  "bound_protocol": "universal-standard",
   "ensemble_required": false,
   "reasoning": "Single-module backend bug with clear test expectations. TDD approach optimal — write a failing test that reproduces the bug, implement fix, verify green. Medium uncertainty because root cause is not yet confirmed, but verifiability is easy once the bug is localized.",
   "candidate_scores": {
@@ -182,7 +180,7 @@ For a chained execution (high uncertainty refactor):
   },
   "selected_harness": "careful-refactor",
   "harness_chain": ["ralplan-consensus", "careful-refactor", "code-review"],
-  "bound_protocol": "code-quality-standard",
+  "bound_protocol": "universal-standard",
   "ensemble_required": false,
   "reasoning": "High uncertainty refactor needs planning first to identify risks and approach, then careful execution with Mikado method, then review to catch regressions.",
   "candidate_scores": {
@@ -204,7 +202,7 @@ For ensemble execution:
     "domain": "backend"
   },
   "selected_harness": "research-iteration",
-  "bound_protocol": "code-quality-standard",
+  "bound_protocol": "universal-standard",
   "ensemble_required": true,
   "ensemble_harnesses": ["research-iteration", "careful-refactor"],
   "reasoning": "High uncertainty + hard verifiability + repo-wide blast triggers ensemble. research-iteration provides exploratory depth; careful-refactor provides safety discipline for the architecture-wide changes involved. Synthesizer will merge the best of both approaches.",
@@ -221,7 +219,7 @@ For experimental variant selection:
   "taxonomy": { ... },
   "selected_harness": "tdd-driven",
   "harness_chain": ["tdd-driven"],
-  "bound_protocol": "code-quality-standard",
+  "bound_protocol": "universal-standard",
   "ensemble_required": false,
   "experimental": true,
   "experimental_harness_path": "harnesses/experimental/tdd-driven-v1.1/",

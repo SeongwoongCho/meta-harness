@@ -214,38 +214,30 @@ description: "What domain or scenario this protocol evaluates"
 # Universal dimensions are always included. You may re-weight them
 # but the total weight across ALL dimensions must sum to 1.0.
 universal_dimensions:
-  - name: build_success
-    weight: 0.15          # re-weighted from default 0.20 to accommodate custom dims
-    type: binary
-    description: "Project builds without errors"
-  - name: test_pass_rate
-    weight: 0.15
-    type: percentage
-    description: "Percentage of tests passing"
-  - name: code_quality
-    weight: 0.10
+  - name: correctness
+    weight: 0.20          # re-weighted from default 0.25 to accommodate custom dims
     type: score_0_to_1
-    description: "Static analysis and style conformance"
+    description: "Output satisfies stated requirements"
+  - name: completeness
+    weight: 0.15
+    type: score_0_to_1
+    description: "Output covers the full scope of the task"
+  - name: quality
+    weight: 0.15
+    type: score_0_to_1
+    description: "Structural and stylistic quality of the output"
   - name: robustness
     weight: 0.10
     type: score_0_to_1
-    description: "Edge case and error condition handling"
-  - name: maintainability
+    description: "Edge case and failure mode handling"
+  - name: clarity
+    weight: 0.10
+    type: score_0_to_1
+    description: "Output clearly communicates its intent and reasoning"
+  - name: verifiability
     weight: 0.05
     type: score_0_to_1
-    description: "Readability, modularity, documentation"
-  - name: security
-    weight: 0.05
-    type: score_0_to_1
-    description: "No obvious vulnerabilities introduced"
-  - name: readability
-    weight: 0.05
-    type: score_0_to_1
-    description: "Code is clear and self-documenting"
-  - name: error_handling
-    weight: 0.05
-    type: score_0_to_1
-    description: "Errors are handled gracefully"
+    description: "Output can be independently verified"
 
 # Custom dimensions specific to this domain.
 # Weights here plus universal_dimensions weights must sum to 1.0.
@@ -263,7 +255,7 @@ custom_dimensions:
 quality_gates:
   minimum_overall_score: 0.65   # below this = evaluation fails
   required_passing_dimensions:
-    - build_success              # dimensions that must individually pass
+    - correctness                # dimensions that must individually pass
   hooks:
     role: early_warning
     checks: [lint, type_check]
@@ -276,9 +268,9 @@ quality_gates:
 must sum exactly to `1.0`. Validation is enforced at load time.
 
 **Dimension types:**
-- `binary`: 0.0 (fail) or 1.0 (pass) — e.g., build_success
-- `percentage`: 0.0–1.0 representing 0%–100% — e.g., test_pass_rate
-- `score_0_to_1`: continuous score from 0.0 to 1.0 — e.g., code_quality
+- `binary`: 0.0 (fail) or 1.0 (pass) — e.g., a deployment success gate
+- `percentage`: 0.0–1.0 representing 0%–100% — e.g., test pass rate
+- `score_0_to_1`: continuous score from 0.0 to 1.0 — e.g., correctness, quality
 
 ### Testing Your Protocol
 
@@ -301,7 +293,7 @@ Verify:
    - The domain this protocol targets
    - Justification for each custom dimension and its weight
    - An example task where this protocol produces meaningfully different scores than
-     `code-quality-standard`
+     `universal-standard`
 
 ---
 

@@ -9,6 +9,10 @@ description: "Manage the meta-harness pool: list, inspect, promote, demote harne
 
 You manage the meta-harness harness pool. Use this skill when the user asks about harness status, wants to inspect a specific harness, or wants to promote/demote harnesses between stable and experimental pools.
 
+## Plugin Root
+
+First, read the plugin root path: `Read(".meta-harness/.plugin-root")`. Store this as `{plugin_root}`. All plugin-internal file paths below use this prefix. Project state paths (`.meta-harness/`) are relative to the user's project directory.
+
 ---
 
 ## Operations
@@ -43,10 +47,10 @@ If `.meta-harness/harness-pool.json` does not exist, report that no state has be
 When user asks "inspect {harness-name}" or "show me the {harness-name} harness":
 
 Read and display:
-- `harnesses/{name}/agent.md` — agent persona
-- `harnesses/{name}/skill.md` — workflow
-- `harnesses/{name}/contract.yaml` — execution contract
-- `harnesses/{name}/metadata.json` — current pool status and stats
+- `{plugin_root}/agents/{name}.md` — agent persona (registered in Claude Code agent registry)
+- `{plugin_root}/harnesses/{name}/skill.md` — workflow
+- `{plugin_root}/harnesses/{name}/contract.yaml` — execution contract
+- `{plugin_root}/harnesses/{name}/metadata.json` — current pool status and stats
 
 Present in a structured format showing trigger conditions, tool policy, stopping criteria, cost budget, and failure modes.
 
@@ -57,7 +61,7 @@ When user says "promote {harness-name}" or when queried about a harness meeting 
 1. Read `.meta-harness/harness-pool.json`
 2. Check the harness's `consecutive_successes` count (requires ≥5 by default, configurable in `.meta-harness/config.yaml` under `evolution_settings.promotion_threshold`)
 3. If criteria met:
-   - Update `harnesses/{name}/metadata.json`: set `"pool": "stable"`
+   - Update `{plugin_root}/harnesses/{name}/metadata.json`: set `"pool": "stable"`
    - Update `.meta-harness/harness-pool.json`: move entry from `experimental` to `stable`
    - Write atomically: write to `.meta-harness/harness-pool.json.tmp` then rename to `.meta-harness/harness-pool.json`
    - Create backup `.meta-harness/harness-pool.json.bak` before writing
@@ -69,7 +73,7 @@ When user says "demote {harness-name}" or when a harness performance drops below
 
 1. Check the harness's recent performance (last 10 runs from evaluation logs in `.meta-harness/evaluation-logs/{harness-name}/`)
 2. If performance below threshold (default: score < 0.5 for 3+ consecutive runs):
-   - Update `harnesses/{name}/metadata.json`: set `"pool": "experimental"`
+   - Update `{plugin_root}/harnesses/{name}/metadata.json`: set `"pool": "experimental"`
    - Update `.meta-harness/harness-pool.json`: move entry from `stable` to `experimental`
    - Write atomically (same pattern as promote)
    - Record demotion event in `.meta-harness/evaluation-logs/{name}/demotion-{timestamp}.json`

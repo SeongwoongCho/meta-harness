@@ -15,10 +15,10 @@ Use this skill when the user wants to create a custom evaluation protocol for th
 
 ## Protocol Structure
 
-Each protocol lives in `protocols/{protocol-name}/` and contains one file:
+Each protocol lives in `{plugin_root}/protocols/{protocol-name}/` and contains one file (read plugin root from `.meta-harness/.plugin-root`):
 
 ```
-protocols/
+{plugin_root}/protocols/
   my-protocol/
     protocol.yaml        # Scoring dimensions, weights, quality gates
 ```
@@ -36,54 +36,43 @@ version: "1.0"
 domain: general          # backend | frontend | ml | cli | infra | general
 
 # Universal dimensions (always present, re-weighted to accommodate custom dims)
+# These 6 dimensions are task-agnostic — they apply to code, research, docs, planning, etc.
 universal_dimensions:
-  build_success:
-    weight: 0.15
-    description: "Code builds/compiles without errors"
-    evidence_sources: ["bash_output"]
-    scoring_guide: "1.0 = clean build, 0.0 = build fails, 0.5 = warnings only"
+  correctness:
+    weight: 0.25
+    description: "Output satisfies stated requirements (code works, analysis answers the question, docs are accurate)"
+    evidence_sources: ["bash_output", "diff", "file_read"]
+    scoring_guide: "1.0 = all requirements met, 0.7 = mostly correct with minor gaps, 0.4 = partially correct, 0.0 = fundamentally wrong"
 
-  test_pass_rate:
-    weight: 0.15
-    description: "Automated tests pass"
-    evidence_sources: ["bash_output"]
-    scoring_guide: "Score = passing_tests / total_tests. 1.0 = all pass."
+  completeness:
+    weight: 0.20
+    description: "Output covers the full scope of the task with no obvious gaps"
+    evidence_sources: ["diff", "file_read"]
+    scoring_guide: "1.0 = all aspects addressed, 0.7 = main points covered, 0.4 = significant gaps, 0.0 = barely started"
 
-  code_quality:
-    weight: 0.10
-    description: "Code quality (lint, complexity, duplication)"
-    evidence_sources: ["bash_output", "diff"]
-    scoring_guide: "1.0 = no lint errors, clean diff. Deduct for complexity."
+  quality:
+    weight: 0.20
+    description: "Structural and stylistic quality (clean code, rigorous analysis, coherent writing)"
+    evidence_sources: ["diff", "bash_output"]
+    scoring_guide: "1.0 = exemplary craft, 0.7 = good with minor issues, 0.4 = functional but rough, 0.0 = poor quality"
 
   robustness:
-    weight: 0.08
-    description: "Error handling, edge cases covered"
+    weight: 0.10
+    description: "Handles edge cases, failure modes, counterarguments, or limitations"
     evidence_sources: ["diff", "test_output"]
-    scoring_guide: "1.0 = all error paths handled, 0.5 = basic handling, 0.0 = none"
+    scoring_guide: "1.0 = comprehensive edge case handling, 0.5 = basic coverage, 0.0 = fragile/no consideration"
 
-  maintainability:
-    weight: 0.07
-    description: "Code is easy to understand and modify"
-    evidence_sources: ["diff"]
-    scoring_guide: "Assess naming clarity, function size, separation of concerns"
+  clarity:
+    weight: 0.15
+    description: "Communicates intent clearly (readable code, understandable docs, clear reasoning)"
+    evidence_sources: ["diff", "file_read"]
+    scoring_guide: "1.0 = immediately clear, 0.7 = clear with minor ambiguity, 0.4 = confusing in parts, 0.0 = opaque"
 
-  security:
-    weight: 0.07
-    description: "No introduced security vulnerabilities"
-    evidence_sources: ["diff", "bash_output"]
-    scoring_guide: "1.0 = no issues, 0.0 = critical vulnerability introduced"
-
-  readability:
-    weight: 0.07
-    description: "Code reads naturally, comments where needed"
-    evidence_sources: ["diff"]
-    scoring_guide: "Assess variable names, function names, inline comments"
-
-  error_handling:
-    weight: 0.06
-    description: "Errors surfaced and handled gracefully"
-    evidence_sources: ["diff", "bash_output"]
-    scoring_guide: "1.0 = all errors handled with user-friendly messages"
+  verifiability:
+    weight: 0.10
+    description: "Output can be independently verified (tests exist, evidence provided, claims checkable)"
+    evidence_sources: ["bash_output", "diff"]
+    scoring_guide: "1.0 = fully verifiable, 0.7 = mostly verifiable, 0.4 = partially, 0.0 = unverifiable claims"
 
 # Custom dimensions (domain-specific, add up with universal to total 1.0)
 custom_dimensions:
@@ -95,12 +84,9 @@ custom_dimensions:
 
 # Quality gates (hard thresholds — if any gate fails, overall evaluation fails)
 quality_gates:
-  - dimension: build_success
-    min_score: 1.0
-    message: "Build must succeed"
-  - dimension: test_pass_rate
-    min_score: 0.8
-    message: "At least 80% of tests must pass"
+  - dimension: correctness
+    min_score: 0.5
+    message: "Output must be at least partially correct"
   - overall_score:
     min_score: 0.6
     message: "Overall score must be at least 0.6"
@@ -115,7 +101,8 @@ quality_gates:
 ### Step 1: Identify Your Domain
 
 Determine the domain of evaluation. Built-in protocols for reference:
-- `code-quality-standard` — General software quality (good baseline)
+- `universal-standard` — Task-agnostic baseline (correctness, completeness, quality, robustness, clarity, verifiability). Good starting point for any domain.
+- `research-standard` — Adds analysis_depth, methodology_rigor, actionability for deep research tasks
 - `ml-research` — ML accuracy, training efficiency, reproducibility
 - `web-app-performance` — Response time, UI consistency, Lighthouse score
 - `cli-tool-ux` — UX quality, error messages, help text, documentation
@@ -137,17 +124,15 @@ Rules:
 3. Universal dims that are less relevant can be reduced to as low as 0.03
 4. Total must be exactly 1.0
 
-Example weight redistribution for ML research:
+Example weight redistribution for ML research (based on universal-standard):
 ```yaml
 # Universal dims reduced to 0.40 total
-build_success: 0.08
-test_pass_rate: 0.08
-code_quality: 0.06
-robustness: 0.05
-maintainability: 0.05
-security: 0.04
-readability: 0.03
-error_handling: 0.01
+correctness:   0.10
+completeness:  0.08
+quality:       0.08
+robustness:    0.06
+clarity:       0.05
+verifiability: 0.03
 # Custom dims = 0.60 total
 model_accuracy: 0.25
 training_efficiency: 0.15
@@ -158,11 +143,11 @@ experiment_tracking: 0.08
 ### Step 4: Define Quality Gates
 
 Every protocol should have at minimum:
-- A gate on `build_success` (min 1.0 for compiled languages, 0.8 for interpreted)
+- A gate on `correctness` (min 0.5 — output must be at least partially correct)
 - A gate on `overall_score` (min 0.5 to 0.7 depending on domain risk)
 
 For high-stakes domains (migrations, security-sensitive):
-- Add gates on specific critical dimensions (e.g., `security: min 0.9`)
+- Add gates on specific critical dimensions (e.g., `robustness: min 0.8`)
 
 ### Step 5: Write Scoring Guides
 
@@ -174,7 +159,7 @@ Each dimension needs a `scoring_guide` that the evaluator agent uses to assign a
 
 ### Step 6: Create the Protocol File
 
-Create `protocols/{your-protocol-name}/protocol.yaml` following the schema above.
+Create `{plugin_root}/protocols/{your-protocol-name}/protocol.yaml` following the schema above (read plugin root from `.meta-harness/.plugin-root`).
 
 Then register it in `.meta-harness/config.yaml` if you want it as the default for your project:
 
@@ -188,7 +173,7 @@ Or bind it to specific task types:
 evaluation:
   protocol_bindings:
     ml: ml-research
-    backend: code-quality-standard
+    backend: universal-standard
     general: my-protocol
 ```
 
@@ -205,59 +190,50 @@ version: "1.0"
 domain: general
 
 universal_dimensions:
-  build_success:
-    weight: 0.15
-    description: "Code builds without errors"
-    evidence_sources: ["bash_output"]
-    scoring_guide: "1.0 = clean build, 0.0 = build fails"
-  test_pass_rate:
-    weight: 0.15
-    description: "Automated tests pass"
-    evidence_sources: ["bash_output"]
-    scoring_guide: "Score = passing / total"
-  code_quality:
-    weight: 0.10
-    description: "Lint and complexity clean"
-    evidence_sources: ["bash_output", "diff"]
-    scoring_guide: "1.0 = no issues"
-  robustness:
-    weight: 0.07
-    description: "Error handling covered"
-    evidence_sources: ["diff"]
-    scoring_guide: "1.0 = all paths handled"
-  maintainability:
-    weight: 0.06
-    description: "Code easy to modify"
-    evidence_sources: ["diff"]
-    scoring_guide: "Assess naming and structure"
-  security:
-    weight: 0.06
-    description: "No vulnerabilities introduced"
-    evidence_sources: ["diff"]
-    scoring_guide: "1.0 = no issues"
-  readability:
-    weight: 0.05
-    description: "Code reads naturally"
-    evidence_sources: ["diff"]
-    scoring_guide: "Assess naming clarity"
-  error_handling:
-    weight: 0.05
-    description: "Errors handled gracefully"
+  correctness:
+    weight: 0.25
+    description: "Output satisfies stated requirements"
+    evidence_sources: ["bash_output", "diff", "file_read"]
+    scoring_guide: "1.0 = all requirements met, 0.0 = fundamentally wrong"
+  completeness:
+    weight: 0.20
+    description: "Covers the full scope of the task"
+    evidence_sources: ["diff", "file_read"]
+    scoring_guide: "1.0 = all aspects addressed, 0.0 = barely started"
+  quality:
+    weight: 0.20
+    description: "Structural and stylistic quality"
     evidence_sources: ["diff", "bash_output"]
-    scoring_guide: "1.0 = all errors handled"
+    scoring_guide: "1.0 = exemplary, 0.0 = poor"
+  robustness:
+    weight: 0.10
+    description: "Handles edge cases and failure modes"
+    evidence_sources: ["diff", "test_output"]
+    scoring_guide: "1.0 = comprehensive, 0.0 = fragile"
+  clarity:
+    weight: 0.15
+    description: "Communicates intent clearly"
+    evidence_sources: ["diff", "file_read"]
+    scoring_guide: "1.0 = immediately clear, 0.0 = opaque"
+  verifiability:
+    weight: 0.10
+    description: "Can be independently verified"
+    evidence_sources: ["bash_output", "diff"]
+    scoring_guide: "1.0 = fully verifiable, 0.0 = unverifiable"
 
 custom_dimensions:
   # Define your custom dimensions here (total weight must bring sum to 1.0)
+  # Reduce universal dim weights to make room for custom dims
   # example_dimension:
-  #   weight: 0.31
+  #   weight: 0.00   # adjust universal weights down to compensate
   #   description: "What this measures"
   #   evidence_sources: ["bash_output"]
   #   scoring_guide: "1.0 = ..., 0.5 = ..., 0.0 = ..."
 
 quality_gates:
-  - dimension: build_success
-    min_score: 1.0
-    message: "Build must succeed"
+  - dimension: correctness
+    min_score: 0.5
+    message: "Output must be at least partially correct"
   - overall_score:
     min_score: 0.6
     message: "Overall score must be at least 0.6"

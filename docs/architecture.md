@@ -167,7 +167,7 @@ This is the foundational design decision of meta-harness.
 
 1. **Reusability**: The `tdd-driven` harness works for backend and frontend tasks, but a
    frontend task should be scored on `web-app-performance` dimensions while a backend task
-   uses `code-quality-standard`.
+   uses `universal-standard`.
 
 2. **Evolution independence**: Improving a harness's workflow steps does not require
    changing evaluation criteria, and vice versa.
@@ -238,9 +238,9 @@ other's, not corruption.
   "ensemble": false,
   "bound_protocol": "protocol-name",
   "scores": {
-    "build_success": 1.0,
-    "test_pass_rate": 0.95,
-    "code_quality": 0.88,
+    "correctness": 1.0,
+    "completeness": 0.95,
+    "quality": 0.88,
     "overall": 0.91
   },
   "quality_gate_passed": true,

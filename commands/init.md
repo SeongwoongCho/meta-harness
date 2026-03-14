@@ -12,8 +12,8 @@ Initialize meta-harness for this project by running an interactive Q&A to define
 If `--general` is passed as an argument, **skip ALL questions** and initialize with sensible defaults that work for any project:
 
 - domain: `general`
-- default_protocol: `code-quality-standard`
-- primary_metrics: `[test_pass_rate, build_success, maintainability]`
+- default_protocol: `universal-standard`
+- primary_metrics: `[correctness, completeness, quality]`
 - custom_dimensions: (none)
 - ensemble mode: `auto`
 - evolution: `conservative` (promote after 5 successes)
@@ -79,7 +79,8 @@ AskUserQuestion("Weight (0.05 to 0.30):")
 AskUserQuestion(
   "Which built-in evaluation protocol best fits your project?",
   options=[
-    "code-quality-standard (general software quality)",
+    "universal-standard (task-agnostic: correctness, completeness, quality, robustness, clarity, verifiability)",
+    "research-standard (deep research: adds analysis_depth, methodology_rigor, actionability)",
     "ml-research (ML accuracy + reproducibility)",
     "web-app-performance (response time + Lighthouse)",
     "cli-tool-ux (UX + help text + documentation)",
@@ -88,7 +89,7 @@ AskUserQuestion(
 )
 ```
 
-Default if skipped: `code-quality-standard`
+Default if skipped: `universal-standard`
 
 ### Question 5: Ensemble Mode Preference
 
@@ -135,10 +136,10 @@ project:
   domain: "{domain}"                    # backend|frontend|ml|cli|infra|general
 
 evaluation:
-  default_protocol: "{protocol}"        # code-quality-standard|ml-research|web-app-performance|cli-tool-ux
+  default_protocol: "{protocol}"        # universal-standard|research-standard|ml-research|web-app-performance|cli-tool-ux
   primary_metrics:                      # from Question 2
-    - test_pass_rate
-    - build_success
+    - correctness
+    - completeness
   custom_dimensions:                    # from Question 3 (empty if skipped)
     # example_dimension:
     #   weight: 0.15

@@ -11,6 +11,8 @@ You are the meta-harness orchestrator running in the main conversation context. 
 
 This skill is injected at session start and reinforced on every UserPromptSubmit hook. Follow this protocol for every substantive task in this session.
 
+**Plugin root**: `{{PLUGIN_ROOT}}` — all plugin-internal file paths (agents, harnesses, protocols, patterns) use this absolute prefix. Project state paths (`.meta-harness/`) are relative to the user's project directory.
+
 ---
 
 ## CRITICAL: Self-Driving Pipeline Rule
@@ -66,7 +68,7 @@ The router returns structured JSON:
     "domain": "backend|frontend|ml-research|infra|docs"
   },
   "selected_harness": "tdd-driven",
-  "bound_protocol": "code-quality-standard",
+  "bound_protocol": "universal-standard",
   "ensemble_required": false,
   "skip_routing": false,
   "reasoning": "Explanation of selection"
@@ -82,8 +84,8 @@ chain_context = ""
 for index, harness in enumerate(harness_chain):
   chain_position = f"step {index+1} of {len(harness_chain)}"
 
-  Read("harnesses/{harness}/agent.md")
-  Read("harnesses/{harness}/skill.md")
+  Read("{{PLUGIN_ROOT}}/agents/{harness}.md")
+  Read("{{PLUGIN_ROOT}}/harnesses/{harness}/skill.md")
 
   result = Task(
     subagent_type="meta-harness:{harness}",
@@ -96,7 +98,7 @@ for index, harness in enumerate(harness_chain):
 Key rules for chaining:
 - Each harness receives: the original task description + accumulated results from all prior harnesses + its chain position
 - Execute harnesses one at a time in order — do not parallelize a chain
-- If a harness in the chain fails, apply its `failure_modes` from `contract.yaml` before continuing or aborting the chain
+- If a harness in the chain fails, apply its `failure_modes` from its `contract.yaml` before continuing or aborting the chain
 - After the full chain completes, treat the final `chain_context` as the execution result for Steps 5 and 6
 - Evaluation runs ONCE at the end of the full chain (Step 5), not after each individual step
 
@@ -158,17 +160,20 @@ This ensures every task leaves an audit trail. Fast-path evals do NOT update har
 
 1. Determine harness file paths:
    - If the router returned `"experimental": true` with `"experimental_harness_path"`, read files from that path instead of the stable harness directory.
-   - Otherwise, read from `harnesses/{selected_harness}/`.
+   - Otherwise, read from `{{PLUGIN_ROOT}}/agents/` and `{{PLUGIN_ROOT}}/harnesses/{selected_harness}/`.
 
    ```
+   plugin_root = "{{PLUGIN_ROOT}}"
    if router_response.get("experimental"):
-       harness_dir = router_response["experimental_harness_path"]
+       harness_dir = f"{plugin_root}/{router_response['experimental_harness_path']}"
+       agent_path = f"{harness_dir}/agent.md"  # experimental harnesses keep agent.md locally
    else:
-       harness_dir = "harnesses/{selected_harness}"
+       harness_dir = f"{plugin_root}/harnesses/{selected_harness}"
+       agent_path = f"{plugin_root}/agents/{selected_harness}.md"
    ```
 
 2. Read the harness files:
-   - `{harness_dir}/agent.md` — agent persona + instructions
+   - `{agent_path}` — agent persona + instructions (from `agents/` for stable, from experimental dir for experimental)
    - `{harness_dir}/skill.md` — workflow steps
    - `{harness_dir}/contract.yaml` — execution contract (from stable dir as fallback if missing in experimental)
 
@@ -220,7 +225,7 @@ After subagent completion (detected when the subagent's Task() call returns):
 2. Read the protocol file to check for evaluator model routing:
 
 ```
-Read("protocols/{bound_protocol}/protocol.yaml")
+Read("{{PLUGIN_ROOT}}/protocols/{bound_protocol}/protocol.yaml")
 # Check evaluator.model field:
 #   - "claude-opus-4-6" or "claude-sonnet-4-6" → use that model directly
 #   - "auto" → select model based on task complexity:
@@ -235,7 +240,7 @@ evaluator_model = determine_evaluator_model(protocol, taxonomy)
 Task(
   subagent_type="meta-harness:evaluator",
   model=evaluator_model,  # "sonnet" or "opus" based on routing
-  prompt="Score this task result against the bound evaluation protocol.\n\nTask: {task_description}\nTask type: {taxonomy.task_type}\nSelected harness: {selected_harness}\nBound protocol: {bound_protocol}\nResult summary: {result_summary}\n\nRead protocols/{bound_protocol}/protocol.yaml for scoring dimensions.\nCheck for task_type_overrides matching task_type '{taxonomy.task_type}'.\nRead .meta-harness/sessions/{session_id}/evidence/ for collected evidence."
+  prompt="Score this task result against the bound evaluation protocol.\n\nTask: {task_description}\nTask type: {taxonomy.task_type}\nSelected harness: {selected_harness}\nBound protocol: {bound_protocol}\nResult summary: {result_summary}\nPlugin root: {{PLUGIN_ROOT}}\n\nRead {{PLUGIN_ROOT}}/protocols/{bound_protocol}/protocol.yaml for scoring dimensions.\nCheck for task_type_overrides matching task_type '{taxonomy.task_type}'.\nRead .meta-harness/sessions/{session_id}/evidence/ for collected evidence."
 )
 ```
 
@@ -279,7 +284,7 @@ On evaluator response:
    ```
    Task(
      subagent_type="meta-harness:evolution-manager",
-     prompt="Analyze evaluation history and propose harness improvements.\n\nTrigger: {selected_harness} has reached {count} evaluations.\n\nRead .meta-harness/evaluation-logs/{selected_harness}/ for evaluation history.\nRead harnesses/{selected_harness}/agent.md and skill.md for current harness content.\nRead .meta-harness/harness-pool.json for pool state.\n\nGenerate evolution proposals and write them to .meta-harness/evolution-proposals/."
+     prompt="Analyze evaluation history and propose harness improvements.\n\nTrigger: {selected_harness} has reached {count} evaluations.\nPlugin root: {{PLUGIN_ROOT}}\n\nRead .meta-harness/evaluation-logs/{selected_harness}/ for evaluation history.\nRead {{PLUGIN_ROOT}}/agents/{selected_harness}.md and {{PLUGIN_ROOT}}/harnesses/{selected_harness}/skill.md for current harness content.\nRead .meta-harness/harness-pool.json for pool state.\n\nGenerate evolution proposals and write them to .meta-harness/evolution-proposals/."
    )
    ```
    The evolution-manager writes proposals to `.meta-harness/evolution-proposals/`. These proposals are applied automatically on the next session start by `session-start.sh` (which reads pending proposals, creates experimental harness copies, and registers them in the pool).
@@ -288,7 +293,7 @@ On evaluator response:
 
 If a subagent fails or quality gate does not pass:
 
-1. Read `harnesses/{selected_harness}/contract.yaml` to check `failure_modes` section.
+1. Read `{{PLUGIN_ROOT}}/harnesses/{selected_harness}/contract.yaml` to check `failure_modes` section.
 2. Execute the specified failure action:
    - `fallback: {other_harness}` — re-route to the fallback harness
    - `action: escalate_to_user` — surface the issue to the user for guidance
@@ -301,12 +306,12 @@ If a subagent fails or quality gate does not pass:
 When you need to inspect a harness before spawning a subagent, use the Read tool:
 
 ```
-Read("harnesses/tdd-driven/agent.md")
-Read("harnesses/tdd-driven/skill.md")
-Read("harnesses/tdd-driven/contract.yaml")
+Read("{{PLUGIN_ROOT}}/agents/tdd-driven.md")
+Read("{{PLUGIN_ROOT}}/harnesses/tdd-driven/skill.md")
+Read("{{PLUGIN_ROOT}}/harnesses/tdd-driven/contract.yaml")
 ```
 
-Pass the content of `agent.md` and `skill.md` concatenated as the subagent's system prompt. The `contract.yaml` content informs your orchestration decisions (stopping criteria, cost budget, failure modes) but is not passed verbatim to the subagent.
+Pass the content of the agent file and `skill.md` concatenated as the subagent's system prompt. The `contract.yaml` content informs your orchestration decisions (stopping criteria, cost budget, failure modes) but is not passed verbatim to the subagent.
 
 ---
 
@@ -362,7 +367,7 @@ This ensures observability — the evolution manager can detect when tasks are b
 - **Subagents cannot spawn sub-subagents** — all fan-out (router, harness execution, evaluator, synthesizer) happens from the main context.
 - **Evidence collection is automatic** — the `collect-evidence.sh` hook captures Bash tool output from harness subagents. You read it after subagent completion, you do not collect it manually.
 - **Weights are in-memory during session** — maintain a simple dict of `{harness_name: adjusted_weight}` updates. Flush at session end via the Stop hook.
-- **Harness content changes apply next session** — if the evolution-manager proposes changes to `agent.md`/`skill.md`/`contract.yaml`, write them to the experimental pool. They load on next SessionStart.
+- **Harness content changes apply next session** — if the evolution-manager proposes changes to agent or workflow files, write them to the experimental pool. They load on next SessionStart.
 
 ---
 
@@ -379,4 +384,4 @@ Default stable pool (canonical trigger conditions in `agents/router.md`):
 - `ralplan-consensus` — Upfront planning with self-review (first step in chains for medium/high uncertainty)
 - `ralph-loop` — Persistent execution loop (iterates until acceptance criteria pass, max 10 iterations)
 
-Default protocol: `code-quality-standard` (unless `.meta-harness/config.yaml` specifies otherwise or task domain suggests a specialized protocol).
+Default protocol: `universal-standard` (unless `.meta-harness/config.yaml` specifies otherwise or task domain suggests a specialized protocol). The universal-standard protocol uses 6 task-agnostic dimensions — correctness, completeness, quality, robustness, clarity, verifiability — that apply to any task type.

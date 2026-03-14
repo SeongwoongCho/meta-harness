@@ -40,7 +40,7 @@ Read the specified file(s) to use as evaluation input. Accept glob patterns (e.g
 
 1. Check `.meta-harness/sessions/{session_id}/` for the most recent `eval-{timestamp}.json` to find the `bound_protocol`
 2. If no previous eval exists, read `.meta-harness/config.yaml` for `evaluation.default_protocol`
-3. If no config exists, use `code-quality-standard`
+3. If no config exists, use `universal-standard`
 
 ### Step 3: Collect Evidence
 
@@ -76,14 +76,12 @@ Protocol: {bound_protocol}
 Overall score: {score} ({PASS|FAIL})
 
 Dimension scores:
-  build_success:   {score}  — {brief_reasoning}
-  test_pass_rate:  {score}  — {brief_reasoning}
-  code_quality:    {score}  — {brief_reasoning}
+  correctness:     {score}  — {brief_reasoning}
+  completeness:    {score}  — {brief_reasoning}
+  quality:         {score}  — {brief_reasoning}
   robustness:      {score}  — {brief_reasoning}
-  maintainability: {score}  — {brief_reasoning}
-  security:        {score}  — {brief_reasoning}
-  readability:     {score}  — {brief_reasoning}
-  error_handling:  {score}  — {brief_reasoning}
+  clarity:         {score}  — {brief_reasoning}
+  verifiability:   {score}  — {brief_reasoning}
   {custom_dims...}
 
 Quality gate: {PASSED|FAILED — reason}

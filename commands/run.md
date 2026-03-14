@@ -7,6 +7,10 @@ argument-hint: "<task description> [--harness=name] [--no-ensemble] [--interview
 
 Explicitly invoke the meta-harness pipeline for a task. This command bypasses auto-mode and directly executes the full router → harness subagent → evaluator pipeline. Useful for testing harness selection, overriding auto-mode, or running a specific task with a known harness.
 
+## Plugin Root
+
+Read the plugin root path: `Read(".meta-harness/.plugin-root")`. Store as `{plugin_root}`. All plugin-internal paths use this prefix.
+
 ## Parsing Arguments
 
 Parse the command arguments:
@@ -53,7 +57,7 @@ task_description = f"{original_task}\n\nClarifications from user:\n{interview_an
 ### Step 1: Validate Harness Override (if --harness provided)
 
 If `--harness=name` was given:
-1. Check that `harnesses/{name}/` directory exists
+1. Read plugin root from `.meta-harness/.plugin-root`. Check that `{plugin_root}/harnesses/{name}/` directory exists
 2. If not found, list available harnesses and report error
 3. Skip the router agent entirely — use the specified harness directly
 
@@ -96,8 +100,8 @@ Follow the same execution protocol as `using-meta-harness-default` skill:
 
 **Single harness (ensemble_required = false):**
 ```
-Read("harnesses/{selected_harness}/agent.md")
-Read("harnesses/{selected_harness}/skill.md")
+Read("{plugin_root}/agents/{selected_harness}.md")
+Read("{plugin_root}/harnesses/{selected_harness}/skill.md")
 Task(
   subagent_type="meta-harness:{selected_harness}",
   prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}"

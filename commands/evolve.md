@@ -6,6 +6,10 @@ description: "Trigger harness evolution: analyze evaluation logs, propose change
 
 Trigger the harness evolution cycle. Reads evaluation history, spawns the evolution-manager agent to analyze performance patterns, and applies proposed modifications to the experimental harness pool. Promoted harnesses take effect next session.
 
+## Plugin Root
+
+Read the plugin root path: `Read(".meta-harness/.plugin-root")`. Store as `{plugin_root}`. All plugin-internal paths use this prefix.
+
 ## Execution Steps
 
 ### Step 1: Check Prerequisites
@@ -49,10 +53,10 @@ Build a summary per harness:
 
 For each harness with enough data (≥3 runs), read its current content:
 ```
-Read("harnesses/{name}/agent.md")
-Read("harnesses/{name}/skill.md")
-Read("harnesses/{name}/contract.yaml")
-Read("harnesses/{name}/metadata.json")
+Read("{plugin_root}/agents/{name}.md")
+Read("{plugin_root}/harnesses/{name}/skill.md")
+Read("{plugin_root}/harnesses/{name}/contract.yaml")
+Read("{plugin_root}/harnesses/{name}/metadata.json")
 ```
 
 ### Step 4: Spawn Evolution Manager Agent
@@ -101,16 +105,16 @@ For approved proposals:
 
 1. **Content modifications** — Write modified files to the experimental pool directory:
    ```
-   harnesses/{name}-experimental/agent.md
-   harnesses/{name}-experimental/skill.md
-   harnesses/{name}-experimental/contract.yaml
-   harnesses/{name}-experimental/metadata.json  ← set pool: "experimental"
+   {plugin_root}/harnesses/{name}-experimental/agent.md  (experimental harnesses keep agent.md locally)
+   {plugin_root}/harnesses/{name}-experimental/skill.md
+   {plugin_root}/harnesses/{name}-experimental/contract.yaml
+   {plugin_root}/harnesses/{name}-experimental/metadata.json  ← set pool: "experimental"
    ```
    Register in `.meta-harness/harness-pool.json` under `experimental`.
 
-2. **Promotions** — Update `harnesses/{name}/metadata.json` pool field to `"stable"`. Update `.meta-harness/harness-pool.json` atomically (write to `.tmp`, rename).
+2. **Promotions** — Update `{plugin_root}/harnesses/{name}/metadata.json` pool field to `"stable"`. Update `.meta-harness/harness-pool.json` atomically (write to `.tmp`, rename).
 
-3. **Demotions** — Update `harnesses/{name}/metadata.json` pool field to `"experimental"`. Log demotion event.
+3. **Demotions** — Update `{plugin_root}/harnesses/{name}/metadata.json` pool field to `"experimental"`. Log demotion event.
 
 ### Step 7: Report
 

@@ -12,6 +12,9 @@ STATE_DIR="$(state_dir)"
 # Generate a stable session ID and create directories
 SESSION_ID="${CLAUDE_SESSION_ID:-session-$(date +%s)-$$}"
 mkdir -p "${STATE_DIR}/sessions/${SESSION_ID}/evidence" 2>/dev/null || true
+
+# Write plugin root path so skills/agents can discover it at runtime
+printf '%s' "${PLUGIN_ROOT}" > "${STATE_DIR}/.plugin-root" 2>/dev/null || true
 mkdir -p "${STATE_DIR}/evaluation-logs" 2>/dev/null || true
 mkdir -p "${STATE_DIR}/evolution-proposals" 2>/dev/null || true
 printf '%s' "${SESSION_ID}" > "${STATE_DIR}/.current-session-id" 2>/dev/null || true
@@ -265,7 +268,8 @@ FALLBACK
   exit 0
 fi
 
-SKILL_CONTENT=$(cat "$SKILL_FILE")
+# Replace {{PLUGIN_ROOT}} placeholder in SKILL content with actual path
+SKILL_CONTENT=$(sed "s|{{PLUGIN_ROOT}}|${PLUGIN_ROOT}|g" "$SKILL_FILE")
 
 # Escape for JSON using bash parameter substitution (same pattern as superpowers)
 escape_for_json() {
