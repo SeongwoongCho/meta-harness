@@ -4,7 +4,9 @@
 set -euo pipefail
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-STATE_DIR="${PLUGIN_ROOT}/state"
+# Use git root if available, otherwise PWD
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+STATE_DIR="${PROJECT_ROOT}/.meta-harness"
 POOL_FILE="${STATE_DIR}/harness-pool.json"
 POOL_BAK="${STATE_DIR}/harness-pool.json.bak"
 POOL_TMP="${STATE_DIR}/harness-pool.json.tmp"

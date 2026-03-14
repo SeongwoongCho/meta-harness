@@ -102,7 +102,7 @@ trigger:
   blast_radius: [repo-wide]
 ```
 
-When multiple harnesses match, the router uses historical weights from `state/harness-pool.json` to break ties, preferring higher-weight harnesses.
+When multiple harnesses match, the router uses historical weights from `.meta-harness/harness-pool.json` to break ties, preferring higher-weight harnesses.
 
 ---
 

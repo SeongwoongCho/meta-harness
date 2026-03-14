@@ -84,7 +84,7 @@ When `ensemble_required` is true, also provide `ensemble_harnesses`: a list of 2
 </ensemble_rule>
 
 <harness_pool>
-These are the built-in harnesses and their optimal trigger conditions. Read `state/harness-pool.json` via the Read tool if it exists — it contains current weights and pool membership (stable vs experimental). Use weights as a tiebreaker when multiple harnesses match.
+These are the built-in harnesses and their optimal trigger conditions. Read `.meta-harness/harness-pool.json` via the Read tool if it exists — it contains current weights and pool membership (stable vs experimental). Use weights as a tiebreaker when multiple harnesses match.
 
 **tdd-driven**
 - Best for: bugfix, feature with clear test expectations
@@ -148,7 +148,7 @@ Follow this process:
 1. Classify the task along all 6 axes using careful reasoning
 2. Compute `ensemble_required` using the rule above
 3. Filter harnesses whose trigger conditions match the taxonomy
-4. If multiple harnesses match, use historical weights (from `state/harness-pool.json`) as tiebreaker; higher weight = more successful history
+4. If multiple harnesses match, use historical weights (from `.meta-harness/harness-pool.json`) as tiebreaker; higher weight = more successful history
 5. If no harness matches perfectly, select the closest match and explain the mismatch in `reasoning`
 6. Default to `tdd-driven` for ambiguous bugfix/feature tasks (conservative, well-tested approach)
 7. Bind the evaluation protocol
@@ -210,7 +210,7 @@ For trivial follow-up (fast-path):
 </output_format>
 
 <instructions>
-- Read `state/harness-pool.json` via the Read tool if it exists to get current weights. If the file does not exist, use default weight of 1.0 for all harnesses.
+- Read `.meta-harness/harness-pool.json` via the Read tool if it exists to get current weights. If the file does not exist, use default weight of 1.0 for all harnesses.
 - Read `.meta-harness/config.yaml` if it exists to incorporate project-specific protocol preferences.
 - Never use keyword matching alone. Always reason about the task's nature, complexity, and context.
 - `reasoning` must explain WHY this harness was chosen, not just what it does.

@@ -67,7 +67,7 @@ evaluates the result, and evolves its harness pool over time.
 │    - Overall weighted score                                     │
 │    - Quality gate pass/fail                                     │
 │    - Improvement suggestions                                    │
-│  Result written: state/sessions/{id}/eval-{timestamp}.json     │
+│  Result written: .meta-harness/sessions/{id}/eval-{timestamp}.json     │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
                            ▼
@@ -82,7 +82,7 @@ evaluates the result, and evolves its harness pool over time.
 │  NEXT-SESSION (on Stop hook):                                   │
 │    - session-end.sh merges in-memory weights → harness-pool.json│
 │    - Evolution Manager (if triggered) proposes content changes  │
-│    - Proposals written to state/evolution-proposals/           │
+│    - Proposals written to .meta-harness/evolution-proposals/           │
 │    - Applied to experimental pool; stable pool unchanged        │
 │                                                                 │
 │  PROMOTION:                                                     │
@@ -116,9 +116,9 @@ Claude Code Session
 ├─ PostToolUse (matcher: "Bash")
 │   └─ hooks/collect-evidence.sh
 │       Action: Capture Bash stdout/stderr → evidence JSON
-│       Output path: state/sessions/{session-id}/evidence/{timestamp}.json
+│       Output path: .meta-harness/sessions/{session-id}/evidence/{timestamp}.json
 │       Captures: build output, test results, lint results, exit codes
-│       Session ID: $CLAUDE_SESSION_ID or from state/.current-session-id
+│       Session ID: $CLAUDE_SESSION_ID or from .meta-harness/.current-session-id
 │
 ├─ SubagentStop (matcher: "*")
 │   └─ hooks/subagent-complete.sh
@@ -186,8 +186,8 @@ meta-harness sessions can run concurrently (multiple Claude Code windows). The s
 prevents corruption:
 
 ```
-Session A writes to:  state/sessions/session-A/
-Session B writes to:  state/sessions/session-B/
+Session A writes to:  .meta-harness/sessions/session-A/
+Session B writes to:  .meta-harness/sessions/session-B/
 
 On Stop hook:
   Session A runs session-end.sh:
@@ -208,7 +208,7 @@ other's, not corruption.
 
 ### State File Schema
 
-**`state/harness-pool.json`:**
+**`.meta-harness/harness-pool.json`:**
 ```json
 {
   "version": "1.0.0",
@@ -227,7 +227,7 @@ other's, not corruption.
 }
 ```
 
-**`state/sessions/{id}/eval-{timestamp}.json`:**
+**`.meta-harness/sessions/{id}/eval-{timestamp}.json`:**
 ```json
 {
   "session_id": "string",
@@ -257,7 +257,7 @@ On every read of `harness-pool.json`:
 3. If `.bak` also corrupt, re-initialize from built-in defaults (weights reset to 1.0)
 
 Weight loss from re-initialization is acceptable for v1. Evaluation logs in
-`state/evaluation-logs/` are the authoritative history and can be used to reconstruct
+`.meta-harness/evaluation-logs/` are the authoritative history and can be used to reconstruct
 weights if needed.
 
 ---
@@ -274,7 +274,7 @@ evolution-manager agent analyzes:
   - Comparison: this harness vs. alternatives on same task shapes
          │
          ▼
-Proposals written to: state/evolution-proposals/{id}.json
+Proposals written to: .meta-harness/evolution-proposals/{id}.json
   Each proposal contains:
   - Target harness name
   - Change type: modify_skill | modify_agent | modify_contract

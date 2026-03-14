@@ -15,10 +15,10 @@ You manage the meta-harness harness pool. Use this skill when the user asks abou
 
 ### List All Harnesses
 
-Read `state/harness-pool.json` and display all harnesses with their pool status and performance stats:
+Read `.meta-harness/harness-pool.json` and display all harnesses with their pool status and performance stats:
 
 ```
-Read("state/harness-pool.json")
+Read(".meta-harness/harness-pool.json")
 ```
 
 Display format:
@@ -36,7 +36,7 @@ EXPERIMENTAL POOL
   (none)
 ```
 
-If `state/harness-pool.json` does not exist, report that no state has been initialized and suggest running `/meta-harness-init`.
+If `.meta-harness/harness-pool.json` does not exist, report that no state has been initialized and suggest running `/meta-harness-init`.
 
 ### Inspect a Specific Harness
 
@@ -54,32 +54,32 @@ Present in a structured format showing trigger conditions, tool policy, stopping
 
 When user says "promote {harness-name}" or when queried about a harness meeting promotion criteria:
 
-1. Read `state/harness-pool.json`
+1. Read `.meta-harness/harness-pool.json`
 2. Check the harness's `consecutive_successes` count (requires ≥5 by default, configurable in `.meta-harness/config.yaml` under `evolution_settings.promotion_threshold`)
 3. If criteria met:
    - Update `harnesses/{name}/metadata.json`: set `"pool": "stable"`
-   - Update `state/harness-pool.json`: move entry from `experimental` to `stable`
-   - Write atomically: write to `state/harness-pool.json.tmp` then rename to `state/harness-pool.json`
-   - Create backup `state/harness-pool.json.bak` before writing
+   - Update `.meta-harness/harness-pool.json`: move entry from `experimental` to `stable`
+   - Write atomically: write to `.meta-harness/harness-pool.json.tmp` then rename to `.meta-harness/harness-pool.json`
+   - Create backup `.meta-harness/harness-pool.json.bak` before writing
 4. Report: "Promoted {name} from experimental to stable pool. Consecutive successes: N."
 
 ### Demote Stable → Experimental
 
 When user says "demote {harness-name}" or when a harness performance drops below threshold:
 
-1. Check the harness's recent performance (last 10 runs from evaluation logs in `state/evaluation-logs/{harness-name}/`)
+1. Check the harness's recent performance (last 10 runs from evaluation logs in `.meta-harness/evaluation-logs/{harness-name}/`)
 2. If performance below threshold (default: score < 0.5 for 3+ consecutive runs):
    - Update `harnesses/{name}/metadata.json`: set `"pool": "experimental"`
-   - Update `state/harness-pool.json`: move entry from `stable` to `experimental`
+   - Update `.meta-harness/harness-pool.json`: move entry from `stable` to `experimental`
    - Write atomically (same pattern as promote)
-   - Record demotion event in `state/evaluation-logs/{name}/demotion-{timestamp}.json`
+   - Record demotion event in `.meta-harness/evaluation-logs/{name}/demotion-{timestamp}.json`
 3. Report: "Demoted {name} to experimental pool. Recent scores: [0.42, 0.38, 0.41]."
 
 ### Check Promotion Eligibility
 
 When user asks "which harnesses are ready for promotion":
 
-1. Read `state/harness-pool.json`
+1. Read `.meta-harness/harness-pool.json`
 2. For each experimental harness, check `consecutive_successes` against threshold
 3. List eligible harnesses and their stats
 4. Suggest running promotion for eligible ones
@@ -88,7 +88,7 @@ When user asks "which harnesses are ready for promotion":
 
 ## Pool State Schema
 
-`state/harness-pool.json` structure:
+`.meta-harness/harness-pool.json` structure:
 ```json
 {
   "version": "1.0",
@@ -120,13 +120,13 @@ When user asks "which harnesses are ready for promotion":
 
 ## Atomic Write Pattern
 
-Always use atomic writes when modifying `state/harness-pool.json`:
+Always use atomic writes when modifying `.meta-harness/harness-pool.json`:
 
 ```bash
 # Write to temp, then atomically rename
-cp state/harness-pool.json state/harness-pool.json.bak
-# Write new content to state/harness-pool.json.tmp
-# Then: mv state/harness-pool.json.tmp state/harness-pool.json
+cp .meta-harness/harness-pool.json .meta-harness/harness-pool.json.bak
+# Write new content to .meta-harness/harness-pool.json.tmp
+# Then: mv .meta-harness/harness-pool.json.tmp .meta-harness/harness-pool.json
 ```
 
 Use a Bash tool call for the atomic rename step.

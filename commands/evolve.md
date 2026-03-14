@@ -12,8 +12,8 @@ Trigger the harness evolution cycle. Reads evaluation history, spawns the evolut
 
 Read evaluation history:
 ```
-Glob("state/sessions/*/eval-*.json")
-Glob("state/evaluation-logs/**/*.json")
+Glob(".meta-harness/sessions/*/eval-*.json")
+Glob(".meta-harness/evaluation-logs/**/*.json")
 ```
 
 If fewer than 5 evaluation files found:
@@ -60,7 +60,7 @@ Read("harnesses/{name}/metadata.json")
 ```
 Task(
   subagent_type="meta-harness:evolution-manager",
-  prompt="Analyze harness performance and propose improvements.\n\nEvaluation summary:\n{aggregated_summary}\n\nCurrent harness files:\n{harness_file_contents}\n\nFor each underperforming harness, propose concrete modifications to agent.md, skill.md, or contract.yaml.\nWrite proposals to state/evolution-proposals/{proposal-id}.json.\nAlso recommend promotion/demotion actions based on consecutive_successes/failures.\n\nRead .meta-harness/config.yaml for evolution thresholds."
+  prompt="Analyze harness performance and propose improvements.\n\nEvaluation summary:\n{aggregated_summary}\n\nCurrent harness files:\n{harness_file_contents}\n\nFor each underperforming harness, propose concrete modifications to agent.md, skill.md, or contract.yaml.\nWrite proposals to .meta-harness/evolution-proposals/{proposal-id}.json.\nAlso recommend promotion/demotion actions based on consecutive_successes/failures.\n\nRead .meta-harness/config.yaml for evolution thresholds."
 )
 ```
 
@@ -68,7 +68,7 @@ Task(
 
 After the evolution manager completes, read all new proposals:
 ```
-Glob("state/evolution-proposals/*.json")
+Glob(".meta-harness/evolution-proposals/*.json")
 ```
 
 Display each proposal to the user:
@@ -90,7 +90,7 @@ AskUserQuestion(
   options=[
     "Apply all to experimental pool",
     "Review each individually",
-    "Skip — I'll review the proposals manually in state/evolution-proposals/"
+    "Skip — I'll review the proposals manually in .meta-harness/evolution-proposals/"
   ]
 )
 ```
@@ -106,9 +106,9 @@ For approved proposals:
    harnesses/{name}-experimental/contract.yaml
    harnesses/{name}-experimental/metadata.json  ← set pool: "experimental"
    ```
-   Register in `state/harness-pool.json` under `experimental`.
+   Register in `.meta-harness/harness-pool.json` under `experimental`.
 
-2. **Promotions** — Update `harnesses/{name}/metadata.json` pool field to `"stable"`. Update `state/harness-pool.json` atomically (write to `.tmp`, rename).
+2. **Promotions** — Update `harnesses/{name}/metadata.json` pool field to `"stable"`. Update `.meta-harness/harness-pool.json` atomically (write to `.tmp`, rename).
 
 3. **Demotions** — Update `harnesses/{name}/metadata.json` pool field to `"experimental"`. Log demotion event.
 
@@ -137,4 +137,4 @@ To manually promote experimental harnesses: /harness-registry promote {name}
 - All content modifications go to the **experimental** pool first. They never directly overwrite stable harnesses.
 - Promotion to stable requires `consecutive_successes ≥ threshold` (configurable in `.meta-harness/config.yaml`).
 - Previous harness versions are preserved in git history. To roll back a harness: `git checkout HEAD~1 -- harnesses/{name}/`.
-- Evolution proposals in `state/evolution-proposals/` are never auto-deleted. Review them with a text editor anytime.
+- Evolution proposals in `.meta-harness/evolution-proposals/` are never auto-deleted. Review them with a text editor anytime.

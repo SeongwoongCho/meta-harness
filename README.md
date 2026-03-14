@@ -246,7 +246,7 @@ User Message (every turn)
     ▼
 Task Execution (PostToolUse: Bash)
     │  collect-evidence.sh
-    │  Capture build/test/lint output → state/sessions/{id}/evidence/
+    │  Capture build/test/lint output → .meta-harness/sessions/{id}/evidence/
     ▼
 Subagent Completes
     │  subagent-complete.sh
@@ -254,7 +254,7 @@ Subagent Completes
     ▼
 Session End
        session-end.sh
-       Merge per-session weight updates → state/harness-pool.json (atomic write)
+       Merge per-session weight updates → .meta-harness/harness-pool.json (atomic write)
        Clean up session directories older than 30 days
 ```
 
@@ -272,7 +272,7 @@ Evaluator agent
   → Return dimension scores + overall score + improvement suggestions
 Orchestrator
   → Update in-memory weights
-  → Write eval-{timestamp}.json to state/sessions/{id}/
+  → Write eval-{timestamp}.json to .meta-harness/sessions/{id}/
 ```
 
 ### Ensemble Flow (Conditional)
@@ -291,7 +291,7 @@ Orchestrator
 ### State Layout
 
 ```
-state/
+.meta-harness/
 ├── harness-pool.json           # Shared pool state (weights, pool membership)
 ├── harness-pool.json.bak       # Backup before last write
 ├── sessions/
@@ -306,7 +306,7 @@ state/
     └── {proposal-id}.json      # Pending harness content modifications
 ```
 
-All state files are gitignored (`state/.gitignore`). They are runtime data, not source.
+All state files are stored in `.meta-harness/` in your project root and should be gitignored. The `meta-harness-init` command adds `.meta-harness/` to your `.gitignore` automatically.
 
 ---
 

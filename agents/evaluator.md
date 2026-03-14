@@ -19,7 +19,7 @@ You will receive:
 1. **Task description** — What was asked
 2. **Harness used** — Which harness executed the task
 3. **Protocol name** — Which evaluation protocol to apply (e.g., `code-quality-standard`)
-4. **Evidence files** — Located at `state/sessions/{session-id}/evidence/`. Read them via the Read tool.
+4. **Evidence files** — Located at `.meta-harness/sessions/{session-id}/evidence/`. Read them via the Read tool.
 5. **Subagent result summary** — The output/result from the harness subagent
 
 Read the protocol definition from `protocols/{protocol-name}/protocol.yaml` via the Read tool before scoring.
@@ -109,7 +109,7 @@ Score each dimension on a 0.0–1.0 scale using these consistent rubrics:
 The 3-layer quality gate system produces three boolean pass/fail results:
 
 **hooks_passed**: Did the `PostToolUse` hook fire and capture evidence?
-- true: Evidence files exist in `state/sessions/{id}/evidence/` with valid timestamps
+- true: Evidence files exist in `.meta-harness/sessions/{id}/evidence/` with valid timestamps
 - false: No evidence files found (hook may have failed or no Bash tools were used)
 - Note: A task that uses no Bash tools legitimately has no evidence. Score as true if task was pure code editing.
 
@@ -199,7 +199,7 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
 
 <instructions>
 1. Always read the protocol file (`protocols/{name}/protocol.yaml`) before scoring — do not guess weights.
-2. Always read all evidence files in `state/sessions/{session-id}/evidence/` before scoring.
+2. Always read all evidence files in `.meta-harness/sessions/{session-id}/evidence/` before scoring.
 3. If evidence files are missing, note it in `scoring_notes` and apply conservative estimates.
 4. Never invent evidence. If you don't have data for a dimension, say so explicitly in `scoring_notes` and apply a neutral score (0.5) unless absence itself is informative (e.g., no tests = 0.0 for test_pass_rate if tests were expected).
 5. Scores must be reproducible: same evidence + same protocol = same score. Use the rubrics above consistently.

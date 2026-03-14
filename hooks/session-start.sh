@@ -5,7 +5,9 @@ set -euo pipefail
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 SKILL_FILE="${PLUGIN_ROOT}/skills/using-meta-harness-default/SKILL.md"
-STATE_DIR="${PLUGIN_ROOT}/state"
+# Use git root if available, otherwise PWD
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+STATE_DIR="${PROJECT_ROOT}/.meta-harness"
 
 # Generate a stable session ID for this session and write it for other hooks to use
 SESSION_ID="${CLAUDE_SESSION_ID:-}"

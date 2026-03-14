@@ -11,11 +11,11 @@ Display the current state of the meta-harness pool including harness performance
 ### Step 1: Read Pool State
 
 ```
-Read("state/harness-pool.json")
+Read(".meta-harness/harness-pool.json")
 Read(".meta-harness/config.yaml")
 ```
 
-If `state/harness-pool.json` does not exist:
+If `.meta-harness/harness-pool.json` does not exist:
 ```
 meta-harness has not been initialized for this project.
 Run /meta-harness-init to set up the harness pool.
@@ -23,16 +23,16 @@ Run /meta-harness-init to set up the harness pool.
 
 ### Step 2: Read Recent Evaluation Logs
 
-Scan `state/sessions/` for the most recent 10 evaluation files across all sessions:
+Scan `.meta-harness/sessions/` for the most recent 10 evaluation files across all sessions:
 ```
-Glob("state/sessions/*/eval-*.json")
+Glob(".meta-harness/sessions/*/eval-*.json")
 ```
 
 Read each and extract: harness name, overall score, timestamp, quality gate pass/fail.
 
 Also check for pending evolution proposals:
 ```
-Glob("state/evolution-proposals/*.json")
+Glob(".meta-harness/evolution-proposals/*.json")
 ```
 
 ### Step 3: Display Status

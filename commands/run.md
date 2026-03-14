@@ -37,7 +37,7 @@ Spawn the router agent with the task description:
 ```
 Task(
   subagent_type="meta-harness:router",
-  prompt="Classify this task and select the optimal harness.\n\nTask: {task_description}\n\nRead state/harness-pool.json for current pool weights."
+  prompt="Classify this task and select the optimal harness.\n\nTask: {task_description}\n\nRead .meta-harness/harness-pool.json for current pool weights."
 )
 ```
 
@@ -83,7 +83,7 @@ Spawn all ensemble harnesses in parallel, then spawn synthesizer.
 ### Step 5: Evaluate Results
 
 After subagent completion:
-1. Read evidence from `state/sessions/{session_id}/evidence/`
+1. Read evidence from `.meta-harness/sessions/{session_id}/evidence/`
 2. Spawn evaluator agent with results + bound protocol
 3. Display evaluation scores
 
@@ -106,5 +106,5 @@ Dimension scores:
 
 {improvement_suggestions if score < 0.8}
 
-Evaluation written to: state/sessions/{session_id}/eval-{timestamp}.json
+Evaluation written to: .meta-harness/sessions/{session_id}/eval-{timestamp}.json
 ```

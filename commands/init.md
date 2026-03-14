@@ -141,16 +141,21 @@ evolution:
   target_pool: "experimental"           # evolved harnesses go to experimental first
 ```
 
-Also create `state/` directory structure if it doesn't exist:
+Also create `.meta-harness/` directory structure if it doesn't exist:
 
 ```bash
-mkdir -p .meta-harness
-mkdir -p state/sessions
-mkdir -p state/evaluation-logs
-mkdir -p state/evolution-proposals
+mkdir -p .meta-harness/sessions
+mkdir -p .meta-harness/evaluation-logs
+mkdir -p .meta-harness/evolution-proposals
 ```
 
-Initialize `state/harness-pool.json` from built-in harness defaults if it doesn't exist:
+Also suggest adding `.meta-harness/` to the project's `.gitignore`:
+
+```bash
+grep -qxF '.meta-harness/' .gitignore 2>/dev/null || echo '.meta-harness/' >> .gitignore
+```
+
+Initialize `.meta-harness/harness-pool.json` from built-in harness defaults if it doesn't exist:
 
 ```json
 {
@@ -176,7 +181,7 @@ Report:
 meta-harness initialized for {domain} project.
 
 Config written to: .meta-harness/config.yaml
-Pool state initialized: state/harness-pool.json (7 stable harnesses)
+Pool state initialized: .meta-harness/harness-pool.json (7 stable harnesses)
 Default protocol: {protocol}
 Ensemble mode: {mode}
 Evolution: {enabled/disabled} ({threshold} consecutive successes for promotion)

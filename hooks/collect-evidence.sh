@@ -4,7 +4,9 @@
 set -euo pipefail
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-STATE_DIR="${PLUGIN_ROOT}/state"
+# Use git root if available, otherwise PWD
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+STATE_DIR="${PROJECT_ROOT}/.meta-harness"
 
 # Resolve session ID: env var takes priority, then fallback to file
 SESSION_ID="${CLAUDE_SESSION_ID:-}"

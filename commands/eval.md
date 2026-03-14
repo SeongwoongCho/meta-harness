@@ -20,8 +20,8 @@ Manually trigger evaluation of a task result. Use this to re-evaluate the last c
 **If `--last` or no argument:**
 
 Find the most recent evaluation context in this session:
-1. Check `state/sessions/{session_id}/` for the latest evidence files
-2. Read `state/sessions/{session_id}/evidence/` — sort by timestamp, take most recent
+1. Check `.meta-harness/sessions/{session_id}/` for the latest evidence files
+2. Read `.meta-harness/sessions/{session_id}/evidence/` — sort by timestamp, take most recent
 3. If no evidence files exist, check if the last conversation turn produced code changes
 
 If no evaluation context found:
@@ -38,16 +38,16 @@ Read the specified file(s) to use as evaluation input. Accept glob patterns (e.g
 
 ### Step 2: Determine Evaluation Protocol
 
-1. Check `state/sessions/{session_id}/` for the most recent `eval-{timestamp}.json` to find the `bound_protocol`
+1. Check `.meta-harness/sessions/{session_id}/` for the most recent `eval-{timestamp}.json` to find the `bound_protocol`
 2. If no previous eval exists, read `.meta-harness/config.yaml` for `evaluation.default_protocol`
 3. If no config exists, use `code-quality-standard`
 
 ### Step 3: Collect Evidence
 
-Read all evidence files from `state/sessions/{session_id}/evidence/` sorted by timestamp:
+Read all evidence files from `.meta-harness/sessions/{session_id}/evidence/` sorted by timestamp:
 
 ```
-Read("state/sessions/{session_id}/evidence/")
+Read(".meta-harness/sessions/{session_id}/evidence/")
 ```
 
 Also collect any git diff if available:
@@ -92,4 +92,4 @@ Suggestions:
   {improvement_suggestions}
 ```
 
-Write result to `state/sessions/{session_id}/eval-{timestamp}.json`.
+Write result to `.meta-harness/sessions/{session_id}/eval-{timestamp}.json`.

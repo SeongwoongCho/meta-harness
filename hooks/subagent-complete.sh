@@ -5,7 +5,9 @@
 set -euo pipefail
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-STATE_DIR="${PLUGIN_ROOT}/state"
+# Use git root if available, otherwise PWD
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+STATE_DIR="${PROJECT_ROOT}/.meta-harness"
 
 # Resolve session ID
 SESSION_ID="${CLAUDE_SESSION_ID:-}"
@@ -45,6 +47,6 @@ EOF
 fi
 
 # Output additionalContext reminding the orchestrator to check for harness completion
-REMINDER="[meta-harness] A subagent just completed. If this was a harness subagent executing a task, follow the using-meta-harness-default skill: read evidence from state/sessions/${SESSION_ID}/evidence/, spawn the evaluator agent, and record the evaluation result."
+REMINDER="[meta-harness] A subagent just completed. If this was a harness subagent executing a task, follow the using-meta-harness-default skill: read evidence from .meta-harness/sessions/${SESSION_ID}/evidence/, spawn the evaluator agent, and record the evaluation result."
 
 printf '{"hookSpecificOutput":{"additionalContext":"%s"}}\n' "$REMINDER"
