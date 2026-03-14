@@ -8,11 +8,12 @@ Display the current state of the meta-harness pool including harness performance
 
 ## Execution Steps
 
-### Step 1: Read Pool State
+### Step 1: Read Pool State and Pipeline Mode
 
 ```
 Read(".meta-harness/harness-pool.json")
 Read(".meta-harness/config.yaml")
+Bash("cat .meta-harness/.pipeline-mode 2>/dev/null || echo 'off'")
 ```
 
 If `.meta-harness/harness-pool.json` does not exist:
@@ -43,6 +44,7 @@ Format and display the full status report:
 ═══════════════════════════════════════════════
   META-HARNESS STATUS
   Project: {domain} | Protocol: {default_protocol}
+  Pipeline mode: {auto|run|off}
   Pool initialized: {initialized_at}
 ═══════════════════════════════════════════════
 
@@ -76,9 +78,18 @@ EVOLUTION PROPOSALS
 CONFIGURATION
   Domain:              {domain}
   Default protocol:    {default_protocol}
+  Pipeline mode:       {auto|run|off}
   Ensemble mode:       {auto|always|never}
   Evolution:           {enabled (threshold: N successes) | disabled}
   Config file:         .meta-harness/config.yaml
+
+PIPELINE MODE INFO
+  auto  — All tasks auto-routed (using-meta-harness-default active)
+  run   — One-shot /meta-harness:run in progress
+  off   — No auto-routing (use /meta-harness:run for explicit runs)
+
+  Toggle: printf 'auto' > .meta-harness/.pipeline-mode   (enable)
+          rm -f .meta-harness/.pipeline-mode              (disable)
 ```
 
 ### Step 4: Highlight Actionable Items

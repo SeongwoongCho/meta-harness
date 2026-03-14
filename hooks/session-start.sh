@@ -255,21 +255,18 @@ if applied:
 APPLY_PROPOSALS
 fi
 
-# Read SKILL.md — exit cleanly if not found
-if [ ! -f "$SKILL_FILE" ]; then
-  cat <<'FALLBACK'
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SessionStart",
-    "additionalContext": "[meta-harness] Plugin loaded but SKILL.md not found."
-  }
-}
-FALLBACK
-  exit 0
-fi
+# --- Pipeline mode check ---
+# Only inject full SKILL.md (auto-mode) if .pipeline-mode is "auto".
+# Otherwise, inject a lightweight message indicating meta-harness is available but not auto-routing.
+PIPELINE_MODE=""
+MODE_FILE="${STATE_DIR}/.pipeline-mode"
+[ -f "$MODE_FILE" ] && PIPELINE_MODE=$(cat "$MODE_FILE" 2>/dev/null)
 
-# Replace {{PLUGIN_ROOT}} placeholder in SKILL content with actual path
-SKILL_CONTENT=$(sed "s|{{PLUGIN_ROOT}}|${PLUGIN_ROOT}|g" "$SKILL_FILE")
+# Also clear stale "run" mode on session start (run is one-shot, shouldn't persist across sessions)
+if [ "$PIPELINE_MODE" = "run" ]; then
+  rm -f "$MODE_FILE"
+  PIPELINE_MODE=""
+fi
 
 # Escape for JSON using bash parameter substitution (same pattern as superpowers)
 escape_for_json() {
@@ -282,9 +279,24 @@ escape_for_json() {
     printf '%s' "$s"
 }
 
-ESCAPED=$(escape_for_json "$SKILL_CONTENT")
+if [ "$PIPELINE_MODE" = "auto" ]; then
+  # Auto-mode: inject full SKILL.md for pipeline orchestration
+  if [ ! -f "$SKILL_FILE" ]; then
+    cat <<'FALLBACK'
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "[meta-harness] Auto-mode enabled but SKILL.md not found."
+  }
+}
+FALLBACK
+    exit 0
+  fi
 
-cat <<EOF
+  SKILL_CONTENT=$(sed "s|{{PLUGIN_ROOT}}|${PLUGIN_ROOT}|g" "$SKILL_FILE")
+  ESCAPED=$(escape_for_json "$SKILL_CONTENT")
+
+  cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
@@ -292,5 +304,16 @@ cat <<EOF
   }
 }
 EOF
+else
+  # No auto-mode: lightweight message, meta-harness available on demand
+  cat <<'EOF'
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "[meta-harness] Plugin loaded. Auto-mode is OFF. Use /meta-harness:run <task> for one-shot pipeline execution, or enable auto-mode with: printf 'auto' > .meta-harness/.pipeline-mode"
+  }
+}
+EOF
+fi
 
 exit 0

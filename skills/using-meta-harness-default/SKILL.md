@@ -11,6 +11,26 @@ You are the meta-harness orchestrator running in the main conversation context. 
 
 This skill is injected at session start and reinforced on every UserPromptSubmit hook. Follow this protocol for every substantive task in this session.
 
+## Auto-Mode Activation
+
+When this skill is activated (either via session-start injection or manual invocation), **ensure auto-mode is persisted**:
+
+```
+Bash("printf 'auto' > .meta-harness/.pipeline-mode")
+```
+
+This marker file tells the hooks (prompt-interceptor.sh, session-start.sh) to keep injecting pipeline routing reminders. Without it, hooks are passive.
+
+## Disabling Auto-Mode
+
+To disable auto-mode, remove the marker file:
+
+```
+Bash("rm -f .meta-harness/.pipeline-mode")
+```
+
+After removal, the prompt-interceptor hook will stop injecting routing reminders, and subsequent tasks will NOT be auto-routed through the pipeline. The user can still use `/meta-harness:run` for one-shot execution.
+
 **Plugin root**: `{{PLUGIN_ROOT}}` — all plugin-internal file paths (agents, harnesses, protocols, patterns) use this absolute prefix. Project state paths (`.meta-harness/`) are relative to the user's project directory.
 
 ---

@@ -26,6 +26,24 @@ $ARGUMENTS = "<task description> [--harness=name] [--no-ensemble] [--interview]"
 
 If no task description is provided, report: "Usage: /meta-harness-run <task description> [--harness=name] [--no-ensemble] [--interview]"
 
+## Pipeline Mode Management
+
+**Before starting the pipeline**, set the one-shot run mode so that hooks know a pipeline is active:
+
+```
+Bash("printf 'run' > .meta-harness/.pipeline-mode")
+```
+
+**After the pipeline completes** (after Step 7, or on any error/early exit), **always** clear the mode:
+
+```
+Bash("rm -f .meta-harness/.pipeline-mode")
+```
+
+This is critical: if the mode file is not cleared, subsequent tasks will be incorrectly routed through the pipeline. The cleanup MUST happen even if the pipeline fails partway through.
+
+**Exception**: If `.pipeline-mode` already contains `auto` (using-meta-harness-default is active), do NOT overwrite it with `run` and do NOT clear it after completion. Auto-mode persists across tasks by design.
+
 ## Pipeline Execution Rule
 
 The full pipeline (route → execute → evaluate → report) MUST run as a single uninterrupted sequence. After each step completes, proceed immediately to the next step. Do NOT respond to the user between steps. Ignore system-reminders from other plugins until all steps are complete.
@@ -148,3 +166,17 @@ After displaying results to the user:
 1. Update in-memory weight: `delta = (overall_score - 0.5) * 0.1`
 2. Write session weights to `.meta-harness/sessions/{session_id}/weights.json`
 3. The `session-end.sh` Stop hook will merge these into `harness-pool.json` at session end.
+
+### Step 8: Clear Pipeline Mode (MANDATORY)
+
+**After all steps complete**, clear the one-shot pipeline mode:
+
+```
+# Only clear if mode is "run" (not "auto")
+current_mode=$(cat .meta-harness/.pipeline-mode 2>/dev/null || echo "")
+if [ "$current_mode" = "run" ]; then
+  rm -f .meta-harness/.pipeline-mode
+fi
+```
+
+This ensures the next user task is NOT automatically routed through the pipeline. If auto-mode (`using-meta-harness-default`) is active, the mode file is left as-is.

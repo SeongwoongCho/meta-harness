@@ -136,4 +136,15 @@ if [ -f "${STATE_DIR}/.current-session-id" ]; then
   rm -f "${STATE_DIR}/.current-session-id"
 fi
 
+# --- Clean up stale "run" mode (safety net) ---
+# If pipeline mode is "run" at session end, the orchestrator failed to clean up.
+# Clear it so the next session starts clean. "auto" mode is intentionally persistent.
+MODE_FILE="${STATE_DIR}/.pipeline-mode"
+if [ -f "$MODE_FILE" ]; then
+  CURRENT_MODE=$(cat "$MODE_FILE" 2>/dev/null)
+  if [ "$CURRENT_MODE" = "run" ]; then
+    rm -f "$MODE_FILE"
+  fi
+fi
+
 exit 0
