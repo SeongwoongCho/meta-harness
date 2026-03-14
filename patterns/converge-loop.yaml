@@ -1,0 +1,45 @@
+name: converge-loop
+category: iterative
+description: >
+  Repeat an implement-verify cycle until acceptance criteria are met or
+  iteration budget is exhausted. Each iteration diagnoses why the previous
+  attempt failed and adapts strategy before retrying.
+
+structure:
+  phases:
+    - name: understand
+      description: "Read task, define acceptance criteria"
+    - name: implement
+      description: "Attempt a solution"
+    - name: verify
+      description: "Check against acceptance criteria"
+    - name: diagnose
+      description: "If verify failed: identify why, adapt strategy"
+    - name: iterate
+      description: "Return to implement with adapted strategy (max N iterations)"
+  control_flow: "understand → [loop: implement → verify → branch(pass→done, fail→diagnose→implement), max:N]"
+
+strengths:
+  - Handles tasks where first attempt is unlikely to succeed
+  - Self-correcting — each iteration learns from previous failure
+  - Bounded — max iterations prevent infinite loops
+  - Adapts strategy rather than repeating same approach
+
+weaknesses:
+  - Expensive (N subagent spawns in monolithic form, N*3+ in atomic form)
+  - Diagnosis quality depends on model capability
+  - May oscillate between two bad strategies without converging
+  - Not suitable for tasks with no clear acceptance criteria
+
+failure_signatures:
+  - "Harness selected repeatedly for same task profile, each run scores < 0.65 but improves slightly"
+  - "Task succeeds on manual retry after initial failure — suggests iteration would have helped"
+  - "Stopping criteria exhausted without convergence — but partial progress was made each iteration"
+  - "evaluation.improvement_suggestions repeatedly say 'tests still failing' across sessions"
+
+best_for:
+  uncertainty: [medium, high]
+  task_types: [bugfix, feature]
+  verifiability: [easy, moderate]
+
+existing_harness: ralph-loop

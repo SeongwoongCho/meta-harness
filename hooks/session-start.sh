@@ -124,6 +124,75 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
         proposal["status"] = "applied"
         applied.append(pf)
 
+    # --- Harness genesis: Create new harness from proposal ---
+    elif ptype == "new_harness" and exp_path:
+        dst_harness = os.path.join(os.path.dirname(harnesses_dir), exp_path) if not os.path.isabs(exp_path) else exp_path
+        if not os.path.isabs(dst_harness):
+            dst_harness = os.path.join(os.path.dirname(harnesses_dir), exp_path)
+
+        if not os.path.exists(dst_harness):
+            os.makedirs(dst_harness, exist_ok=True)
+            proposed = proposal.get("proposed_harness", {})
+
+            # Write agent.md
+            agent_content = proposed.get("agent_md", "")
+            if agent_content:
+                name = proposed.get("name", harness)
+                desc = proposed.get("description", "")
+                model = proposed.get("model", "claude-sonnet-4-6")
+                header = f"---\nname: {name}\ndescription: \"{desc}\"\nmodel: {model}\n---\n\n"
+                with open(os.path.join(dst_harness, "agent.md"), 'w') as f:
+                    f.write(header + agent_content)
+
+            # Write skill.md
+            skill_content = proposed.get("skill_md", "")
+            if skill_content:
+                with open(os.path.join(dst_harness, "skill.md"), 'w') as f:
+                    f.write(skill_content)
+
+            # Write contract.yaml
+            contract = proposed.get("contract_yaml", {})
+            if contract:
+                import yaml
+                contract_full = {
+                    "name": proposed.get("name", harness),
+                    "version": "1.0.0",
+                    "pool": "experimental",
+                    **contract
+                }
+                try:
+                    with open(os.path.join(dst_harness, "contract.yaml"), 'w') as f:
+                        yaml.dump(contract_full, f, default_flow_style=False, allow_unicode=True)
+                except ImportError:
+                    # Fallback: write as simple text if yaml not available
+                    with open(os.path.join(dst_harness, "contract.yaml"), 'w') as f:
+                        f.write(json.dumps(contract_full, indent=2))
+
+            # Write metadata.json
+            with open(os.path.join(dst_harness, "metadata.json"), 'w') as f:
+                json.dump({
+                    "name": proposed.get("name", harness),
+                    "version": "1.0.0",
+                    "pool": "experimental",
+                    "source_harnesses": proposal.get("evidence", {}).get("source_harnesses", []),
+                    "created_by": "evolution-manager",
+                    "created_at": proposal.get("created_at", "")
+                }, f, indent=2)
+
+        # Register in experimental pool
+        exp_name = proposed.get("name", harness) if "proposed_harness" in proposal else os.path.basename(dst_harness.rstrip("/"))
+        if exp_name and "experimental" in pool:
+            pool["experimental"][exp_name] = {
+                "weight": 1.0, "total_runs": 0, "successes": 0,
+                "failures": 0, "consecutive_successes": 0,
+                "base_harness": None,
+                "genesis": True,
+                "source_harnesses": proposal.get("evidence", {}).get("source_harnesses", [])
+            }
+
+        proposal["status"] = "applied"
+        applied.append(pf)
+
     # --- Fix 6: Execute promotion proposals ---
     elif ptype == "promotion":
         exp_dir = os.path.join(harnesses_dir, "experimental", harness)

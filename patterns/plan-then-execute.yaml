@@ -1,0 +1,44 @@
+name: plan-then-execute
+category: deliberative
+description: >
+  Create a detailed implementation plan before writing any code. The plan
+  includes alternatives considered, risks identified, and assumptions
+  challenged via self-review. Execution follows the plan.
+
+structure:
+  phases:
+    - name: analyze
+      description: "Understand requirements, identify ambiguities"
+    - name: explore
+      description: "Read codebase to understand context and constraints"
+    - name: plan
+      description: "Write numbered implementation steps"
+    - name: challenge
+      description: "Self-review: attack your own plan's assumptions"
+    - name: handoff
+      description: "Output structured plan for downstream execution"
+  control_flow: "analyze → explore → plan → challenge → revise → handoff"
+
+strengths:
+  - Prevents premature implementation
+  - Surfaces risks before they become expensive failures
+  - Self-review catches blind spots
+  - Plan serves as documentation
+
+weaknesses:
+  - Planning overhead is wasted on simple tasks
+  - Plan quality degrades for very novel problems (nothing to base plan on)
+  - No implementation — must be chained with an execution harness
+  - Plans can become stale if execution diverges
+
+failure_signatures:
+  - "Tasks fail during execution despite planning — plan was too abstract or missed key constraint"
+  - "Simple tasks take too long — planning overhead was unnecessary"
+  - "Plan is good but execution diverges — no feedback loop between plan and implementation"
+
+best_for:
+  uncertainty: [medium, high]
+  task_types: [feature, refactor, migration]
+  blast_radius: [cross-module, repo-wide]
+
+existing_harness: ralplan-consensus

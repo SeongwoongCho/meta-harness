@@ -1,0 +1,46 @@
+name: hypothesis-cycle
+category: scientific
+description: >
+  Establish a baseline measurement, then iterate through hypothesis-driven
+  experiments. Each cycle changes exactly one variable and measures the
+  outcome against baseline. Negative results are documented as evidence.
+
+structure:
+  phases:
+    - name: frame
+      description: "Define research question and primary metric"
+    - name: baseline
+      description: "Measure current state (3x for stability)"
+    - name: hypothesize
+      description: "State prediction with expected direction and magnitude"
+    - name: experiment
+      description: "Implement change, measure result"
+    - name: analyze
+      description: "Compare to baseline, decide: continue/pivot/conclude"
+    - name: report
+      description: "Summarize all cycles, best result, confidence level"
+  control_flow: "frame → baseline → [loop: hypothesize → experiment → analyze → branch(continue/pivot/conclude), min:2]→ report"
+
+strengths:
+  - Rigorous — every claim is backed by measurement
+  - Isolates variables — avoids confounding results
+  - Documents negative results — prevents repeating failed approaches
+  - Reproducible — measurement methodology is explicit
+
+weaknesses:
+  - Slow — minimum 2 full cycles required
+  - Expensive — Opus model recommended for analysis quality
+  - Not suitable for tasks with no measurable metric
+  - Baseline establishment can be complex
+
+failure_signatures:
+  - "Research tasks score poorly on build_success/test_pass_rate — wrong evaluation dimensions applied"
+  - "Analysis depth is shallow despite long execution — hypothesis formation is weak"
+  - "Conclusions not supported by data — measurement methodology was flawed"
+
+best_for:
+  uncertainty: [high]
+  task_types: [research, benchmark]
+  verifiability: [moderate, hard]
+
+existing_harness: research-iteration

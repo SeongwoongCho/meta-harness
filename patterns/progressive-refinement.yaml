@@ -1,0 +1,52 @@
+name: progressive-refinement
+category: iterative
+description: >
+  Start with a rough, working implementation that satisfies core requirements,
+  then iteratively refine quality dimensions one at a time. Each refinement
+  pass targets the lowest-scoring dimension while preserving all others.
+
+structure:
+  phases:
+    - name: rough-pass
+      description: "Implement a working solution that passes basic tests, ignoring quality"
+    - name: measure
+      description: "Score the implementation across all quality dimensions"
+    - name: identify-weakest
+      description: "Find the lowest-scoring dimension"
+    - name: refine
+      description: "Improve the weakest dimension without regressing others"
+    - name: re-measure
+      description: "Score again, verify no regressions"
+    - name: iterate
+      description: "Repeat until all dimensions meet threshold or budget exhausted"
+  control_flow: "rough-pass → measure → [loop: identify-weakest → refine → re-measure → verify-no-regression, until: all_dimensions >= 0.7, max: 5]"
+
+strengths:
+  - Always produces a working solution (rough-pass completes first)
+  - Dimension-aware — targets the specific quality gap
+  - No regression — each refinement pass verifies preservation
+  - Budget-friendly — can stop at any point with a working result
+
+weaknesses:
+  - Rough pass may establish patterns that are hard to refine
+  - Dimension measurement requires evaluation protocol awareness
+  - Not suitable for tasks where quality cannot be incrementally improved
+  - Refinement may not be possible if rough architecture is fundamentally wrong
+
+failure_signatures:
+  - "Harness produces working code but consistently low quality scores"
+  - "Multiple dimensions are weak but improving one regresses another — no stable equilibrium"
+  - "Tasks complete quickly but evaluation scores are mediocre across the board"
+  - "improvement_suggestions list the same dimensions across multiple runs"
+
+best_for:
+  uncertainty: [medium]
+  task_types: [feature, bugfix]
+  verifiability: [easy, moderate]
+  latency_sensitivity: high
+
+existing_harness: null
+genesis_hint: >
+  Combine rapid-prototype's speed-first approach with ralph-loop's iteration.
+  The rough-pass mirrors rapid-prototype; the refinement loop mirrors ralph-loop
+  but targets specific dimensions instead of general acceptance criteria.

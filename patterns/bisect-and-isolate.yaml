@@ -1,0 +1,55 @@
+name: bisect-and-isolate
+category: diagnostic
+description: >
+  Use binary search to narrow down the source of a problem. Start with
+  a broad scope, systematically halve the search space by testing
+  hypotheses about which half contains the issue, until the root cause
+  is isolated to a specific location.
+
+structure:
+  phases:
+    - name: reproduce
+      description: "Establish reliable reproduction steps"
+    - name: define-scope
+      description: "Identify the full search space (files, commits, config)"
+    - name: bisect
+      description: "Test midpoint hypothesis to halve the search space"
+    - name: narrow
+      description: "Recurse into the half that contains the issue"
+    - name: isolate
+      description: "Root cause identified — single function/line/config"
+    - name: fix
+      description: "Minimal targeted fix at the isolated location"
+    - name: verify
+      description: "Confirm fix resolves issue, no regressions"
+  control_flow: "reproduce → define-scope → [loop: bisect → narrow, until: scope < threshold] → isolate → fix → verify"
+
+strengths:
+  - Logarithmic search — much faster than linear scan for large codebases
+  - Systematic — avoids intuition-driven debugging that misses the real cause
+  - Works for any problem with a binary pass/fail signal
+  - Produces high-confidence root cause identification
+
+weaknesses:
+  - Requires a reliable reproduction (flaky bugs defeat bisection)
+  - Not suitable for multi-cause issues (two bugs interacting)
+  - Binary assumption may not hold (issue is gradual, not binary)
+  - Overhead of bisection setup may exceed direct debugging for small codebases
+
+failure_signatures:
+  - "systematic-debugging spends too long exploring hypotheses linearly"
+  - "Root cause analysis produces wrong diagnosis — search was not systematic"
+  - "Bug in large codebase takes many iterations to find — no narrowing strategy"
+  - "Incident resolution time is high even with debugging harness"
+
+best_for:
+  uncertainty: [medium, high]
+  task_types: [bugfix, incident]
+  blast_radius: [cross-module, repo-wide]
+
+existing_harness: null
+genesis_hint: >
+  Extend systematic-debugging's hypothesis testing with an explicit
+  bisection strategy. Instead of forming arbitrary hypotheses, the
+  agent systematically halves the search space using binary tests.
+  Use git bisect as inspiration for the narrowing algorithm.

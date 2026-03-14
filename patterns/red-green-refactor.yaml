@@ -1,0 +1,46 @@
+name: red-green-refactor
+category: test-driven
+description: >
+  Write a failing test (red), implement the minimum code to pass it (green),
+  then improve the code structure without changing behavior (refactor).
+  Repeat for each behavior to implement.
+
+structure:
+  phases:
+    - name: explore
+      description: "Discover test environment, run baseline"
+    - name: decompose
+      description: "Break task into individual behaviors"
+    - name: write-test
+      description: "Write a failing test for the next behavior"
+    - name: implement
+      description: "Write minimum code to make the test pass"
+    - name: refactor
+      description: "Improve structure while keeping tests green"
+    - name: iterate
+      description: "Repeat write-test → implement → refactor for each behavior"
+  control_flow: "explore → decompose → [loop: write-test → implement → verify → refactor → verify, per:behavior]"
+
+strengths:
+  - Tests are guaranteed to exist and be meaningful (written before implementation)
+  - Prevents over-engineering (minimum code to pass)
+  - Refactor step ensures code quality doesn't degrade
+  - Natural stopping criteria (all behaviors covered)
+
+weaknesses:
+  - Slow for exploratory work where requirements are unclear
+  - Requires testable acceptance criteria
+  - Not suitable for research or analysis tasks
+  - Decomposition quality determines overall success
+
+failure_signatures:
+  - "test_pass_rate consistently high but code_quality low — refactor step may be skipped"
+  - "Tasks with vague requirements score poorly — decomposition fails without clear behaviors"
+  - "High-uncertainty tasks produce tests for wrong behaviors — wasted effort"
+
+best_for:
+  uncertainty: [low, medium]
+  task_types: [bugfix, feature]
+  verifiability: [easy, moderate]
+
+existing_harness: tdd-driven

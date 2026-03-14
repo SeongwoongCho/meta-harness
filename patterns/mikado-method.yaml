@@ -1,0 +1,46 @@
+name: mikado-method
+category: structural
+description: >
+  Build a dependency graph of changes, then execute from leaf to root.
+  Each atomic step is immediately tested. If any step breaks tests,
+  revert it and revise the dependency graph before retrying.
+
+structure:
+  phases:
+    - name: baseline
+      description: "Verify all tests pass before starting"
+    - name: characterize
+      description: "Write tests that capture current behavior"
+    - name: plan-graph
+      description: "Map dependencies as a Mikado graph (leaf→root)"
+    - name: execute-step
+      description: "Apply one atomic change, run tests"
+    - name: checkpoint-or-revert
+      description: "If tests pass: checkpoint. If fail: revert, revise graph"
+    - name: verify
+      description: "After all steps: full test suite + behavior preservation check"
+  control_flow: "baseline → characterize → plan-graph → [loop: execute-step → verify → branch(pass→checkpoint, fail→revert→revise-graph), per:step] → verify"
+
+strengths:
+  - Maximally safe — every step is reversible
+  - Behavior preservation is guaranteed by characterization tests
+  - Works for large, cross-module changes
+  - Natural progress tracking (completed vs remaining steps)
+
+weaknesses:
+  - Very slow for simple changes
+  - Characterization test writing is expensive
+  - Graph construction requires deep codebase understanding
+  - Revert overhead adds up for complex refactors
+
+failure_signatures:
+  - "Refactoring tasks fail because behavior changed — no characterization tests written"
+  - "Large blast radius tasks leave tests broken — changes were not atomic enough"
+  - "Revert frequency is very high — graph dependencies were wrong"
+
+best_for:
+  uncertainty: [low, medium]
+  task_types: [refactor]
+  blast_radius: [cross-module, repo-wide]
+
+existing_harness: careful-refactor

@@ -1,0 +1,55 @@
+name: spike-then-harden
+category: two-phase
+description: >
+  Phase 1 (spike): Build a working prototype as fast as possible,
+  ignoring quality, tests, and edge cases. Phase 2 (harden): Rewrite
+  or refactor the spike into production-quality code with full test
+  coverage and error handling. The spike is disposable — it's a
+  learning tool, not a foundation.
+
+structure:
+  phases:
+    - name: spike
+      description: "Build fast, learn the problem space, produce a working prototype"
+      constraints: "No tests, minimal error handling, speed over quality"
+    - name: assess
+      description: "Evaluate the spike: what worked, what didn't, what was learned"
+    - name: plan-production
+      description: "Design the production implementation informed by spike learnings"
+    - name: harden
+      description: "Implement production version from scratch (or heavy refactor of spike)"
+      constraints: "Full tests, error handling, code quality, security"
+    - name: verify
+      description: "Ensure production version has all spike functionality plus quality"
+  control_flow: "spike → assess → plan-production → harden → verify"
+
+strengths:
+  - Fastest way to learn the problem space
+  - Production code benefits from spike learnings
+  - Clear separation between exploration and production quality
+  - Spike failure is cheap — it's expected to be thrown away
+
+weaknesses:
+  - 2x implementation cost (spike + production)
+  - Temptation to keep the spike instead of hardening
+  - Not suitable for simple, well-understood tasks
+  - Spike learnings may not transfer cleanly to production design
+
+failure_signatures:
+  - "rapid-prototype produces working code but follow-up hardening tasks fail — no structured transition"
+  - "High-uncertainty features score well on first pass but poorly on quality dimensions"
+  - "Task succeeds quickly but accumulates tech debt that fails in later evaluations"
+  - "research-iteration finds a solution but implementation is low quality"
+
+best_for:
+  uncertainty: [high]
+  task_types: [feature]
+  verifiability: [moderate, hard]
+  latency_sensitivity: low
+
+existing_harness: null
+genesis_hint: >
+  Chain rapid-prototype (spike phase) with careful-refactor (harden phase),
+  but with a critical assess step between them that extracts learnings
+  from the spike and informs the production plan. This is NOT just a chain —
+  the harden phase actively references spike learnings.
