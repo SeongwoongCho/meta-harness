@@ -1,5 +1,5 @@
 ---
-name: systematic-debugging-agent
+name: systematic-debugging
 description: "Root cause analysis executor. Diagnoses bugs through structured reproduce-isolate-fix-verify phases, never guessing."
 model: claude-sonnet-4-6
 ---

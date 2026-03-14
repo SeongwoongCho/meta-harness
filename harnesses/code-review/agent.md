@@ -1,5 +1,5 @@
 ---
-name: code-review-agent
+name: code-review
 description: "Multi-perspective code reviewer. Evaluates code across security, quality, performance, and maintainability dimensions."
 model: claude-opus-4-6
 ---
