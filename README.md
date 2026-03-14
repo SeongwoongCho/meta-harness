@@ -144,15 +144,20 @@ User Task
 ## Installation
 
 ```bash
-claude plugin install meta-harness
+# Add the marketplace and install
+claude plugin marketplace add https://github.com/SeongwoongCho/meta-harness
+claude plugin install meta-harness@meta-harness
 ```
 
 Or clone and install locally:
 
 ```bash
-git clone https://github.com/<owner>/meta-harness
-claude plugin install ./meta-harness
+git clone https://github.com/SeongwoongCho/meta-harness
+claude plugin marketplace add ./meta-harness
+claude plugin install meta-harness@meta-harness
 ```
+
+After installation, **start a new Claude Code session** for hooks to load.
 
 ---
 
@@ -161,31 +166,31 @@ claude plugin install ./meta-harness
 ### 1. Install the plugin
 
 ```bash
-claude plugin install meta-harness
+claude plugin marketplace add https://github.com/SeongwoongCho/meta-harness
+claude plugin install meta-harness@meta-harness
 ```
 
-### 2. Initialize for your project (optional but recommended)
+### 2. Start a new session and initialize
 
-```
-/meta-harness-init
-```
-
-This runs an interactive Q&A to define:
-- Your project's domain (backend / frontend / ml-research / infra / docs)
-- Custom evaluation dimensions (e.g., "model accuracy" for ML projects)
-- Ensemble trigger preferences
-- Evolution aggressiveness
-
-A `.meta-harness/config.yaml` file is created. Sensible defaults apply if you skip init.
-
-### 3. Enable auto-mode
-
-```
-/using-meta-harness-default
+```bash
+cd your-project
+claude   # new session — hooks load automatically
 ```
 
-From this point forward, every task you give Claude Code in this session is automatically
-routed through the meta-harness pipeline. No further commands needed.
+```
+/meta-harness:init --general    # quick setup with sensible defaults
+```
+
+Or for customized setup (interactive Q&A):
+```
+/meta-harness:init              # asks about domain, metrics, ensemble, evolution
+```
+
+This creates `.meta-harness/config.yaml` + `harness-pool.json` with 9 stable harnesses.
+
+### 3. Auto-mode is enabled by default
+
+The `session-start.sh` hook automatically injects the orchestration skill. Every task is routed through the meta-harness pipeline — no extra commands needed.
 
 ### 4. Use Claude Code normally
 
@@ -193,13 +198,21 @@ routed through the meta-harness pipeline. No further commands needed.
 Fix the authentication bug where empty passwords are accepted
 ```
 
-meta-harness intercepts the task, routes it, executes via the optimal harness, evaluates
-the result, and updates its knowledge — transparently.
+meta-harness intercepts the task, classifies it (6-axis taxonomy), selects the optimal harness (or chain), executes via subagent, evaluates the result, and updates weights — transparently.
 
-### 5. Check pool status anytime
+### 5. Or run explicitly with options
 
 ```
-/meta-harness-status
+/meta-harness:run "Refactor the payment module"              # explicit pipeline
+/meta-harness:run --interview "Build a new feature"          # ask clarifying questions first
+/meta-harness:run --harness=tdd-driven "Fix the login bug"   # force specific harness
+```
+
+### 6. Check status and evolve
+
+```
+/meta-harness:status    # pool state, performance stats, evolution history
+/meta-harness:evolve    # trigger harness evolution after 5+ evaluations
 ```
 
 ---
@@ -343,6 +356,18 @@ evolution:
 
 ---
 
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/meta-harness:init [--general]` | Initialize project. `--general` skips questions with sensible defaults. |
+| `/meta-harness:run [--interview] [--harness=name] <task>` | Run task through pipeline. `--interview` asks clarifying questions first. |
+| `/meta-harness:eval [--last]` | Manually evaluate last task result. |
+| `/meta-harness:status` | Show pool state, performance stats, evolution history. |
+| `/meta-harness:evolve` | Trigger harness evolution from evaluation data. |
+
+---
+
 ## Harness Chaining
 
 For complex tasks, the router can select a **harness chain** — a sequence of harnesses executed one after another. Each harness in the chain receives the original task description plus the accumulated results of all prior harnesses as context.
@@ -455,6 +480,16 @@ workflows work best in your specific codebase.
 
 ---
 
+## Acknowledgments
+
+meta-harness was designed by studying and referencing two outstanding Claude Code plugins:
+
+- **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** — Multi-agent orchestration system. Inspired our agent architecture, skill/command patterns, hook lifecycle design, and per-session state isolation.
+- **[superpowers](https://github.com/obra/superpowers)** — Skills-as-harness framework. Inspired our pure-markdown plugin approach, session-start injection pattern, and the `using-*-default` bootstrap model.
+
+The concept of "harness engineering" was coined by OpenAI and formalized by [Martin Fowler](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html). meta-harness takes this further by making harnesses self-improving.
+
+---
 ## License
 
 MIT — see [LICENSE](LICENSE).
