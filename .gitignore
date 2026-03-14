@@ -1,0 +1,16 @@
+# Runtime state (user-specific)
+state/
+
+# Project-specific config
+.meta-harness/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/

@@ -1,0 +1,93 @@
+name: migration-safe
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - migration
+  uncertainty:
+    - low
+    - medium
+    - high
+  verifiability:
+    - easy
+    - moderate
+    - hard
+  blast_radius:
+    - repo-wide
+  latency_sensitivity: low
+  domains:
+    - "*"
+
+workflow:
+  - "Parse migration task: source state, target state, migration type"
+  - "Audit: map all affected files and usages via Glob and Grep"
+  - "Identify breaking changes, behavioral changes, and interface changes"
+  - "Identify external dependencies that cannot be updated in this migration"
+  - "Assess data risks (reversibility, blast radius, backup availability)"
+  - "Define atomic migration steps with per-step success check and rollback command"
+  - "Document complete rollback plan (reverse sequence)"
+  - "Execute step 1: apply → success check → confirm or rollback"
+  - "Execute remaining steps one at a time — stop on any failure"
+  - "Run full test suite every 3 steps"
+  - "Verify: full test suite, migration-specific checks, smoke test"
+  - "Validate rollback steps are still current"
+  - "Document final rollback plan prominently in report"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Never execute a migration step without its success check command defined"
+    - "Never proceed to the next step if the current step's success check fails"
+    - "Edit is preferred for source code changes — never overwrite entire files"
+    - "Bash is used for migration commands, verification, and rollback execution"
+
+stopping_criteria:
+  - condition: all_steps_executed
+    description: "All planned migration steps have been executed successfully"
+  - condition: full_test_suite_passes
+    description: "All tests pass after migration"
+  - condition: migration_verified
+    description: "Migration-specific verification confirms target state is correct"
+  - condition: rollback_plan_documented
+    description: "Complete rollback plan with exact commands is in the final report"
+
+verification_steps:
+  - "Run full test suite: all tests green"
+  - "Run migration-specific verification (schema check, version check, API response check)"
+  - "Run smoke test of primary affected feature"
+  - "Confirm rollback plan is documented with exact commands"
+  - "Grep modified files for console.log, debugger, TODO, HACK — none found"
+
+cost_budget:
+  max_tokens: 600000
+  max_time_minutes: 60
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "step_success_check_fails"
+    description: "A migration step's success check command fails after execution"
+    action: rollback
+    command: "git checkout ."
+  - condition: "test_suite_fails_after_migration"
+    description: "Full test suite fails after all migration steps complete"
+    action: rollback
+    command: "git checkout ."
+  - condition: "irreversible_data_loss_risk"
+    description: "Audit reveals a migration step that cannot be safely reversed and no backup exists"
+    action: escalate_to_user
+  - condition: "external_dependency_blocks_migration"
+    description: "An external consumer cannot be updated as part of this migration"
+    action: escalate_to_user
+  - condition: "rollback_itself_fails"
+    description: "Rollback execution fails and system is in inconsistent state"
+    action: escalate_to_user

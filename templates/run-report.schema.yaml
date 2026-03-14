@@ -1,0 +1,113 @@
+# Run Report Schema — captures the full lifecycle of a meta-harness execution
+# Written after evaluation completes. Source of truth for evolution decisions.
+
+run_report:
+  type: object
+  required: [id, timestamp, task, taxonomy, decision, execution, evaluation]
+  properties:
+    id:
+      type: string
+      description: "Unique run identifier"
+
+    timestamp:
+      type: string
+      format: date-time
+
+    session_id:
+      type: string
+
+    task:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+        user_provided_context:
+          type: string
+
+    taxonomy:
+      $ref: "task-taxonomy.schema.yaml#/task_taxonomy"
+
+    decision:
+      type: object
+      required: [selected_harness, bound_protocol, reasoning]
+      properties:
+        selected_harness:
+          type: string
+        bound_protocol:
+          type: string
+        ensemble_required:
+          type: boolean
+        ensemble_harnesses:
+          type: array
+          items:
+            type: string
+        reasoning:
+          type: string
+          description: "Why this harness was selected (explainability)"
+        candidate_scores:
+          type: object
+          description: "Scores for each candidate harness considered"
+
+    execution:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [single, ensemble]
+        harnesses_used:
+          type: array
+          items:
+            type: string
+        duration_seconds:
+          type: number
+        subagent_count:
+          type: integer
+        failure_mode_triggered:
+          type: boolean
+        fallback_harness:
+          type: string
+
+    evaluation:
+      type: object
+      required: [protocol_used, universal_scores, overall_score]
+      properties:
+        protocol_used:
+          type: string
+        universal_scores:
+          type: object
+          description: "Scores for each universal dimension"
+        custom_scores:
+          type: object
+          description: "Scores for each custom dimension"
+        overall_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        quality_gate_results:
+          type: object
+          properties:
+            hooks_passed:
+              type: boolean
+            evidence_collected:
+              type: boolean
+            evaluator_approved:
+              type: boolean
+        improvement_suggestions:
+          type: array
+          items:
+            type: string
+
+    weight_update:
+      type: object
+      properties:
+        harness:
+          type: string
+        previous_weight:
+          type: number
+        new_weight:
+          type: number
+        reason:
+          type: string
+
+# Config schema is in templates/config.schema.yaml (separate file)

@@ -1,0 +1,80 @@
+name: research-iteration
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - research
+    - benchmark
+  uncertainty:
+    - high
+  verifiability:
+    - moderate
+    - hard
+  blast_radius:
+    - local
+    - cross-module
+    - repo-wide
+  latency_sensitivity: low
+  domains:
+    - "*"
+
+workflow:
+  - "Frame the research question and define the primary success metric"
+  - "Identify constraints that must not be violated"
+  - "Read and understand the current implementation"
+  - "Establish baseline: run measurement 3 times, record average and variance"
+  - "Document current approach (the null hypothesis)"
+  - "Hypothesis cycle 1: state hypothesis → implement → measure → analyze → decide"
+  - "Hypothesis cycle 2: iterate or pivot based on cycle 1 findings"
+  - "Continue hypothesis cycles until conclusion or budget exhausted"
+  - "Write final report: cycles summary, best result, confidence level, recommended next experiments"
+  - "Clean up code to runnable state with best experiment applied"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Bash output for measurements must be shown in full — never summarize numbers"
+    - "Each hypothesis cycle must change exactly one variable"
+    - "Experimental code must be labeled clearly if temporary"
+
+stopping_criteria:
+  - condition: minimum_cycles_complete
+    threshold: 2
+    description: "At least 2 complete hypothesis→implement→measure→analyze cycles have been run"
+  - condition: conclusion_reached
+    description: "Agent has determined the best configuration with stated confidence level"
+  - condition: final_report_written
+    description: "Final report includes: cycle summary, best result, confidence, next experiments, negative results"
+
+verification_steps:
+  - "Run full test suite: all tests green"
+  - "Run build: no compilation errors"
+  - "Confirm baseline measurement is documented with raw numbers"
+  - "Confirm each cycle has: hypothesis, measurement, analysis, decision"
+  - "Confirm best configuration is applied to codebase in clean state"
+
+cost_budget:
+  max_tokens: 1000000
+  max_time_minutes: 60
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "baseline_measurement_fails"
+    description: "Cannot establish a baseline — measurement command fails or produces no output"
+    action: escalate_to_user
+  - condition: "budget_reached"
+    description: "80% of token budget consumed — stop and write final report with current findings"
+    action: report_partial
+  - condition: "all_hypotheses_inconclusive"
+    description: "Multiple cycles produce inconsistent or uninterpretable results"
+    action: report_partial

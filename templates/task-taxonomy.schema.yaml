@@ -1,0 +1,40 @@
+# Task Taxonomy Schema — 6-axis classification system
+# The router agent classifies every task along these 6 axes
+# to enable structured harness selection and routing.
+
+task_taxonomy:
+  type: object
+  required: [task_type, uncertainty, blast_radius, verifiability, latency_sensitivity, domain]
+  properties:
+    task_type:
+      type: string
+      enum: [bugfix, feature, refactor, research, migration, incident, benchmark]
+      description: "Primary work category"
+
+    uncertainty:
+      type: string
+      enum: [low, medium, high]
+      description: "How unclear are the requirements or approach?"
+
+    blast_radius:
+      type: string
+      enum: [local, cross-module, repo-wide]
+      description: "How many parts of the codebase are affected?"
+
+    verifiability:
+      type: string
+      enum: [easy, moderate, hard]
+      description: "How hard is it to verify the result is correct?"
+
+    latency_sensitivity:
+      type: string
+      enum: [low, high]
+      description: "Does the user need a fast result?"
+
+    domain:
+      type: string
+      enum: [backend, frontend, ml-research, infra, docs]
+      description: "Technical domain of the task"
+
+# Ensemble trigger condition (from consensus plan):
+# ensemble_required = (uncertainty == "high") AND (verifiability == "hard" OR blast_radius == "repo-wide")

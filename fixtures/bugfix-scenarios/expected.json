@@ -1,0 +1,20 @@
+{
+  "expected_taxonomy": {
+    "task_type": "bugfix",
+    "uncertainty": "low",
+    "blast_radius": "local",
+    "verifiability": "easy",
+    "latency_sensitivity": "low",
+    "domain": "backend"
+  },
+  "expected_harness": ["tdd-driven", "systematic-debugging"],
+  "expected_score_range": {
+    "min": 0.7,
+    "max": 1.0
+  },
+  "reasoning": "Single-file null-guard fix with clear reproduction steps and an existing test suite. Low uncertainty (root cause is identified), local blast radius (one function in one file), easy verifiability (tests will pass/fail deterministically). TDD or systematic-debugging are both valid: TDD writes the failing test first; systematic-debugging confirms root cause before patching.",
+  "pass_criteria": {
+    "router_accuracy_threshold": 0.8,
+    "score_tolerance": 0.15
+  }
+}

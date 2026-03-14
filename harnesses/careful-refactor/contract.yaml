@@ -1,0 +1,90 @@
+name: careful-refactor
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - refactor
+  uncertainty:
+    - low
+    - medium
+  verifiability:
+    - easy
+    - moderate
+  blast_radius:
+    - cross-module
+    - repo-wide
+  latency_sensitivity: low
+  domains:
+    - "*"
+
+workflow:
+  - "Run full test suite — confirm all tests pass before starting"
+  - "Check git status — confirm or note working tree state"
+  - "Read and understand code to be refactored: inputs, outputs, invariants"
+  - "Grep for all call sites of functions/classes being changed"
+  - "Assess test coverage — write characterization tests for uncovered behaviors"
+  - "Define target structure and break refactoring into atomic steps"
+  - "Document plan with per-step success check and rollback command"
+  - "Execute step 1: apply change, run full test suite, confirm green"
+  - "Execute remaining steps one at a time — never proceed on a failing test"
+  - "Run every 3 steps: full test suite even if nothing seems wrong"
+  - "Verify behavior preservation: all original tests and characterization tests pass"
+  - "Review diff: confirm only structural changes, no logic changes"
+  - "Remove redundant characterization tests and temporary scaffolding"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Edit is used for all changes — one file at a time"
+    - "Never use Write to overwrite an existing file — use Edit for incremental changes"
+    - "Bash must be run after every atomic step to run the test suite"
+    - "Bash git commands are used for rollback and diff review"
+
+stopping_criteria:
+  - condition: all_tests_pass
+    description: "All tests that existed before the refactor still pass after"
+  - condition: characterization_tests_pass
+    description: "All characterization tests pass — behavior is preserved"
+  - condition: structure_improved
+    description: "Code structure is measurably improved per the defined target structure"
+  - condition: build_clean
+    description: "Build exits with code 0 and no errors"
+
+verification_steps:
+  - "Run full test suite: all original tests green"
+  - "Run characterization tests: all pass"
+  - "Run git diff --stat: review scope of changes"
+  - "Confirm diff contains only structural changes (no logic, no new behaviors)"
+  - "Run build: no errors"
+  - "Grep modified files for console.log, debugger, TODO, HACK — none found"
+
+cost_budget:
+  max_tokens: 500000
+  max_time_minutes: 45
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "baseline_tests_failing"
+    description: "Test suite is failing before any refactoring begins"
+    action: escalate_to_user
+  - condition: "step_failure_after_rollback"
+    description: "Three or more consecutive steps have failed and been reverted"
+    action: rollback
+    command: "git checkout ."
+  - condition: "behavior_change_detected"
+    description: "A test that was passing is now failing after a structural change"
+    action: rollback
+    command: "git checkout ."
+  - condition: "blast_radius_exceeded"
+    description: "Refactor requires changing more than 5 files — plan needs to be split"
+    action: escalate_to_user

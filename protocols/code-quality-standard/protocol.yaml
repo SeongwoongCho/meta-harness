@@ -1,0 +1,104 @@
+name: code-quality-standard
+version: "1.0.0"
+description: >
+  Standard evaluation protocol for general software development tasks.
+  Covers the full spectrum of code quality concerns: correctness (build + tests),
+  structural quality, robustness, security, and readability. Applies to any
+  task type across all domains. Used as the default protocol when no
+  domain-specific protocol is configured.
+
+universal_dimensions:
+  - name: build_success
+    weight: 0.20
+    type: binary
+    description: >
+      The codebase builds without errors after the task is complete.
+      Evidence: build command exit code is 0. Any compilation error,
+      missing import, or syntax error counts as failure.
+
+  - name: test_pass_rate
+    weight: 0.20
+    type: percentage
+    description: >
+      Percentage of tests in the full test suite that pass after the task.
+      Evidence: test runner output (e.g., "42/45 passed" = 0.933).
+      New test failures introduced by this task count against the score.
+      Pre-existing failures are noted but do not count against this task.
+
+  - name: code_quality
+    weight: 0.15
+    type: score_0_to_1
+    description: >
+      Structural quality of the code written or modified. Evaluator assesses:
+      single responsibility adherence, absence of duplication, appropriate
+      function/variable naming, reasonable function length (< 50 lines preferred),
+      and no unnecessary complexity. Score 1.0 = exemplary. Score 0.5 = acceptable
+      with known issues. Score 0.0 = major structural problems.
+
+  - name: robustness
+    weight: 0.10
+    type: score_0_to_1
+    description: >
+      How well the code handles error conditions, edge cases, and unexpected inputs.
+      Evaluator checks: null/undefined handling, boundary conditions, error paths
+      that don't crash, and graceful degradation. Partial credit for handling
+      primary error paths even if all edge cases aren't covered.
+
+  - name: maintainability
+    weight: 0.10
+    type: score_0_to_1
+    description: >
+      How easy the code will be to change and extend in the future.
+      Evaluator assesses: coupling (are dependencies minimal and explicit?),
+      extensibility (can new behaviors be added without modifying existing code?),
+      consistency with established codebase patterns, and absence of magic values.
+
+  - name: security
+    weight: 0.10
+    type: score_0_to_1
+    description: >
+      Absence of security vulnerabilities in modified code. Evaluator checks:
+      no hardcoded secrets, input validation on user-supplied data, no obvious
+      injection vulnerabilities, safe use of cryptographic primitives.
+      Score 1.0 = no issues found. Score 0.0 = critical vulnerability present.
+      If the task is not security-sensitive, score defaults to 1.0.
+
+  - name: readability
+    weight: 0.10
+    type: score_0_to_1
+    description: >
+      How clearly the code communicates its intent to a human reader.
+      Evaluator checks: meaningful names (variables, functions, tests),
+      absence of cryptic abbreviations, inline comments for non-obvious logic,
+      logical organization of code within files. Score 1.0 = reads like prose.
+
+  - name: error_handling
+    weight: 0.05
+    type: score_0_to_1
+    description: >
+      Quality of error handling in the changed code. Evaluator checks:
+      errors are caught at the right level (not swallowed silently), error
+      messages communicate what went wrong and where, exceptions are not
+      caught too broadly (bare except / catch-all). Lower weight because
+      it overlaps with robustness — this focuses on the handling mechanism
+      rather than the coverage of error conditions.
+
+quality_gates:
+  hooks:
+    role: early_warning
+    checks:
+      - "Bash tool output contains test runner results"
+      - "Bash tool output contains build command result"
+      - "No error pattern detected in evidence (exit code != 0)"
+
+  scripts:
+    role: evidence_collection
+    checks:
+      - "Build command exit code and output"
+      - "Test runner pass/fail counts and names of failing tests"
+      - "Coverage percentage for modified modules (if coverage tool available)"
+      - "Lint/static analysis output (if tool available)"
+
+  evaluator:
+    role: final_authority
+    model: claude-opus-4-6

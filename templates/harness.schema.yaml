@@ -1,0 +1,158 @@
+# Harness Contract Schema — defines the execution contract for a harness
+# Each harness is an "execution contract", not just a prompt bundle.
+
+harness_contract:
+  type: object
+  required: [name, version, pool, trigger, workflow, tool_policy, stopping_criteria, failure_modes]
+  properties:
+    name:
+      type: string
+      description: "Unique harness identifier (matches directory name)"
+
+    version:
+      type: string
+      pattern: "^\\d+\\.\\d+\\.\\d+$"
+      description: "Semantic version"
+
+    pool:
+      type: string
+      enum: [stable, experimental]
+      description: "Which pool this harness belongs to"
+
+    trigger:
+      type: object
+      description: "Conditions under which this harness should be selected"
+      properties:
+        task_types:
+          type: array
+          items:
+            type: string
+          description: "Which task_type values this harness handles. Use ['*'] for any."
+        uncertainty:
+          type: array
+          items:
+            type: string
+            enum: [low, medium, high]
+          description: "Accepted uncertainty levels"
+        blast_radius:
+          type: array
+          items:
+            type: string
+            enum: [local, cross-module, repo-wide]
+        verifiability:
+          type: array
+          items:
+            type: string
+            enum: [easy, moderate, hard]
+        latency_sensitivity:
+          type: string
+          enum: [low, high, any]
+        domains:
+          type: array
+          items:
+            type: string
+          description: "Accepted domains. Use ['*'] for any."
+        codebase_conditions:
+          type: array
+          items:
+            type: object
+          description: "Optional conditions about the codebase (e.g., has_test_framework: true)"
+        post_execution:
+          type: boolean
+          description: "If true, this harness runs after another harness completes (e.g., code-review)"
+
+    workflow:
+      type: array
+      items:
+        type: string
+      description: "Ordered list of workflow steps"
+
+    tool_policy:
+      type: object
+      properties:
+        allowed:
+          type: array
+          items:
+            type: string
+          description: "Tools the subagent may use"
+        denied:
+          type: array
+          items:
+            type: string
+          description: "Tools explicitly denied"
+        restrictions:
+          type: array
+          items:
+            type: string
+          description: "Free-text restrictions on tool usage"
+
+    stopping_criteria:
+      type: array
+      items:
+        type: object
+      description: "Conditions that signal task completion"
+
+    verification_steps:
+      type: array
+      items:
+        type: string
+      description: "Steps to verify the result before declaring success"
+
+    cost_budget:
+      type: object
+      properties:
+        max_tokens:
+          type: integer
+          description: "Maximum token budget for this harness execution"
+        max_time_minutes:
+          type: integer
+          description: "Maximum wall-clock time"
+        max_parallel_agents:
+          type: integer
+          description: "Maximum number of parallel subagents"
+
+    failure_modes:
+      type: array
+      items:
+        type: object
+        required: [condition, action]
+        properties:
+          condition:
+            type: string
+          action:
+            type: string
+            enum: [fallback, escalate_to_user, report_partial, rollback]
+          fallback_harness:
+            type: string
+            description: "Harness to fall back to (when action=fallback)"
+          command:
+            type: string
+            description: "Command to execute (when action=rollback)"
+
+harness_metadata:
+  type: object
+  required: [pool, weight, successes, failures, total_runs]
+  properties:
+    pool:
+      type: string
+      enum: [stable, experimental]
+    weight:
+      type: number
+      minimum: 0.5
+      maximum: 2.0
+      description: "Selection weight (higher = more likely to be selected). Bounded to [0.5, 2.0] by session-end merge."
+    successes:
+      type: integer
+    failures:
+      type: integer
+    total_runs:
+      type: integer
+    last_run:
+      type: string
+      format: date-time
+    consecutive_successes:
+      type: integer
+      description: "Counter for experimental→stable promotion (threshold: 5)"
+    avg_score:
+      type: number
+      description: "Rolling average evaluation score"
