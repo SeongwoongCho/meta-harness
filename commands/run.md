@@ -1,6 +1,6 @@
 ---
 description: "Run a task through the meta-harness pipeline explicitly"
-argument-hint: "<task description> [--harness=name] [--no-ensemble]"
+argument-hint: "<task description> [--harness=name] [--no-ensemble] [--interview]"
 ---
 
 # meta-harness-run
@@ -12,14 +12,37 @@ Explicitly invoke the meta-harness pipeline for a task. This command bypasses au
 Parse the command arguments:
 
 ```
-$ARGUMENTS = "<task description> [--harness=name] [--no-ensemble]"
+$ARGUMENTS = "<task description> [--harness=name] [--no-ensemble] [--interview]"
 ```
 
 - `task_description` — Everything before any `--` flags. Required.
 - `--harness=name` — Optional. Override router selection with a specific harness name. Skip the router agent if provided.
 - `--no-ensemble` — Optional flag. Force single-harness execution even if router recommends ensemble.
+- `--interview` — Optional flag. Ask the user 2–3 clarifying questions before running the pipeline. Useful for ambiguous tasks.
 
-If no task description is provided, report: "Usage: /meta-harness-run <task description> [--harness=name] [--no-ensemble]"
+If no task description is provided, report: "Usage: /meta-harness-run <task description> [--harness=name] [--no-ensemble] [--interview]"
+
+## Step 0: Interview (if --interview flag is set)
+
+If `--interview` was passed, run a lightweight clarifying interview before routing.
+
+Ask 2–3 targeted questions using `AskUserQuestion`. Choose questions that will most reduce ambiguity for the specific task. Examples (adapt to the actual task):
+
+```
+AskUserQuestion("What is the expected outcome or acceptance criteria for this task?")
+AskUserQuestion("Are there specific files, modules, or areas of the codebase this should focus on?")
+AskUserQuestion("Are there any constraints or approaches to avoid?")
+```
+
+Do not ask all three if fewer would suffice — stop when the task is clear enough to route confidently.
+
+After collecting answers, append them to the task description:
+
+```
+task_description = f"{original_task}\n\nClarifications from user:\n{interview_answers}"
+```
+
+**Auto-escalation**: Even without `--interview`, if after routing the router returns `uncertainty=high`, and the task description is fewer than 50 words (likely vague), automatically ask 2 clarifying questions before proceeding with execution. Do not re-run the router — use the clarifications to inform harness execution context only.
 
 ## Execution Steps
 

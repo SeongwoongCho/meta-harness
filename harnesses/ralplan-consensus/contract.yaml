@@ -1,0 +1,63 @@
+name: ralplan-consensus
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - "*"
+  uncertainty:
+    - medium
+    - high
+  blast_radius:
+    - cross-module
+    - repo-wide
+  latency_sensitivity: any
+  domains:
+    - "*"
+  notes: "Typically used as the first step in a harness chain. Selected when tasks need upfront planning before execution — especially for cross-module or repo-wide changes."
+
+workflow:
+  - "Analyze task requirements: goal, acceptance criteria, ambiguities"
+  - "Explore codebase: Glob and Read relevant files (limit 5–7 files)"
+  - "Create implementation plan: 3–8 numbered steps, specific and ordered"
+  - "Consider alternatives: at least 1 rejected alternative with reasoning"
+  - "Identify risks: at least 2 risks with mitigation suggestions"
+  - "Self-review: challenge at least 2 assumptions in the plan"
+  - "Output structured markdown plan for downstream harness consumption"
+
+tool_policy:
+  allowed:
+    - Read
+    - Glob
+    - Grep
+  denied:
+    - Write
+    - Edit
+    - Bash
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "No code execution or file modification — planning only"
+    - "Do not fabricate file paths; discover them via Glob/Grep"
+
+stopping_criteria:
+  - condition: plan_complete
+    requirements:
+      min_implementation_steps: 3
+      min_risks_identified: 2
+      alternatives_considered: true
+      self_review_complete: true
+    description: "Plan has ≥3 implementation steps, ≥2 risks, ≥1 alternative, and self-review complete"
+
+cost_budget:
+  max_tokens: 300000
+  max_time_minutes: 15
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "cannot_determine_approach"
+    description: "Requirements are too ambiguous to produce a concrete plan even conservatively"
+    action: escalate_to_user
+  - condition: "codebase_inaccessible"
+    description: "No relevant files found and task requires codebase knowledge"
+    action: escalate_to_user

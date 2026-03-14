@@ -1,0 +1,63 @@
+name: ralph-loop
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - "*"
+  uncertainty:
+    - medium
+    - high
+  blast_radius:
+    - "*"
+  latency_sensitivity: any
+  domains:
+    - "*"
+  notes: "Typically used as part of a harness chain, not standalone. Selected when persistence and iterative convergence are needed."
+
+workflow:
+  - "Understand task and prior chain context (plan, requirements, acceptance criteria)"
+  - "Explore codebase for relevant files and test runner"
+  - "Implement according to plan"
+  - "Verify: run tests and build, check acceptance criteria"
+  - "If not passing: diagnose, adapt approach, iterate (max 10 iterations)"
+  - "Finalize: remove debug artifacts, confirm all criteria met"
+  - "Report: iteration count, changes across iterations, final status"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Bash is used only for running tests, build, and verification — not ad-hoc exploration"
+    - "Edit is preferred for all modifications to existing files"
+    - "Write is used only for creating new files"
+
+stopping_criteria:
+  - condition: all_tests_pass
+    description: "Every test in the test suite passes with exit code 0"
+  - condition: build_clean
+    description: "Build command exits with code 0 and produces no errors"
+  - condition: max_iterations
+    threshold: 10
+    description: "Maximum 10 iterations reached — escalate to user"
+
+cost_budget:
+  max_tokens: 500000
+  max_time_minutes: 30
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "max_iterations_reached"
+    description: "10 iterations completed without satisfying all acceptance criteria"
+    action: escalate_to_user
+  - condition: "acceptance_criteria_ambiguous"
+    description: "Cannot determine what 'done' looks like from the task description"
+    action: escalate_to_user

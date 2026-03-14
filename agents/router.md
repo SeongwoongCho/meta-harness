@@ -127,6 +127,18 @@ These are the built-in harnesses and their optimal trigger conditions. Read `.me
 - Trigger: task_types=[migration], blast_radius=[repo-wide]
 - Approach: Audit → plan → migrate → verify → prepare rollback plan
 - Avoid when: blast_radius is local (overkill)
+
+**ralplan-consensus** (general-capable, chaining use)
+- Best for: upfront planning when approach is unclear or blast radius is large
+- Trigger: task_types=[*], uncertainty=[medium, high], blast_radius=[cross-module, repo-wide]
+- Approach: Analyze requirements → explore codebase → create implementation plan → self-review
+- Use as first step in a harness chain, not as standalone execution
+
+**ralph-loop** (general-capable, chaining use)
+- Best for: tasks needing persistent iterative convergence
+- Trigger: task_types=[*], uncertainty=[medium, high]
+- Approach: Understand context → implement → verify → iterate until passing (max 10 iterations)
+- Use when tasks have hard acceptance criteria or when a previous chain step produced a plan to execute
 </harness_pool>
 
 <protocol_binding>
@@ -142,6 +154,21 @@ If `.meta-harness/config.yaml` exists and specifies a preferred protocol, use th
 When in doubt, default to `code-quality-standard`.
 </protocol_binding>
 
+<chaining_guidelines>
+After selecting the primary harness, decide whether to form a `harness_chain` (sequential execution). The chain is your free judgment based on the task's needs — these are examples, not rules:
+
+- **Low difficulty / low uncertainty**: single harness is sufficient (e.g., `["tdd-driven"]`)
+- **Medium difficulty or cross-module blast**: may benefit from a planning step first (e.g., `["ralplan-consensus", "tdd-driven"]`)
+- **High difficulty / high uncertainty / repo-wide blast**: full plan → execute → review cycle (e.g., `["ralplan-consensus", "careful-refactor", "code-review"]`)
+- **Persistence needed (iterative convergence)**: wrap execution in ralph-loop (e.g., `["ralplan-consensus", "ralph-loop"]`)
+
+General-capable harnesses available for chaining:
+- `ralplan-consensus` — upfront planning with self-review; use as first step when approach is unclear
+- `ralph-loop` — persistent execution loop; use when task needs iterative convergence (high uncertainty or known-hard acceptance criteria)
+
+Always set `selected_harness` to the primary execution harness (first non-planning harness in the chain, for backward compatibility).
+</chaining_guidelines>
+
 <selection_algorithm>
 Follow this process:
 
@@ -151,8 +178,9 @@ Follow this process:
 4. If multiple harnesses match, use historical weights (from `.meta-harness/harness-pool.json`) as tiebreaker; higher weight = more successful history
 5. If no harness matches perfectly, select the closest match and explain the mismatch in `reasoning`
 6. Default to `tdd-driven` for ambiguous bugfix/feature tasks (conservative, well-tested approach)
-7. Bind the evaluation protocol
-8. Produce the output JSON
+7. Decide whether a `harness_chain` is warranted (see chaining_guidelines above)
+8. Bind the evaluation protocol
+9. Produce the output JSON
 </selection_algorithm>
 
 <output_format>
@@ -170,12 +198,36 @@ For a standard routing decision:
     "domain": "backend"
   },
   "selected_harness": "tdd-driven",
+  "harness_chain": ["tdd-driven"],
   "bound_protocol": "code-quality-standard",
   "ensemble_required": false,
   "reasoning": "Single-module backend bug with clear test expectations. TDD approach optimal — write a failing test that reproduces the bug, implement fix, verify green. Medium uncertainty because root cause is not yet confirmed, but verifiability is easy once the bug is localized.",
   "candidate_scores": {
     "tdd-driven": 0.85,
     "systematic-debugging": 0.70
+  }
+}
+```
+
+For a chained execution (high uncertainty refactor):
+```json
+{
+  "taxonomy": {
+    "task_type": "refactor",
+    "uncertainty": "high",
+    "blast_radius": "cross-module",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "backend"
+  },
+  "selected_harness": "careful-refactor",
+  "harness_chain": ["ralplan-consensus", "careful-refactor", "code-review"],
+  "bound_protocol": "code-quality-standard",
+  "ensemble_required": false,
+  "reasoning": "High uncertainty refactor needs planning first to identify risks and approach, then careful execution with Mikado method, then review to catch regressions.",
+  "candidate_scores": {
+    "careful-refactor": 0.82,
+    "tdd-driven": 0.60
   }
 }
 ```
