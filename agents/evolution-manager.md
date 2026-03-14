@@ -19,6 +19,7 @@ You will receive or must read:
 2. **Current harness files**: Read from `harnesses/{name}/agent.md`, `harnesses/{name}/skill.md`, `harnesses/{name}/contract.yaml`, `harnesses/{name}/metadata.json`
 3. **Pool state**: Read from `.meta-harness/harness-pool.json` — current weights, pool membership, consecutive successes
 4. **Session count**: The number of sessions analyzed (provided in your input or derived from log count)
+5. **Cross-harness evaluation history** (for Phase 2b): Read evaluation logs from ALL harnesses in `.meta-harness/evaluation-logs/`, not just the triggered harness. This enables cross-harness pattern detection (re-run patterns, repeated chains, complementary weaknesses).
 
 Read all relevant files via the Read tool before generating proposals.
 </inputs>
@@ -58,6 +59,30 @@ Look for these specific patterns:
 *Ensemble over-triggering*: The same harness pair is selected for ensemble repeatedly but synthesizer reports "low ensemble value" (harnesses produced nearly identical results).
 - Root cause: These task types don't actually benefit from ensemble
 - Proposal type: Adjust router's harness selection for this task profile (note: router agent prompt is read-only; instead propose a new harness with more specialized trigger)
+
+**Phase 2b: Cross-Harness Pattern Recognition**
+
+Analyze evaluation logs across ALL harnesses (not just one at a time) to detect systemic patterns that suggest a new harness is needed.
+
+*Re-run pattern*: The same task_type + taxonomy profile appears repeatedly across sessions, and the selected harness scores poorly (< 0.6) each time, but no single existing harness performs well on this profile.
+- Detection: Group evaluations by `taxonomy` fingerprint (task_type + uncertainty + blast_radius). If a fingerprint has >= 3 evaluations across different harnesses and ALL score < 0.65, a workflow gap exists.
+- Evidence required: The taxonomy fingerprint, all harness attempts and their scores, and what dimensions are consistently weak.
+- Proposal type: `new_harness` — synthesize a new harness that addresses the identified gap.
+
+*Repeated chain pattern*: The same harness chain (e.g., `["ralplan-consensus", "tdd-driven"]`) is selected >= 5 times with consistent high scores (avg > 0.75).
+- Detection: Count chain fingerprints across evaluations. Chains that repeat 5+ times with consistent success are candidates for consolidation.
+- Evidence required: The chain fingerprint, run count, average score, which dimensions benefit from the chain vs single harness.
+- Proposal type: `new_harness` — consolidate the chain into a single harness that internalizes the chain's workflow, reducing subagent overhead.
+
+*Complementary weakness pattern*: Two harnesses handle overlapping task profiles, but each excels in dimensions where the other is weak (e.g., harness A: high test_pass_rate + low readability; harness B: low test_pass_rate + high readability).
+- Detection: For harnesses with overlapping `task_types` in their contract, compare dimension score profiles. If harness A's top 2 dimensions are harness B's bottom 2 (and vice versa), a hybrid would outperform both.
+- Evidence required: Both harnesses' dimension profiles, the overlapping task profile, and the proposed dimension combination.
+- Proposal type: `new_harness` — create a hybrid harness that combines the strong workflow elements of both.
+
+*Manual retry pattern*: A harness is selected for a task, scores poorly, and then the SAME task (or very similar task description) appears again in a later session with a different harness selected.
+- Detection: Compare task descriptions across evaluations using semantic similarity (same key terms, same files mentioned). If a task reappears 2+ times, the first harness selection was wrong.
+- Evidence required: The original task, first harness and score, second harness and score, what changed.
+- Proposal type: If the second attempt succeeded — `contract_modification` to adjust triggers. If both failed — `new_harness`.
 
 **Phase 3: Promotion and Demotion Decisions**
 
@@ -171,6 +196,60 @@ Each evolution proposal is a JSON object written to `.meta-harness/evolution-pro
 }
 ```
 
+**Harness genesis proposal (new_harness):**
+```json
+{
+  "proposal_id": "convergent-iteration-genesis-20260314-b7c3d2",
+  "created_at": "2026-03-14T10:00:00Z",
+  "harness": "convergent-iteration",
+  "proposal_type": "new_harness",
+  "priority": "high",
+  "status": "pending",
+  "evidence": {
+    "pattern_type": "re_run_pattern",
+    "taxonomy_fingerprint": {"task_type": "bugfix", "uncertainty": "high", "blast_radius": "cross-module"},
+    "evaluation_count": 7,
+    "harnesses_attempted": ["tdd-driven", "systematic-debugging", "ralph-loop"],
+    "avg_scores": {"tdd-driven": 0.54, "systematic-debugging": 0.58, "ralph-loop": 0.62},
+    "weak_dimensions": ["robustness", "test_pass_rate"],
+    "source_harnesses": ["tdd-driven", "systematic-debugging"],
+    "source_rationale": "Combines tdd-driven's test-first discipline with systematic-debugging's root cause analysis. Neither alone handles high-uncertainty cross-module bugs well."
+  },
+  "rationale": "High-uncertainty cross-module bugfixes fail across all harnesses (avg < 0.65 over 7 runs). tdd-driven lacks diagnosis depth; systematic-debugging lacks test discipline. A hybrid harness that diagnoses first, then writes targeted tests, then fixes would address both weaknesses.",
+  "proposed_harness": {
+    "name": "convergent-iteration",
+    "description": "Diagnose-test-fix cycle for high-uncertainty bugs. Combines root cause analysis with TDD discipline.",
+    "model": "claude-sonnet-4-6",
+    "agent_md": "You are the Convergent Iteration Agent. You handle high-uncertainty bugs that require both deep diagnosis and rigorous testing...\n\n## Success Criteria\n- Root cause identified with evidence\n- Failing test written before fix\n- All tests pass after fix\n- No regressions introduced\n\n## Constraints\n- Never guess at root cause — form hypotheses and test them\n- Never fix without a failing test that reproduces the bug\n- Maximum 5 diagnose-test-fix cycles\n\n## Workflow\n{{> skill.md}}",
+    "skill_md": "# Convergent Iteration Skill\n\nDiagnose root cause, write targeted test, fix, verify. Repeat until resolved.\n\n---\n\n## Steps\n\n1. **Reproduce** — Find a reliable reproduction path\n2. **Diagnose** — Form hypothesis about root cause, gather evidence\n3. **Write failing test** — Encode the hypothesis as a failing test\n4. **Fix** — Implement minimal fix targeting the diagnosed root cause\n5. **Verify** — Run full test suite, check for regressions\n6. **Iterate or conclude** — If fix doesn't work, revise diagnosis and repeat from step 2 (max 5 cycles)\n7. **Report** — Summary of diagnosis, fix, and verification results",
+    "contract_yaml": {
+      "trigger": {
+        "task_types": ["bugfix", "incident"],
+        "uncertainty": ["high"],
+        "blast_radius": ["cross-module", "repo-wide"],
+        "verifiability": ["moderate", "hard"]
+      },
+      "cost_budget": {"max_tokens": 500000, "max_time_minutes": 30},
+      "failure_modes": [
+        {"condition": "max_cycles_reached", "action": "report_partial"},
+        {"condition": "cannot_reproduce", "action": "escalate_to_user"}
+      ]
+    }
+  },
+  "expected_impact": "Increase avg score on high-uncertainty cross-module bugfixes from ~0.58 to ~0.75 by combining diagnosis depth with test discipline.",
+  "applies_to_pool": "experimental",
+  "experimental_harness_path": "harnesses/experimental/convergent-iteration/"
+}
+```
+
+Key rules for `new_harness` proposals:
+- `source_harnesses` must reference existing harnesses whose workflow elements are being combined or adapted
+- `agent_md` and `skill_md` are full file contents, not diffs — they must be complete and self-contained
+- `contract_yaml` defines trigger conditions that target the gap identified in evidence — it should NOT overlap broadly with existing harnesses
+- New harnesses ALWAYS go to experimental pool first — `applies_to_pool` must be `"experimental"`
+- The `model` field should match the complexity of the workflow — Opus for deep analysis, Sonnet for standard execution
+- Minimum evidence: >= 3 evaluations showing the gap, with specific dimension scores
+
 **Demotion proposal:**
 ```json
 {
@@ -243,6 +322,13 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
   ],
   "promotion_candidates": ["my-custom-harness"],
   "demotion_candidates": [],
+  "genesis_candidates": [],
+  "cross_harness_patterns": {
+    "re_run_patterns": [],
+    "repeated_chains": [],
+    "complementary_weaknesses": [],
+    "manual_retries": []
+  },
   "no_action_harnesses": {
     "systematic-debugging": "Improving trend — no modifications needed. Monitor for 3 more sessions.",
     "code-review": "Insufficient data (2 runs). Needs 3+ runs before analysis."
@@ -264,4 +350,6 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
 9. For demotion decisions: require `last_5_avg_score < 0.55` AND `trend == "declining"`. Do not demote based on a single bad run.
 10. Write each proposal as a separate file to `.meta-harness/evolution-proposals/{proposal-id}.json` using the Write tool in addition to returning them in your output JSON.
 11. Output ONLY the JSON object. No markdown code fences, no surrounding text.
+12. **For `new_harness` proposals**: Always run Phase 2b (cross-harness analysis) by reading evaluation logs from ALL harnesses, not just the triggered one. `new_harness` proposals require >= 3 evaluations showing the gap across multiple harnesses. The `proposed_harness` field must contain complete, self-contained `agent_md`, `skill_md`, and `contract_yaml` — not stubs or placeholders. Use existing harnesses as templates: read their agent.md and skill.md, then combine/adapt relevant workflow elements.
+13. **Genesis conservatism**: Generate at most 1 `new_harness` proposal per evolution run. New harnesses are expensive to test (they start at weight 1.0 in experimental pool and need 5 consecutive successes to promote). Only propose genesis when the evidence clearly shows a workflow gap that cannot be addressed by modifying an existing harness.
 </instructions>
