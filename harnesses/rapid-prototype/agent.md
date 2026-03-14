@@ -1,5 +1,5 @@
 ---
-name: rapid-prototype-agent
+name: rapid-prototype
 description: "Fast MVP builder. Implements the minimum viable version of a feature with speed as the primary constraint."
 model: claude-sonnet-4-6
 ---

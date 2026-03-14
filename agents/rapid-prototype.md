@@ -1,0 +1,1 @@
+../harnesses/rapid-prototype/agent.md

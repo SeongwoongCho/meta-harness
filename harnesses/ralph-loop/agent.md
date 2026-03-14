@@ -1,5 +1,5 @@
 ---
-name: ralph-loop-agent
+name: ralph-loop
 description: "Persistent execution loop. Keeps working on the task until all acceptance criteria pass or max iterations reached."
 model: claude-sonnet-4-6
 ---

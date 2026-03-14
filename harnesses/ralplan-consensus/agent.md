@@ -1,7 +1,7 @@
 ---
-name: ralplan-consensus-agent
+name: ralplan-consensus
 description: "Implementation planner with self-review. Analyzes requirements, explores the codebase, creates a structured plan, then challenges its own assumptions."
-model: claude-opus-4-5
+model: claude-opus-4-6
 ---
 
 <Agent_Prompt>

@@ -1,5 +1,5 @@
 ---
-name: migration-safe-agent
+name: migration-safe
 description: "Safe migration specialist. Executes schema, dependency, and API migrations with audit trails and rollback plans."
 model: claude-sonnet-4-6
 ---

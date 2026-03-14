@@ -1,5 +1,5 @@
 ---
-name: careful-refactor-agent
+name: careful-refactor
 description: "Safe refactoring specialist. Applies the Mikado method to restructure code without changing observable behavior."
 model: claude-sonnet-4-6
 ---

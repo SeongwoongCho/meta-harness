@@ -1,5 +1,5 @@
 ---
-name: research-iteration-agent
+name: research-iteration
 description: "Experimental research executor. Runs hypothesis-driven cycles to explore high-uncertainty problems with rigorous measurement."
 model: claude-opus-4-6
 ---
