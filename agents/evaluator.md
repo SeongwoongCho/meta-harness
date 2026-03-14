@@ -127,11 +127,18 @@ Override: If security score is 0.0 (critical vulnerability), set `evaluator_appr
 <weighted_score_computation>
 Read the protocol's `universal_dimensions` and `custom_dimensions` from the protocol.yaml file.
 
+**Task type overrides**: If the protocol contains a `task_type_overrides` section and the task's `task_type` matches one of the override keys:
+1. Replace `universal_dimensions` weights with the override's `dimension_weights`
+2. If the override has `added_dimensions`, include them as additional scoring dimensions
+3. Normalize all weights to sum to 1.0
+
+Example: for `code-quality-standard` with `task_type: research`, the override replaces build_success weight 0.20 → 0.05 and adds `analysis_depth` (0.20) and `methodology_rigor` (0.15).
+
 Compute: `overall_score = sum(dimension_score * dimension_weight) / sum(all_weights)`
 
 The weights in the protocol file define relative importance. Normalize if they don't sum to 1.0.
 
-Example for code-quality-standard (8 dimensions):
+Example for code-quality-standard (8 dimensions, default weights):
 - build_success: 0.20
 - test_pass_rate: 0.20
 - code_quality: 0.15
@@ -197,12 +204,27 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
 ```
 </output_format>
 
+<model_routing>
+The protocol's `evaluator.model` field determines which model runs evaluation:
+
+- `claude-opus-4-6` — Always use Opus (expensive, thorough). Default for protocols that don't specify.
+- `claude-sonnet-4-6` — Always use Sonnet (faster, cheaper).
+- `auto` — Select model based on task complexity:
+  - Use **Sonnet** for: task_type in [bugfix, feature] AND uncertainty in [low, medium] AND blast_radius = local
+  - Use **Opus** for: everything else (high uncertainty, cross-module/repo-wide blast, research, migration, refactor)
+  - The orchestrator reads this field and spawns the evaluator with the appropriate model override.
+
+Note: This field is read by the orchestrator, not by the evaluator agent itself. The evaluator always runs the same scoring logic regardless of which model it runs on.
+</model_routing>
+
 <instructions>
 1. Always read the protocol file (`protocols/{name}/protocol.yaml`) before scoring — do not guess weights.
-2. Always read all evidence files in `.meta-harness/sessions/{session-id}/evidence/` before scoring.
-3. If evidence files are missing, note it in `scoring_notes` and apply conservative estimates.
-4. Never invent evidence. If you don't have data for a dimension, say so explicitly in `scoring_notes` and apply a neutral score (0.5) unless absence itself is informative (e.g., no tests = 0.0 for test_pass_rate if tests were expected).
-5. Scores must be reproducible: same evidence + same protocol = same score. Use the rubrics above consistently.
-6. `scoring_notes` must explain the evidence basis for any score that is not straightforwardly derivable from evidence files.
-7. Output ONLY the JSON object. No markdown code fences, no surrounding text.
+2. Check for `task_type_overrides` in the protocol — if the task's type matches an override key, apply the overridden weights and added dimensions.
+3. Always read all evidence files in `.meta-harness/sessions/{session-id}/evidence/` before scoring.
+4. If evidence files are missing, note it in `scoring_notes` and apply conservative estimates.
+5. Never invent evidence. If you don't have data for a dimension, say so explicitly in `scoring_notes` and apply a neutral score (0.5) unless absence itself is informative (e.g., no tests = 0.0 for test_pass_rate if tests were expected).
+6. Scores must be reproducible: same evidence + same protocol = same score. Use the rubrics above consistently.
+7. `scoring_notes` must explain the evidence basis for any score that is not straightforwardly derivable from evidence files.
+8. For `added_dimensions` from task_type_overrides: apply the same 0.0–1.0 scoring rubric. Include these scores in `custom_scores` in the output JSON.
+9. Output ONLY the JSON object. No markdown code fences, no surrounding text.
 </instructions>

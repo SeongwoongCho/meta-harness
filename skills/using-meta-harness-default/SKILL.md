@@ -98,6 +98,38 @@ Key rules for chaining:
 - After the full chain completes, treat the final `chain_context` as the execution result for Steps 5 and 6
 - Evaluation runs ONCE at the end of the full chain (Step 5), not after each individual step
 
+**Dynamic chain adaptation via `next_harness_hint`:**
+
+After each harness in the chain completes, check if its result contains a `next_harness_hint` field. This allows mid-chain adaptation:
+
+```
+result = Task(subagent_type="meta-harness:{harness}", prompt="...")
+
+# Check if the harness suggests a different next step
+if result contains "next_harness_hint":
+  hint = result.next_harness_hint  # e.g., {"harness": "migration-safe", "reason": "discovered schema changes needed"}
+
+  # Compare hint to the planned next harness in the chain
+  planned_next = harness_chain[index + 1] if index + 1 < len(harness_chain) else None
+
+  if hint.harness != planned_next:
+    # Log the adaptation
+    chain_context += f"\n\n### Chain Adaptation: {planned_next} → {hint.harness} (reason: {hint.reason})"
+
+    # Replace remaining chain with: hint.harness + any chain steps after the replaced step
+    # Example: chain was [ralplan, careful-refactor, code-review]
+    #   ralplan hints "migration-safe" → new chain becomes [ralplan, migration-safe, code-review]
+    harness_chain[index + 1] = hint.harness
+    # Preserve the final review step if one exists
+```
+
+Rules for `next_harness_hint`:
+- The hint is advisory, not mandatory — the orchestrator may ignore it if the suggested harness doesn't exist in the pool
+- Only the immediate next step can be replaced; the rest of the chain is preserved
+- The hint must include a `reason` field explaining why the switch is needed
+- If no hint is present, continue with the planned chain as normal
+- Harness agents can emit this hint by including it in their output: `## next_harness_hint\n{"harness": "...", "reason": "..."}`
+
 If `harness_chain` has only 1 entry (or is absent), skip this step and proceed to Step 4a/4b/4c as normal.
 
 ### Step 4a: Fast-Path (skip_routing = true)
@@ -164,12 +196,25 @@ After subagent completion (detected when the subagent's Task() call returns):
 
 1. Read evidence files from `.meta-harness/sessions/{session_id}/evidence/` — these are populated by the `collect-evidence.sh` PostToolUse hook during subagent execution.
 
-2. Spawn the evaluator agent:
+2. Read the protocol file to check for evaluator model routing:
+
+```
+Read("protocols/{bound_protocol}/protocol.yaml")
+# Check evaluator.model field:
+#   - "claude-opus-4-6" or "claude-sonnet-4-6" → use that model directly
+#   - "auto" → select model based on task complexity:
+#       Sonnet: task_type in [bugfix, feature] AND uncertainty in [low, medium] AND blast_radius = local
+#       Opus: everything else
+evaluator_model = determine_evaluator_model(protocol, taxonomy)
+```
+
+3. Spawn the evaluator agent with the appropriate model:
 
 ```
 Task(
   subagent_type="meta-harness:evaluator",
-  prompt="Score this task result against the bound evaluation protocol.\n\nTask: {task_description}\nSelected harness: {selected_harness}\nBound protocol: {bound_protocol}\nResult summary: {result_summary}\n\nRead protocols/{bound_protocol}/protocol.yaml for scoring dimensions.\nRead .meta-harness/sessions/{session_id}/evidence/ for collected evidence."
+  model=evaluator_model,  # "sonnet" or "opus" based on routing
+  prompt="Score this task result against the bound evaluation protocol.\n\nTask: {task_description}\nTask type: {taxonomy.task_type}\nSelected harness: {selected_harness}\nBound protocol: {bound_protocol}\nResult summary: {result_summary}\n\nRead protocols/{bound_protocol}/protocol.yaml for scoring dimensions.\nCheck for task_type_overrides matching task_type '{taxonomy.task_type}'.\nRead .meta-harness/sessions/{session_id}/evidence/ for collected evidence."
 )
 ```
 

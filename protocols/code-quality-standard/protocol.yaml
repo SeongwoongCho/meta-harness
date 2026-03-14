@@ -83,6 +83,92 @@ universal_dimensions:
       it overlaps with robustness — this focuses on the handling mechanism
       rather than the coverage of error conditions.
 
+task_type_overrides:
+  research:
+    description: >
+      For research/analysis tasks, build and test dimensions are less relevant.
+      Analysis depth and methodology rigor replace them as primary signals.
+    dimension_weights:
+      build_success: 0.05
+      test_pass_rate: 0.05
+      code_quality: 0.15
+      robustness: 0.05
+      maintainability: 0.10
+      security: 0.05
+      readability: 0.15
+      error_handling: 0.05
+    added_dimensions:
+      - name: analysis_depth
+        weight: 0.20
+        type: score_0_to_1
+        description: >
+          Depth and thoroughness of the analysis. Evaluator assesses: are multiple
+          perspectives considered? Are claims supported by evidence (code readings,
+          measurements, references)? Are edge cases and counterarguments addressed?
+          Score 1.0 = comprehensive, evidence-based analysis. Score 0.5 = surface-level.
+      - name: methodology_rigor
+        weight: 0.15
+        type: score_0_to_1
+        description: >
+          Soundness of the research methodology. Evaluator assesses: is the approach
+          systematic (not ad-hoc)? Are variables isolated? Are conclusions justified
+          by the evidence? Score 1.0 = rigorous scientific method. Score 0.5 = reasonable
+          but informal. Score 0.0 = conclusions not supported by evidence.
+
+  refactor:
+    description: >
+      For refactoring tasks, behavior preservation and structural improvement are paramount.
+      Security weight is reduced (refactors rarely introduce new security surfaces).
+    dimension_weights:
+      build_success: 0.25
+      test_pass_rate: 0.25
+      code_quality: 0.20
+      robustness: 0.05
+      maintainability: 0.15
+      security: 0.02
+      readability: 0.05
+      error_handling: 0.03
+
+  migration:
+    description: >
+      For migration tasks, build success and test pass rate are critical (nothing should break).
+      Rollback safety is an additional concern.
+    dimension_weights:
+      build_success: 0.25
+      test_pass_rate: 0.25
+      code_quality: 0.10
+      robustness: 0.15
+      maintainability: 0.10
+      security: 0.10
+      readability: 0.02
+      error_handling: 0.03
+
+  benchmark:
+    description: >
+      For benchmark tasks, measurement methodology and reproducibility matter most.
+    dimension_weights:
+      build_success: 0.10
+      test_pass_rate: 0.10
+      code_quality: 0.10
+      robustness: 0.05
+      maintainability: 0.05
+      security: 0.05
+      readability: 0.10
+      error_handling: 0.05
+    added_dimensions:
+      - name: measurement_rigor
+        weight: 0.25
+        type: score_0_to_1
+        description: >
+          Quality of benchmark methodology. Multiple runs, variance reported,
+          controlled environment, no confounding variables. Score 1.0 = publication-ready.
+      - name: reproducibility
+        weight: 0.15
+        type: score_0_to_1
+        description: >
+          Can the benchmark be re-run to get equivalent results? Fixed seeds,
+          documented environment, deterministic setup.
+
 quality_gates:
   hooks:
     role: early_warning
@@ -101,4 +187,4 @@ quality_gates:
 
   evaluator:
     role: final_authority
-    model: claude-opus-4-6
+    model: auto

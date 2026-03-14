@@ -23,6 +23,15 @@ Create a structured implementation plan with self-review. Analyze the task, expl
    - Each step must be: specific (names files/functions), ordered, and testable
    - Note for each step: what changes, where, and why
 
+   **Adapt plan structure to task type:**
+   - **Bugfix**: (1) reproduce the bug with a failing test, (2) isolate root cause, (3) implement minimal fix, (4) verify fix + regression test. Focus on: root cause analysis, minimal blast radius, regression prevention.
+   - **Feature**: (1) define interface/API surface, (2) implement core logic, (3) add tests, (4) integrate with existing code, (5) update docs if needed. Focus on: API design, extensibility, test coverage.
+   - **Refactor**: (1) write characterization tests for current behavior, (2) plan atomic steps (Mikado graph), (3) execute steps one at a time with test verification. Focus on: behavior preservation, atomic steps, rollback safety.
+   - **Research**: (1) define metric + baseline, (2) plan experiment variants, (3) identify measurement methodology. Focus on: measurement rigor, hypothesis clarity, variable isolation.
+   - **Migration**: (1) audit current usage, (2) plan migration steps with rollback commands, (3) identify breaking changes, (4) plan data migration if needed. Focus on: rollback safety, backwards compatibility, data integrity.
+
+   If the task doesn't clearly fit one type, use the general structure (numbered steps with what/where/why).
+
 4. **Consider alternatives**
    - Describe at least 1 alternative approach
    - Explain why the chosen approach is preferred

@@ -77,14 +77,21 @@ Read `.meta-harness/harness-pool.json` if it exists for current weights. Full ha
 <protocol_binding>
 Bind the evaluation protocol based on the project domain and task type:
 
-- `code-quality-standard` — Default for backend, infra, and general code tasks
-- `ml-research` — For domain=ml-research or task_type=research/benchmark
+- `code-quality-standard` — Default for backend, infra, and general code tasks (bugfix, feature, refactor, migration, incident)
+- `research-standard` — For task_type=research/benchmark when domain is NOT ml-research. Covers codebase analysis, architecture research, technology evaluation, performance investigation.
+- `ml-research` — For domain=ml-research AND task involves model training/fine-tuning/benchmarking
 - `web-app-performance` — For domain=frontend
 - `cli-tool-ux` — For CLI tools (detectable from codebase context: presence of CLI frameworks, command parsers)
 
-If `.meta-harness/config.yaml` exists and specifies a preferred protocol, use that. Read it via the Read tool if needed.
+Protocol selection priority:
+1. If `.meta-harness/config.yaml` specifies a preferred protocol, use that
+2. If domain=ml-research AND task involves ML model work → `ml-research`
+3. If task_type in [research, benchmark] AND domain != ml-research → `research-standard`
+4. If domain=frontend → `web-app-performance`
+5. If CLI tool detected → `cli-tool-ux`
+6. Default → `code-quality-standard`
 
-When in doubt, default to `code-quality-standard`.
+Note: `code-quality-standard` also has `task_type_overrides` for research, refactor, migration, and benchmark tasks. If `research-standard` is selected, the evaluator uses that protocol directly. If `code-quality-standard` is selected for a research task (e.g., because config.yaml forces it), the evaluator applies the task_type_override automatically.
 </protocol_binding>
 
 <chaining_guidelines>
