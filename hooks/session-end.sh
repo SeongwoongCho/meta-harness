@@ -4,26 +4,17 @@
 # Consume stdin
 cat > /dev/null 2>&1 || true
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-# Use git root if available, otherwise PWD
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-STATE_DIR="${PROJECT_ROOT}/.meta-harness"
+source "$(dirname "$0")/lib.sh"
+PROJECT_ROOT="$(resolve_project_root)"
+STATE_DIR="$(state_dir)"
 POOL_FILE="${STATE_DIR}/harness-pool.json"
 POOL_BAK="${STATE_DIR}/harness-pool.json.bak"
 POOL_TMP="${STATE_DIR}/harness-pool.json.tmp"
 
-# Resolve session ID
-SESSION_ID="${CLAUDE_SESSION_ID:-}"
-if [ -z "$SESSION_ID" ]; then
-  SESSION_ID_FILE="${STATE_DIR}/.current-session-id"
-  if [ -f "$SESSION_ID_FILE" ]; then
-    SESSION_ID=$(cat "$SESSION_ID_FILE")
-  fi
-fi
-
+SESSION_ID="$(resolve_session_id "$STATE_DIR")"
 SESSION_DIR="${STATE_DIR}/sessions/${SESSION_ID:-unknown}"
 WEIGHTS_FILE="${SESSION_DIR}/weights.json"
-TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
+TIMESTAMP="$(timestamp_utc)"
 
 # --- Merge weight updates ---
 # Only merge if both pool file and session weights file exist
@@ -95,8 +86,6 @@ os.rename(tmp_file, pool_file)
 print(f"[meta-harness session-end] Merged session {session_id} weights into pool.")
 PYEOF
 
-elif [ ! -f "$POOL_FILE" ]; then
-  :
 fi
 
 # --- Clean up old session directories (older than 30 days) ---

@@ -2,28 +2,19 @@
 # collect-evidence.sh — Capture Bash tool output as evidence for the evaluator agent.
 # Fires on PostToolUse for Bash tool calls.
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-STATE_DIR="${PROJECT_ROOT}/.meta-harness"
+source "$(dirname "$0")/lib.sh"
+STATE_DIR="$(state_dir)"
 
 # Read hook input from stdin
 HOOK_INPUT=$(cat 2>/dev/null || echo "")
 
-# Resolve session ID
-SESSION_ID="${CLAUDE_SESSION_ID:-}"
-if [ -z "$SESSION_ID" ]; then
-  SESSION_ID_FILE="${STATE_DIR}/.current-session-id"
-  if [ -f "$SESSION_ID_FILE" ]; then
-    SESSION_ID=$(cat "$SESSION_ID_FILE")
-  else
-    exit 0
-  fi
-fi
+SESSION_ID="$(resolve_session_id "$STATE_DIR")"
+[ -z "$SESSION_ID" ] && exit 0
 
 EVIDENCE_DIR="${STATE_DIR}/sessions/${SESSION_ID}/evidence"
 mkdir -p "$EVIDENCE_DIR" 2>/dev/null || exit 0
 
-TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
+TIMESTAMP="$(timestamp_utc)"
 EVIDENCE_FILE="${EVIDENCE_DIR}/${TIMESTAMP}.json"
 TMP_FILE="${EVIDENCE_FILE}.tmp"
 

@@ -108,12 +108,8 @@ When multiple harnesses match, the router uses historical weights from `.meta-ha
 
 ## Ensemble Trigger Condition
 
-Ensemble (parallel multi-harness execution) triggers when **all** of these conditions are true:
-
-- `uncertainty = high`
-- AND (`verifiability = hard` OR `blast_radius = repo-wide`)
-
-This is a conservative trigger — ensemble is expensive and only warranted when the task is genuinely ambiguous AND hard to verify. Default behavior is single-harness routing.
+Canonical rule is defined in `agents/router.md` (`<ensemble_rule>`):
+`ensemble_required = (uncertainty == "high") AND (verifiability == "hard" OR blast_radius == "repo-wide")`
 
 ---
 
