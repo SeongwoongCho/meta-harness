@@ -106,12 +106,23 @@ If the router returns `skip_routing: true` (trivial follow-ups like "fix that ty
 
 ### Step 4b: Single Harness Execution (ensemble_required = false)
 
-1. Read the selected harness files:
-   - `harnesses/{selected_harness}/agent.md` — agent persona + instructions
-   - `harnesses/{selected_harness}/skill.md` — workflow steps
-   - `harnesses/{selected_harness}/contract.yaml` — execution contract
+1. Determine harness file paths:
+   - If the router returned `"experimental": true` with `"experimental_harness_path"`, read files from that path instead of the stable harness directory.
+   - Otherwise, read from `harnesses/{selected_harness}/`.
 
-2. Spawn the harness subagent, injecting the harness content as the agent prompt:
+   ```
+   if router_response.get("experimental"):
+       harness_dir = router_response["experimental_harness_path"]
+   else:
+       harness_dir = "harnesses/{selected_harness}"
+   ```
+
+2. Read the harness files:
+   - `{harness_dir}/agent.md` — agent persona + instructions
+   - `{harness_dir}/skill.md` — workflow steps
+   - `{harness_dir}/contract.yaml` — execution contract (from stable dir as fallback if missing in experimental)
+
+3. Spawn the harness subagent, injecting the harness content as the agent prompt:
 
 ```
 Task(
@@ -120,7 +131,7 @@ Task(
 )
 ```
 
-3. Wait for subagent completion.
+4. Wait for subagent completion.
 
 ### Step 4c: Ensemble Execution (ensemble_required = true)
 
@@ -189,6 +200,23 @@ On evaluator response:
 3. The `session-end.sh` Stop hook will flush these in-memory weight updates to `.meta-harness/sessions/{session_id}/weights.json` and merge them into `.meta-harness/harness-pool.json` atomically.
 
 4. Clear the evaluation-pending flag: delete `.meta-harness/sessions/{session_id}/.eval-pending` via Bash to signal that evaluation is complete.
+
+5. **Copy eval to evaluation-logs for evolution tracking (Fix 2):**
+   ```
+   mkdir -p .meta-harness/evaluation-logs/{selected_harness}/
+   cp .meta-harness/sessions/{session_id}/eval-*.json .meta-harness/evaluation-logs/{selected_harness}/
+   ```
+   This accumulates evaluation history per harness, enabling the evolution-manager to analyze trends.
+
+6. **Auto-trigger evolution manager every 5 evaluations (Fix 3):**
+   After copying the eval, count files in `.meta-harness/evaluation-logs/{selected_harness}/`. If the count is a multiple of 5 (i.e., `count % 5 == 0` and `count >= 5`), spawn the evolution manager:
+   ```
+   Task(
+     subagent_type="meta-harness:evolution-manager",
+     prompt="Analyze evaluation history and propose harness improvements.\n\nTrigger: {selected_harness} has reached {count} evaluations.\n\nRead .meta-harness/evaluation-logs/{selected_harness}/ for evaluation history.\nRead harnesses/{selected_harness}/agent.md and skill.md for current harness content.\nRead .meta-harness/harness-pool.json for pool state.\n\nGenerate evolution proposals and write them to .meta-harness/evolution-proposals/."
+   )
+   ```
+   The evolution-manager writes proposals to `.meta-harness/evolution-proposals/`. These proposals are applied automatically on the next session start by `session-start.sh` (which reads pending proposals, creates experimental harness copies, and registers them in the pool).
 
 ### Step 7: Handle Failure Modes
 

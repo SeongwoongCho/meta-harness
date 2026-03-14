@@ -13,8 +13,19 @@ Evaluate code changes across four dimensions: security, quality, performance, an
    - Identify: primary language, framework, security-sensitive domains (auth, storage, network, user input)
    - Note: "Reviewing [N] files. Domains: [list]."
 
-2. **Security review**
-   For each file, evaluate:
+2. **Automated security scan (MANDATORY — run before manual review)**
+   Run these Grep patterns against all source files. Record every match as a preliminary finding:
+   - `Grep pattern="(secret|password|api.?key|token)\s*[:=]\s*[\"'][^\"']{3,}" glob="*.{ts,js,py,go,java,yaml,json}"` → hardcoded secrets (auto-CRITICAL)
+   - `Grep pattern="(default|changeme|password123|dev.?secret|TODO.*secret)" glob="*.{ts,js,py,yaml,json,env}"` → placeholder credentials (auto-HIGH)
+   - `Grep pattern="\bas\s+(any|[A-Z]\w+)" glob="*.{ts,tsx}"` → unsafe type assertions (auto-HIGH unless justified)
+   - `Grep pattern="(SELECT|INSERT|UPDATE|DELETE).*\+.*\"|f[\"'].*SELECT" glob="*.{ts,js,py}"` → SQL injection risk
+   - `Grep pattern="\b(eval|exec|Function)\s*\(" glob="*.{ts,js,py}"` → code injection risk
+   - For each major exported class/function, verify it has at least one consumer via Grep. Zero-consumer exports = dead code (auto-HIGH)
+
+   Any match on hardcoded secrets → CRITICAL. Any unsafe type assertion → HIGH unless a comment justifies it.
+
+3. **Manual security review**
+   For each file, also evaluate:
    - Input validation: is all user-supplied input validated and sanitized before use?
    - Authentication/authorization: are access controls enforced at the right layer?
    - Injection risks: SQL injection, command injection, template injection, XSS
@@ -25,7 +36,7 @@ Evaluate code changes across four dimensions: security, quality, performance, an
 
    For each finding: record `[SEVERITY] [file:line] — security: [description]`
 
-3. **Code quality review**
+4. **Code quality review**
    For each file, evaluate:
    - Single responsibility: does each function/class do exactly one thing?
    - DRY violations: duplicated logic that should be extracted into a shared function
@@ -36,7 +47,7 @@ Evaluate code changes across four dimensions: security, quality, performance, an
 
    For each finding: record `[SEVERITY] [file:line] — quality: [description]`
 
-4. **Performance review**
+5. **Performance review**
    For each file, evaluate:
    - Algorithmic complexity: O(n²) or worse loops where O(n) or O(n log n) is achievable
    - N+1 query patterns: database queries inside loops
@@ -47,7 +58,7 @@ Evaluate code changes across four dimensions: security, quality, performance, an
 
    Only flag issues observable at realistic scale. For each finding: record `[SEVERITY] [file:line] — performance: [description]`
 
-5. **Maintainability review**
+6. **Maintainability review**
    For each file, evaluate:
    - Naming: do variables, functions, and types communicate their intent clearly?
    - Comments: are complex sections explained? Are there outdated or misleading comments?
@@ -58,7 +69,7 @@ Evaluate code changes across four dimensions: security, quality, performance, an
 
    For each finding: record `[SEVERITY] [file:line] — maintainability: [description]`
 
-6. **Synthesize the report**
+7. **Synthesize the report**
    - Group findings by severity: CRITICAL → HIGH → MEDIUM → LOW
    - For each finding, write:
      ```
@@ -69,7 +80,7 @@ Evaluate code changes across four dimensions: security, quality, performance, an
      ```
    - Note any areas done well — good patterns worth acknowledging
 
-7. **Write the executive summary**
+8. **Write the executive summary**
    - Total findings by severity (e.g., "0 CRITICAL, 2 HIGH, 4 MEDIUM, 3 LOW")
    - Items that must be fixed before this is considered complete (CRITICAL + HIGH)
    - Items that should be addressed in follow-up (MEDIUM)
