@@ -1,0 +1,88 @@
+name: systematic-debugging
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - bugfix
+    - incident
+  uncertainty:
+    - low
+    - medium
+    - high
+  verifiability:
+    - easy
+    - moderate
+    - hard
+  blast_radius:
+    - local
+    - cross-module
+    - repo-wide
+  latency_sensitivity: any
+  domains:
+    - "*"
+
+workflow:
+  - "Parse bug report: expected vs actual behavior, error messages, stack traces"
+  - "Locate relevant code via Grep and Glob"
+  - "Build minimal reproduction case (test or command)"
+  - "Confirm bug is reproducible — stop if not"
+  - "Form Hypothesis 1 with specific file:line and reasoning"
+  - "Test Hypothesis 1 with focused test or logging"
+  - "If refuted: form Hypothesis 2, then Hypothesis 3 (max 3 hypotheses)"
+  - "Confirm root cause with evidence"
+  - "Apply minimal fix using Edit"
+  - "Run reproduction case — confirm bug is gone"
+  - "Run full test suite — confirm no regressions"
+  - "Write regression test for the exact bug scenario"
+  - "Run final full test suite and build"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Edit is used for fixes — do not rewrite entire files for a bug fix"
+    - "Write is used only to create new regression test files"
+    - "Bash output must be shown in full — no summarizing test results"
+
+stopping_criteria:
+  - condition: root_cause_identified
+    description: "Root cause is confirmed with evidence (stack trace, test output, or code analysis)"
+  - condition: fix_verified
+    description: "Reproduction case passes (bug is gone) and full test suite passes"
+  - condition: regression_test_written
+    description: "A regression test exists for the specific bug scenario"
+
+verification_steps:
+  - "Run reproduction case: bug no longer occurs"
+  - "Run full test suite: all tests green, no new failures"
+  - "Run build: no errors"
+  - "Confirm regression test is present and passing"
+  - "Grep modified files for console.log, debugger, TODO, HACK — none found"
+
+cost_budget:
+  max_tokens: 400000
+  max_time_minutes: 30
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "bug_not_reproducible"
+    description: "Cannot reproduce the bug after exhausting described reproduction steps"
+    action: escalate_to_user
+  - condition: "three_hypotheses_exhausted"
+    description: "All three hypotheses were refuted and root cause remains unknown"
+    action: escalate_to_user
+  - condition: "fix_causes_regressions"
+    description: "Fix resolves the target bug but introduces new test failures"
+    action: escalate_to_user
+  - condition: "incident_scope_too_large"
+    description: "Bug affects multiple systems beyond the scope of a single agent"
+    action: escalate_to_user

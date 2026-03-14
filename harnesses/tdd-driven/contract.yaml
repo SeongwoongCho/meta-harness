@@ -1,0 +1,87 @@
+name: tdd-driven
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - bugfix
+    - feature
+  uncertainty:
+    - low
+    - medium
+  verifiability:
+    - easy
+    - moderate
+  blast_radius:
+    - local
+    - cross-module
+  latency_sensitivity: any
+  domains:
+    - "*"
+  codebase_conditions:
+    - has_test_framework: true
+
+workflow:
+  - "Discover test environment (runner, assertion library, conventions)"
+  - "Run baseline test suite — confirm all tests pass before starting"
+  - "Decompose task into a list of discrete testable behaviors"
+  - "RED: write one failing test for the first behavior"
+  - "GREEN: write minimum production code to make the test pass"
+  - "REFACTOR: improve structure — run tests after each refactor"
+  - "Repeat RED-GREEN-REFACTOR for each remaining behavior"
+  - "Run coverage tool — confirm ≥ 80% for modified modules"
+  - "Run full test suite and build — confirm clean"
+  - "Grep for debug artifacts — remove any found"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Bash is used only for running tests, coverage, and build — not for ad-hoc code execution"
+    - "Write is used only for creating new files (new test files, new source modules)"
+    - "Edit is preferred for all modifications to existing files"
+
+stopping_criteria:
+  - condition: all_tests_pass
+    description: "Every test in the test suite passes with exit code 0"
+  - condition: coverage_threshold_met
+    threshold: 80
+    scope: modified_modules
+    description: "Code coverage for all modified modules is at or above 80%"
+  - condition: build_clean
+    description: "Build command exits with code 0 and produces no errors"
+
+verification_steps:
+  - "Run full test suite: all tests green"
+  - "Run coverage for modified modules: ≥ 80%"
+  - "Run build: no errors"
+  - "Grep modified files for console.log, debugger, TODO, HACK, FIXME — none found"
+
+cost_budget:
+  max_tokens: 500000
+  max_time_minutes: 30
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "max_iterations_exceeded"
+    description: "Agent has completed 10 red-green-refactor cycles without satisfying all stopping criteria"
+    action: fallback
+    fallback_harness: systematic-debugging
+  - condition: "test_framework_not_found"
+    description: "No test framework detected in the codebase"
+    action: escalate_to_user
+  - condition: "coverage_tool_unavailable"
+    description: "Coverage tool not present or not configured"
+    action: report_partial
+  - condition: "build_failure_persists"
+    description: "Build fails after fix attempts and prevents test execution"
+    action: fallback
+    fallback_harness: systematic-debugging

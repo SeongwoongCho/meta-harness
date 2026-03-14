@@ -1,0 +1,10 @@
+{
+  "pool": "stable",
+  "weight": 1.0,
+  "successes": 0,
+  "failures": 0,
+  "total_runs": 0,
+  "consecutive_successes": 0,
+  "avg_score": null,
+  "last_run": null
+}

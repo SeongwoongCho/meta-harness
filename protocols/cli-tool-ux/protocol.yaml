@@ -1,0 +1,159 @@
+name: cli-tool-ux
+version: "1.0.0"
+description: >
+  Evaluation protocol for command-line tool development tasks. Extends standard
+  quality dimensions with CLI-specific metrics: UX quality, error messages,
+  help text, and documentation coverage. Universal dimensions are re-weighted to
+  accommodate the four custom dimensions (total weight = 1.0). Use this protocol
+  when the task involves building or modifying CLI commands, shell scripts,
+  developer tools, or any text-interface programs where usability and
+  discoverability are primary concerns.
+
+universal_dimensions:
+  - name: build_success
+    weight: 0.05
+    type: binary
+    description: >
+      CLI tool builds and executes without crashing. Evidence: tool binary/script
+      runs and exits with code 0 for a valid invocation. For interpreted scripts,
+      syntax check passes. For compiled tools, compilation succeeds. A tool that
+      crashes immediately on the happy path scores 0.
+
+  - name: test_pass_rate
+    weight: 0.10
+    type: percentage
+    description: >
+      Percentage of tests passing. In CLI context, includes: unit tests for
+      argument parsing, integration tests for command behavior, and golden output
+      tests (snapshot tests comparing actual output to expected output).
+      Shell-level tests (bats, shunit2) count equally with unit tests.
+
+  - name: code_quality
+    weight: 0.05
+    type: score_0_to_1
+    description: >
+      Structural quality of CLI code. Evaluator checks: command logic is separated
+      from argument parsing (not one monolithic main()), subcommands are modular,
+      configuration/options are handled consistently, no hardcoded paths or magic
+      strings in command logic. Shell scripts: functions are used for reuse,
+      variables are quoted, no `eval` with untrusted input.
+
+  - name: robustness
+    weight: 0.05
+    type: score_0_to_1
+    description: >
+      How well the CLI handles adverse conditions: invalid arguments, missing files,
+      permission errors, pipe failures, interrupted execution (SIGINT). A robust
+      CLI exits with a non-zero code on error (never exits 0 on failure), handles
+      missing required arguments before attempting work, and does not leave
+      partial state on failure.
+
+  - name: maintainability
+    weight: 0.05
+    type: score_0_to_1
+    description: >
+      Ease of extending the CLI: adding new subcommands should not require modifying
+      the core dispatch logic, options are defined in one place (not scattered),
+      command implementations are independently testable. Consistent code style
+      across all commands.
+
+  - name: security
+    weight: 0.05
+    type: score_0_to_1
+    description: >
+      CLI security: no command injection from user-supplied arguments (shell=True
+      with user input is a failure), file paths are validated before use,
+      sensitive values (tokens, passwords) are read from environment variables
+      or files rather than command-line arguments (which appear in process lists).
+      Temporary files are created securely (mktemp, not predictable names).
+
+  - name: readability
+    weight: 0.05
+    type: score_0_to_1
+    description: >
+      CLI code readability: function names describe what a command does, option
+      variable names match their long-form flag names, complex argument parsing
+      logic has inline comments, exit codes are named constants not magic numbers.
+
+  - name: error_handling
+    weight: 0.05
+    type: score_0_to_1
+    description: >
+      Quality of error handling in CLI code: errors are caught before they produce
+      stack traces to the user, error output goes to stderr (not stdout), the tool
+      exits with a non-zero code on any error condition, errors from subprocesses
+      are detected and surfaced. Partial credit if most error paths are handled.
+
+custom_dimensions:
+  - name: ux_quality
+    weight: 0.20
+    type: score_0_to_1
+    description: >
+      Overall usability and user experience of the CLI tool. Evaluator assesses:
+      commands follow the principle of least surprise (behavior matches the name),
+      output is human-readable by default with machine-readable option (--json flag),
+      progress is indicated for long-running operations, destructive operations
+      require confirmation or have a --dry-run flag, output formatting is consistent
+      (no mixing of table, JSON, and prose in the same command family).
+      Score 1.0 = delightful to use. Score 0.5 = functional but awkward.
+      Score 0.0 = confusing or counterintuitive behavior.
+
+  - name: error_messages
+    weight: 0.15
+    type: score_0_to_1
+    description: >
+      Quality of error messages shown to users. Evaluator checks:
+      error messages explain what went wrong AND what the user should do to fix it
+      (not just "Error: invalid input"), error messages include the specific value
+      that caused the problem (e.g., "Unknown command 'stat' — did you mean 'status'?"),
+      error messages distinguish between user errors (bad input) and system errors
+      (permission denied), error messages do not expose internal stack traces or
+      file paths to end users. Score 1.0 = every error message is actionable.
+      Score 0.5 = some errors are clear, others are cryptic. Score 0.0 = raw
+      exceptions shown to users with no context.
+
+  - name: help_text
+    weight: 0.10
+    type: score_0_to_1
+    description: >
+      Quality and completeness of built-in help text (--help output). Evaluator
+      checks: --help flag is implemented for the main command and all subcommands,
+      each option has a description that explains its purpose and default value,
+      the help output shows usage examples for non-trivial commands, required vs.
+      optional arguments are clearly distinguished, the help is concise (not
+      overwhelming). Score 1.0 = help text is sufficient to use the tool without
+      external documentation. Score 0.5 = help exists but incomplete. Score 0.0 =
+      no help text implemented.
+
+  - name: documentation_coverage
+    weight: 0.10
+    type: score_0_to_1
+    description: >
+      Coverage of user-facing documentation. Evaluator checks: README or man page
+      documents all commands and their options, at least one usage example per
+      command is shown, installation instructions are present (if this is a new
+      tool), common workflows are documented with end-to-end examples, CHANGELOG
+      or version notes are present if this is a modification to an existing tool.
+      Score 1.0 = fully documented with examples. Score 0.5 = commands documented
+      but no examples. Score 0.0 = no documentation beyond code.
+
+quality_gates:
+  hooks:
+    role: early_warning
+    checks:
+      - "Tool executes without crashing on primary happy-path invocation"
+      - "Tool exits with code 0 on success"
+      - "Tool exits with non-zero code when given invalid arguments"
+
+  scripts:
+    role: evidence_collection
+    checks:
+      - "Tool --help output (captured for readability evaluation)"
+      - "Test suite pass/fail counts"
+      - "Exit code for happy path invocation"
+      - "Exit code for invalid argument invocation"
+      - "stderr output for a known error condition"
+
+  evaluator:
+    role: final_authority
+    model: claude-opus-4-6

@@ -1,0 +1,57 @@
+# Config Schema — defines the structure of .meta-harness/config.yaml
+# Created by meta-harness-init command via interactive Q&A.
+
+config:
+  type: object
+  description: "Project-specific meta-harness configuration"
+  properties:
+    domain:
+      type: string
+      description: "Primary project domain (e.g., backend, frontend, ml-research, infra, docs)"
+
+    custom_dimensions:
+      type: array
+      description: "Domain-specific evaluation dimensions added to the bound protocol"
+      items:
+        type: object
+        required: [name, weight, type]
+        properties:
+          name:
+            type: string
+            description: "Dimension name (e.g., model_accuracy, response_time)"
+          weight:
+            type: number
+            minimum: 0
+            maximum: 1
+            description: "Weight in evaluation scoring"
+          type:
+            type: string
+            enum: [binary, percentage, score_0_to_1, numeric]
+
+    ensemble_overrides:
+      type: object
+      description: "Custom ensemble trigger conditions"
+      properties:
+        enabled:
+          type: boolean
+          description: "Whether ensemble mode is enabled (default: true)"
+        trigger_condition:
+          type: string
+          description: "Custom trigger expression (default: uncertainty=high AND (verifiability=hard OR blast_radius=repo-wide))"
+
+    evolution_settings:
+      type: object
+      description: "Harness evolution configuration"
+      properties:
+        promotion_threshold:
+          type: integer
+          description: "Consecutive successes needed for experimental→stable promotion (default: 5)"
+        min_score_for_success:
+          type: number
+          description: "Minimum overall score to count as a success (default: 0.7)"
+        auto_evolve:
+          type: boolean
+          description: "Auto-trigger evolution after N evaluations (default: false)"
+        auto_evolve_threshold:
+          type: integer
+          description: "Number of evaluations before auto-evolution (default: 10)"

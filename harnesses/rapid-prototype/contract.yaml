@@ -1,0 +1,74 @@
+name: rapid-prototype
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - feature
+  uncertainty:
+    - low
+  verifiability:
+    - easy
+    - moderate
+  blast_radius:
+    - local
+    - cross-module
+  latency_sensitivity: high
+  domains:
+    - "*"
+
+workflow:
+  - "Scope triage: tag all task items as CORE, NICE, or SKIP"
+  - "Announce scope decision before writing any code"
+  - "Glob to map project structure and locate placement for new code"
+  - "Read 1–2 similar existing features to learn naming and structural conventions"
+  - "Implement CORE item 1 using existing patterns"
+  - "Quick sanity check after each CORE item"
+  - "Implement remaining CORE items — stop at 80% of token budget"
+  - "Run end-to-end smoke test of the complete feature"
+  - "Write handoff report: implemented, deferred, skipped, limitations, how to run"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Read is used sparingly — only the immediate context needed for each CORE item"
+    - "Do not introduce new dependencies without explicit justification"
+    - "Prefer Edit over Write — add to existing files when possible"
+
+stopping_criteria:
+  - condition: core_behaviors_implemented
+    description: "All CORE-tagged items from the scope triage are implemented"
+  - condition: smoke_test_passes
+    description: "End-to-end smoke test of the primary use case passes"
+  - condition: handoff_report_written
+    description: "Handoff report documents implemented, deferred, skipped, and limitations"
+
+verification_steps:
+  - "Run smoke test: primary use case works end-to-end"
+  - "Grep modified files for console.log, debugger — remove unintentional artifacts"
+  - "Confirm handoff report is complete with all four sections"
+
+cost_budget:
+  max_tokens: 200000
+  max_time_minutes: 15
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "budget_reached_before_core_complete"
+    description: "80% of token budget consumed before all CORE items are implemented"
+    action: report_partial
+  - condition: "smoke_test_fails_after_two_attempts"
+    description: "End-to-end smoke test fails and cannot be fixed within scope"
+    action: report_partial
+  - condition: "scope_ambiguous"
+    description: "Task requirements are too ambiguous to identify CORE items"
+    action: escalate_to_user

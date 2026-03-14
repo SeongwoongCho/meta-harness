@@ -1,0 +1,78 @@
+name: code-review
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - "*"
+  uncertainty:
+    - low
+    - medium
+    - high
+  verifiability:
+    - easy
+    - moderate
+    - hard
+  blast_radius:
+    - local
+    - cross-module
+    - repo-wide
+  latency_sensitivity: any
+  domains:
+    - "*"
+  post_execution: true
+
+workflow:
+  - "Read task description to understand implementation intent and scope"
+  - "Glob to find all modified or created files"
+  - "Read each file completely"
+  - "Identify: primary language, framework, security-sensitive domains"
+  - "Dimension 1 — Security: validate input handling, auth, injection, secrets, crypto"
+  - "Dimension 2 — Code Quality: SRP, DRY, complexity, error handling, edge cases, tests"
+  - "Dimension 3 — Performance: algorithmic complexity, N+1 queries, memory, blocking I/O"
+  - "Dimension 4 — Maintainability: naming, comments, coupling, consistency, magic values"
+  - "Synthesize: group findings by severity (CRITICAL → HIGH → MEDIUM → LOW)"
+  - "Write executive summary with total findings, must-fix list, and overall verdict"
+
+tool_policy:
+  allowed:
+    - Read
+    - Glob
+    - Grep
+    - Bash
+  denied:
+    - Write
+    - Edit
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "This is a review pass — do not modify any files"
+    - "Bash is used only to run existing static analysis tools (linters, security scanners)"
+    - "Grep is used to find related code for context — do not expand review scope"
+
+stopping_criteria:
+  - condition: all_four_dimensions_reviewed
+    description: "Security, quality, performance, and maintainability dimensions all assessed"
+  - condition: findings_severity_assigned
+    description: "Every finding has a severity level (CRITICAL/HIGH/MEDIUM/LOW) and file:line reference"
+  - condition: executive_summary_written
+    description: "Summary includes total findings by severity and overall verdict"
+
+verification_steps:
+  - "Confirm all four review dimensions are covered in the output"
+  - "Confirm every finding has: severity, file:line, issue description, why it matters, fix suggestion"
+  - "Confirm executive summary includes overall verdict"
+  - "Confirm no CRITICAL or HIGH findings are left without comment in the summary"
+
+cost_budget:
+  max_tokens: 100000
+  max_time_minutes: 20
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "no_files_found"
+    description: "Glob finds no modified or created files to review"
+    action: escalate_to_user
+  - condition: "budget_reached_before_completion"
+    description: "80% of token budget consumed — complete dimensions covered so far, summarize partial review"
+    action: report_partial

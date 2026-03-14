@@ -1,0 +1,20 @@
+{
+  "expected_taxonomy": {
+    "task_type": "feature",
+    "uncertainty": "medium",
+    "blast_radius": "cross-module",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "backend"
+  },
+  "expected_harness": ["tdd-driven"],
+  "expected_score_range": {
+    "min": 0.6,
+    "max": 0.9
+  },
+  "reasoning": "New REST endpoint touching multiple layers (routing, service, database, job queue). Medium uncertainty because progress-reporting architecture requires design decisions. Cross-module blast radius (at minimum: route layer, service layer, DB model). Moderate verifiability: integration tests can confirm behavior but require test infrastructure for async job polling. TDD is optimal: write endpoint contract tests before implementation keeps the async design honest.",
+  "pass_criteria": {
+    "router_accuracy_threshold": 0.8,
+    "score_tolerance": 0.15
+  }
+}
