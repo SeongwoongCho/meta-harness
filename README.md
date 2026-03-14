@@ -493,6 +493,17 @@ Then start a new Claude Code session for hooks to reload.
 
 ---
 
+## Acknowledgments
+
+meta-harness was designed by studying and referencing two outstanding Claude Code plugins:
+
+- **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** — Multi-agent orchestration system. Inspired our agent architecture, skill/command patterns, hook lifecycle design, and per-session state isolation.
+- **[superpowers](https://github.com/obra/superpowers)** — Skills-as-harness framework. Inspired our pure-markdown plugin approach, session-start injection pattern, and the `using-*-default` bootstrap model.
+
+The concept of "harness engineering" was coined by OpenAI and formalized by [Martin Fowler](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html). meta-harness takes this further by making harnesses self-improving.
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
