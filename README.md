@@ -428,11 +428,17 @@ Contribute a new execution workflow. Contributors write markdown — no code req
 
 ```
 harnesses/your-harness-name/
-├── agent.md       # Agent role, model, constraints
+├── agent.md       # Agent role, model, constraints (also serves as agent registration)
 ├── skill.md       # Step-by-step workflow
 ├── contract.yaml  # Trigger conditions, tool policy, stopping criteria, cost budget
 └── metadata.json  # Pool membership and initial stats
 ```
+
+Each harness's `agent.md` is symlinked into `agents/` for subagent type registration:
+```
+agents/your-harness-name.md → ../harnesses/your-harness-name/agent.md
+```
+This means the harness directory is the **single source of truth** — evolution changes to `agent.md` automatically update the agent registration. When contributing a new harness, create the symlink as well.
 
 See [docs/harness-authoring.md](docs/harness-authoring.md) for the full guide.
 
