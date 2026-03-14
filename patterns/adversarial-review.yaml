@@ -1,0 +1,54 @@
+name: adversarial-review
+category: verification
+description: >
+  After implementation, deliberately try to break your own work. Write
+  adversarial test cases, attempt exploits, stress edge cases, and
+  challenge architectural decisions. Fix everything you find before
+  declaring completion.
+
+structure:
+  phases:
+    - name: implement
+      description: "Complete the primary implementation"
+    - name: attack
+      description: "Deliberately try to break the implementation"
+      sub_phases:
+        - "Write adversarial test cases targeting edge cases"
+        - "Attempt common exploit patterns (injection, overflow, race conditions)"
+        - "Stress test with extreme inputs (empty, null, very large, unicode)"
+        - "Challenge architectural decisions with 'what if' scenarios"
+    - name: fix
+      description: "Address all issues found during attack phase"
+    - name: re-attack
+      description: "Verify fixes don't introduce new vulnerabilities"
+  control_flow: "implement → attack → fix → re-attack → [loop if new issues found, max: 3]"
+
+strengths:
+  - Catches issues that normal testing misses
+  - Security-aware by design
+  - Builds robustness into the implementation
+  - Self-reviewing — no external reviewer needed
+
+weaknesses:
+  - Expensive (attack phase is thorough)
+  - Agent may have blind spots about its own code
+  - Not useful for simple tasks with low risk
+  - Attack quality depends on security knowledge in the prompt
+
+failure_signatures:
+  - "Security dimension consistently low across harnesses"
+  - "Robustness scores well in testing but users report edge case failures"
+  - "code-review harness finds CRITICAL issues that the execution harness missed"
+  - "Post-deployment incidents trace back to edge cases not covered by tests"
+
+best_for:
+  uncertainty: [low, medium]
+  task_types: [feature, bugfix]
+  verifiability: [easy, moderate]
+  domain: [backend, infra]
+
+existing_harness: null
+genesis_hint: >
+  Extend tdd-driven's test-writing phase with an explicit adversarial pass.
+  Combine with code-review's security scan patterns but as a self-applied
+  check rather than an external review.

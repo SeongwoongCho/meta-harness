@@ -20,6 +20,7 @@ You will receive or must read:
 3. **Pool state**: Read from `.meta-harness/harness-pool.json` — current weights, pool membership, consecutive successes
 4. **Session count**: The number of sessions analyzed (provided in your input or derived from log count)
 5. **Cross-harness evaluation history** (for Phase 2b): Read evaluation logs from ALL harnesses in `.meta-harness/evaluation-logs/`, not just the triggered harness. This enables cross-harness pattern detection (re-run patterns, repeated chains, complementary weaknesses).
+6. **Workflow pattern library** (for Phase 2c): Read from `patterns/*.yaml`. These are documented workflow design patterns with failure signatures, taxonomy conditions, and genesis hints. Used for concept-level reasoning about novel harness structures.
 
 Read all relevant files via the Read tool before generating proposals.
 </inputs>
@@ -83,6 +84,55 @@ Analyze evaluation logs across ALL harnesses (not just one at a time) to detect 
 - Detection: Compare task descriptions across evaluations using semantic similarity (same key terms, same files mentioned). If a task reappears 2+ times, the first harness selection was wrong.
 - Evidence required: The original task, first harness and score, second harness and score, what changed.
 - Proposal type: If the second attempt succeeded — `contract_modification` to adjust triggers. If both failed — `new_harness`.
+
+**Phase 2c: Concept-Level Reasoning (Pattern-Driven Genesis)**
+
+This phase goes beyond combining existing harnesses — it reasons about *workflow design principles* to propose fundamentally new harness structures. Run this phase only when Phase 2b identifies a workflow gap (re-run pattern or complementary weakness) that cannot be addressed by simply merging existing harnesses.
+
+**Step 1: Read the pattern library**
+
+Read all pattern files from `patterns/*.yaml`. Each pattern defines:
+- `structure.phases` — the abstract workflow steps
+- `structure.control_flow` — how phases connect (sequence, loop, branch, parallel)
+- `failure_signatures` — observable evaluation patterns that suggest this workflow would help
+- `best_for` — taxonomy conditions where this pattern excels
+- `genesis_hint` — concrete guidance for creating a harness from this pattern
+- `existing_harness` — whether a harness already implements this pattern (null = uninstantiated)
+
+**Step 2: Match failure signatures to patterns**
+
+For each workflow gap identified in Phase 2b:
+1. Extract the observable symptoms: which dimensions are weak, what task profiles are failing, what the improvement_suggestions say
+2. Compare these symptoms against each pattern's `failure_signatures`
+3. A pattern matches if >= 2 of its failure signatures are observed in the evaluation data
+4. Filter to patterns where `existing_harness` is null (no current harness implements it) OR where the existing harness is the one that's failing
+
+**Step 3: Score pattern candidates**
+
+For each matching pattern, compute a fitness score:
+- `taxonomy_match` (0-1): How well does the pattern's `best_for` match the gap's taxonomy fingerprint?
+- `signature_match` (0-1): What fraction of the pattern's failure_signatures are observed?
+- `novelty` (0-1): Is this pattern fundamentally different from all existing harnesses? (1.0 = no existing harness, 0.5 = exists but failing, 0.0 = well-covered)
+- `feasibility` (0-1): Can this pattern be implemented with current tooling? (consider: does it need loop/branch/parallel that the orchestrator supports?)
+- `fitness = taxonomy_match * 0.3 + signature_match * 0.3 + novelty * 0.2 + feasibility * 0.2`
+
+**Step 4: Generate pattern-driven genesis proposal**
+
+For the highest-scoring pattern (fitness >= 0.6):
+1. Read the pattern's `genesis_hint` for concrete implementation guidance
+2. Read the `agent.md` and `skill.md` of harnesses referenced in `genesis_hint` as templates
+3. Construct a new harness that implements the pattern's `structure`:
+   - `agent_md`: Role description based on the pattern's description, success criteria derived from the pattern's strengths, constraints derived from the pattern's weaknesses
+   - `skill_md`: Step-by-step workflow matching the pattern's `structure.phases`
+   - `contract_yaml`: Trigger conditions from the pattern's `best_for`, cost budget appropriate to the pattern's category
+4. Set `proposal.evidence.pattern_source` to the pattern name
+5. Set `proposal.evidence.design_rationale` explaining WHY this pattern addresses the identified gap (not just WHAT the harness does)
+
+**Important constraints:**
+- Generate at most 1 pattern-driven genesis per evolution run (same limit as Phase 2b genesis)
+- Pattern-driven genesis has HIGHER priority than Phase 2b combination genesis — if both are possible, prefer the pattern-driven one because it produces more principled designs
+- If no pattern matches with fitness >= 0.6, do NOT force a genesis. Report the gap in `cross_harness_patterns` for future analysis
+- The `design_rationale` field is mandatory for pattern-driven proposals — it must explain the reasoning chain: observed symptoms → matched pattern → why this pattern addresses the symptoms
 
 **Phase 3: Promotion and Demotion Decisions**
 
@@ -213,7 +263,10 @@ Each evolution proposal is a JSON object written to `.meta-harness/evolution-pro
     "avg_scores": {"tdd-driven": 0.54, "systematic-debugging": 0.58, "ralph-loop": 0.62},
     "weak_dimensions": ["robustness", "test_pass_rate"],
     "source_harnesses": ["tdd-driven", "systematic-debugging"],
-    "source_rationale": "Combines tdd-driven's test-first discipline with systematic-debugging's root cause analysis. Neither alone handles high-uncertainty cross-module bugs well."
+    "source_rationale": "Combines tdd-driven's test-first discipline with systematic-debugging's root cause analysis. Neither alone handles high-uncertainty cross-module bugs well.",
+    "pattern_source": "converge-loop",
+    "pattern_fitness": 0.82,
+    "design_rationale": "Observed symptoms: tdd-driven scores < 0.6 on high-uncertainty bugfixes because first implementation attempt fails and there's no retry mechanism. systematic-debugging diagnoses well but doesn't write tests. The converge-loop pattern matches 3/4 failure signatures (re-run, iteration needed, partial progress). Genesis combines tdd-driven's test discipline with converge-loop's diagnose→adapt→retry cycle."
   },
   "rationale": "High-uncertainty cross-module bugfixes fail across all harnesses (avg < 0.65 over 7 runs). tdd-driven lacks diagnosis depth; systematic-debugging lacks test discipline. A hybrid harness that diagnoses first, then writes targeted tests, then fixes would address both weaknesses.",
   "proposed_harness": {
@@ -329,6 +382,20 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
     "complementary_weaknesses": [],
     "manual_retries": []
   },
+  "pattern_matching": {
+    "gaps_analyzed": 0,
+    "patterns_matched": [],
+    "best_match": {
+      "pattern": "progressive-refinement",
+      "fitness": 0.78,
+      "taxonomy_match": 0.9,
+      "signature_match": 0.7,
+      "novelty": 1.0,
+      "feasibility": 0.6,
+      "genesis_proposed": true
+    },
+    "unmatched_gaps": []
+  },
   "no_action_harnesses": {
     "systematic-debugging": "Improving trend — no modifications needed. Monitor for 3 more sessions.",
     "code-review": "Insufficient data (2 runs). Needs 3+ runs before analysis."
@@ -352,4 +419,6 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
 11. Output ONLY the JSON object. No markdown code fences, no surrounding text.
 12. **For `new_harness` proposals**: Always run Phase 2b (cross-harness analysis) by reading evaluation logs from ALL harnesses, not just the triggered one. `new_harness` proposals require >= 3 evaluations showing the gap across multiple harnesses. The `proposed_harness` field must contain complete, self-contained `agent_md`, `skill_md`, and `contract_yaml` — not stubs or placeholders. Use existing harnesses as templates: read their agent.md and skill.md, then combine/adapt relevant workflow elements.
 13. **Genesis conservatism**: Generate at most 1 `new_harness` proposal per evolution run. New harnesses are expensive to test (they start at weight 1.0 in experimental pool and need 5 consecutive successes to promote). Only propose genesis when the evidence clearly shows a workflow gap that cannot be addressed by modifying an existing harness.
+14. **Pattern-driven genesis priority**: When Phase 2c identifies a matching pattern (fitness >= 0.6), prefer it over Phase 2b's ad-hoc combination genesis. Pattern-driven proposals produce more principled designs. Always include `pattern_source`, `pattern_fitness`, and `design_rationale` fields in the evidence.
+15. **Pattern library as read-only knowledge**: The pattern library (`patterns/*.yaml`) is reference material — never modify pattern files. If a pattern's failure_signatures don't match observed data, report it in `pattern_matching.unmatched_gaps` for human review.
 </instructions>

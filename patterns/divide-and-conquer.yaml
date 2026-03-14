@@ -1,0 +1,49 @@
+name: divide-and-conquer
+category: decomposition
+description: >
+  Break a large task into independent sub-tasks, solve each sub-task
+  in isolation, then integrate the results. Integration is a distinct
+  phase with its own verification.
+
+structure:
+  phases:
+    - name: analyze
+      description: "Understand the full task scope"
+    - name: decompose
+      description: "Split into 2-5 independent sub-tasks with clear interfaces"
+    - name: solve
+      description: "Execute each sub-task (potentially in parallel)"
+    - name: integrate
+      description: "Combine sub-task results, resolve interface mismatches"
+    - name: verify
+      description: "Test the integrated result as a whole"
+  control_flow: "analyze → decompose → [parallel: solve(sub-1), solve(sub-2), ...] → integrate → verify"
+
+strengths:
+  - Natural parallelism — sub-tasks can execute concurrently
+  - Reduces complexity — each sub-task is smaller and clearer
+  - Failure isolation — one sub-task failing doesn't destroy others
+  - Works for very large tasks that exceed single-harness capacity
+
+weaknesses:
+  - Decomposition quality is critical — bad splits create integration nightmares
+  - Integration phase can be as hard as the original task
+  - Not all tasks are decomposable (tightly coupled changes)
+  - Overhead of decomposition + integration may exceed direct approach for small tasks
+
+failure_signatures:
+  - "Repo-wide tasks fail even with careful-refactor — the task is too large for a single pass"
+  - "Cross-module changes break at module boundaries — integration was not planned"
+  - "Ensemble mode produces conflicting results — sub-tasks were not independent"
+  - "evaluation shows high code_quality per-module but low overall maintainability — integration gaps"
+
+best_for:
+  uncertainty: [low, medium]
+  task_types: [feature, refactor, migration]
+  blast_radius: [repo-wide]
+
+existing_harness: null
+genesis_hint: >
+  Use ralplan-consensus for the decompose phase, then spawn independent
+  execution harnesses (tdd-driven or careful-refactor) per sub-task.
+  The integration phase is a new concern not well-covered by existing harnesses.
