@@ -148,20 +148,59 @@ Custom dimensions (e.g. `api_response_time`, `model_accuracy`) are fully support
 
 ## Evolution System
 
-The evolution manager analyzes evaluation history every 5 runs per harness and proposes improvements:
+The evolution manager triggers automatically every 5 evaluations per harness (or manually via `/meta-harness:evolve`). It runs three analysis phases:
+
+### Phase 1-2: Optimize existing harnesses
 
 | Proposal Type | What it does | Example |
 |---------------|-------------|---------|
 | **Content modification** | Adds/modifies steps in `skill.md` or `agent.md` | "Add error handling review step to tdd-driven" |
 | **Contract modification** | Adjusts trigger conditions | "Restrict rapid-prototype to local blast radius" |
-| **Harness genesis** | Creates entirely new harnesses | "Combine tdd-driven + systematic-debugging for high-uncertainty bugs" |
-| **Promotion / Demotion** | Moves harnesses between stable and experimental pools | "Promote after 5 consecutive successes" |
+| **Promotion / Demotion** | Moves harnesses between pools | "Promote after 5 consecutive successes" |
 
-Genesis proposals are driven by **cross-harness pattern recognition** — the evolution manager reads evaluation logs across all harnesses to detect:
+### Phase 2b: Cross-harness pattern recognition
 
-- **Workflow gaps**: a task profile that no existing harness handles well
-- **Repeated chains**: a chain combination used 5+ times that should be consolidated
-- **Complementary weaknesses**: two harnesses whose strengths/weaknesses are exact opposites
+Reads evaluation logs across **all** harnesses to detect systemic patterns:
+
+- **Workflow gaps** — a task profile that no existing harness handles well (3+ failures across different harnesses)
+- **Repeated chains** — a chain combination used 5+ times that should be consolidated into one harness
+- **Complementary weaknesses** — two harnesses whose strengths/weaknesses are exact opposites (hybrid candidate)
+- **Manual retries** — the same task reappears with a different harness (first selection was wrong)
+
+### Phase 2c: Concept-level reasoning (pattern-driven genesis)
+
+Instead of just combining existing harnesses, the evolution manager reasons about **workflow design principles** using a pattern library (`patterns/`):
+
+```
+Observed symptoms → Match failure signatures → Score pattern candidates → Generate principled harness
+```
+
+10 documented workflow patterns, 5 already instantiated as harnesses:
+
+| Pattern | Category | Existing Harness |
+|---------|----------|-----------------|
+| converge-loop | iterative | ralph-loop |
+| red-green-refactor | test-driven | tdd-driven |
+| hypothesis-cycle | scientific | research-iteration |
+| mikado-method | structural | careful-refactor |
+| plan-then-execute | deliberative | ralplan-consensus |
+| **progressive-refinement** | iterative | — |
+| **divide-and-conquer** | decomposition | — |
+| **adversarial-review** | verification | — |
+| **spike-then-harden** | two-phase | — |
+| **bisect-and-isolate** | diagnostic | — |
+
+When evaluation data shows a gap that matches an uninstantiated pattern's failure signatures, the evolution manager generates a **pattern-driven genesis proposal** — a complete new harness grounded in workflow design theory, not ad-hoc combination.
+
+### Lifecycle
+
+```
+Eval accumulates → evolution-manager analyzes (Phase 1→2→2b→2c→3)
+  → writes proposal JSON (status: pending)
+    → next session start applies it (harness created in experimental pool)
+      → router selects it with 20% exploration rate
+        → 5 consecutive successes → promoted to stable
+```
 
 All proposals go to the experimental pool first. Promotion to stable requires 5 consecutive successful evaluations.
 
@@ -184,6 +223,7 @@ meta-harness doesn't replace your existing tools — it's a **meta-layer** that 
 meta-harness grows through community contributions — all in pure markdown, no code required:
 
 - **Harnesses** — new execution workflows (`harnesses/your-name/`)
+- **Patterns** — workflow design patterns for evolution genesis (`patterns/your-name.yaml`)
 - **Protocols** — domain-specific scoring criteria (`protocols/your-name/`)
 - **Fixtures** — reproducible benchmark scenarios (`fixtures/your-name/`)
 
