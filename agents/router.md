@@ -33,42 +33,17 @@ Do not output anything else. This fast-path saves ~5-10s of routing overhead.
 </fast_path>
 
 <taxonomy_definition>
-Classify the task along these 6 axes. Use your reasoning about the task description and codebase context — not keyword matching.
+Classify the task along these 6 axes using LLM reasoning (never keyword heuristics).
+See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 
-**Axis 1: task_type**
-- `bugfix` — Fix a defect, error, or incorrect behavior in existing code
-- `feature` — Implement new functionality or capability
-- `refactor` — Restructure existing code without changing behavior
-- `research` — Investigate, benchmark, or experiment with approaches
-- `migration` — Upgrade dependencies, migrate between APIs, port code
-- `incident` — Active production issue requiring immediate triage and fix
-- `benchmark` — Measure performance characteristics
-
-**Axis 2: uncertainty** (how unclear are requirements or approach?)
-- `low` — Requirements are explicit, approach is well-understood
-- `medium` — Some ambiguity in requirements or competing valid approaches
-- `high` — Requirements unclear, approach unknown, or multiple viable paths with unknown tradeoffs
-
-**Axis 3: blast_radius** (how many parts of the codebase are affected?)
-- `local` — Change confined to 1-3 files or a single module
-- `cross-module` — Change touches multiple modules or packages
-- `repo-wide` — Change affects architecture, APIs, or cuts across the entire codebase
-
-**Axis 4: verifiability** (how hard is it to confirm the result is correct?)
-- `easy` — Pass/fail test exists or can be trivially written; clear acceptance criteria
-- `moderate` — Tests exist but need some interpretation; behavior has edge cases
-- `hard` — Correctness is subjective, requires deep domain knowledge, or lacks automated verification
-
-**Axis 5: latency_sensitivity** (does the user need a fast result?)
-- `low` — Quality matters more than speed; thorough approach acceptable
-- `high` — User needs output quickly; cut corners if necessary
-
-**Axis 6: domain**
-- `backend` — Server-side logic, APIs, databases, business logic
-- `frontend` — UI, browser code, CSS, client-side JavaScript/TypeScript
-- `ml-research` — Machine learning, model training, data science, experimentation
-- `infra` — Infrastructure, CI/CD, deployment, configuration, DevOps
-- `docs` — Documentation, README, comments, specifications
+| Axis | Values |
+|------|--------|
+| `task_type` | `bugfix` / `feature` / `refactor` / `research` / `migration` / `incident` / `benchmark` |
+| `uncertainty` | `low` / `medium` / `high` |
+| `blast_radius` | `local` / `cross-module` / `repo-wide` |
+| `verifiability` | `easy` / `moderate` / `hard` |
+| `latency_sensitivity` | `low` / `high` |
+| `domain` | `backend` / `frontend` / `ml-research` / `infra` / `docs` |
 </taxonomy_definition>
 
 <ensemble_rule>
@@ -84,61 +59,19 @@ When `ensemble_required` is true, also provide `ensemble_harnesses`: a list of 2
 </ensemble_rule>
 
 <harness_pool>
-These are the built-in harnesses and their optimal trigger conditions. Read `.meta-harness/harness-pool.json` via the Read tool if it exists — it contains current weights and pool membership (stable vs experimental). Use weights as a tiebreaker when multiple harnesses match.
+Read `.meta-harness/harness-pool.json` if it exists for current weights. Full harness descriptions are in `skills/using-meta-harness-default/SKILL.md` Quick Reference section.
 
-**tdd-driven**
-- Best for: bugfix, feature with clear test expectations
-- Trigger: task_types=[bugfix, feature], uncertainty=[low, medium], verifiability=[easy, moderate]
-- Approach: Write failing test first, implement to pass, refactor
-- Avoid when: requirements are unclear, no test framework exists
-
-**systematic-debugging**
-- Best for: bugfix, incident requiring root cause analysis
-- Trigger: task_types=[bugfix, incident], any uncertainty
-- Approach: Reproduce → isolate → fix → verify with 4-phase discipline
-- Prefer over tdd-driven when: bug is hard to reproduce or root cause is unknown
-
-**rapid-prototype**
-- Best for: feature with high latency sensitivity, low uncertainty
-- Trigger: task_types=[feature], uncertainty=[low], latency_sensitivity=high
-- Approach: Minimal viable implementation, iterate fast
-- Avoid when: blast_radius is cross-module or repo-wide
-
-**research-iteration**
-- Best for: research, benchmark with high uncertainty
-- Trigger: task_types=[research, benchmark], uncertainty=[high]
-- Approach: Hypothesize → implement → measure → iterate
-- Model: opus (deeper reasoning for exploratory work)
-
-**careful-refactor**
-- Best for: refactor with large blast radius
-- Trigger: task_types=[refactor], blast_radius=[cross-module, repo-wide]
-- Approach: Characterize existing behavior → refactor → verify behavior preserved (Mikado method)
-- Avoid when: blast_radius is local (overkill)
-
-**code-review**
-- Best for: post-execution review pass
-- Trigger: post_execution=true, any task_type
-- Approach: Security → quality → performance → maintainability multi-perspective review
-- This harness runs AFTER another harness, not instead of it
-
-**migration-safe**
-- Best for: migration with repo-wide blast radius
-- Trigger: task_types=[migration], blast_radius=[repo-wide]
-- Approach: Audit → plan → migrate → verify → prepare rollback plan
-- Avoid when: blast_radius is local (overkill)
-
-**ralplan-consensus** (general-capable, chaining use)
-- Best for: upfront planning when approach is unclear or blast radius is large
-- Trigger: task_types=[*], uncertainty=[medium, high], blast_radius=[cross-module, repo-wide]
-- Approach: Analyze requirements → explore codebase → create implementation plan → self-review
-- Use as first step in a harness chain, not as standalone execution
-
-**ralph-loop** (general-capable, chaining use)
-- Best for: tasks needing persistent iterative convergence
-- Trigger: task_types=[*], uncertainty=[medium, high]
-- Approach: Understand context → implement → verify → iterate until passing (max 10 iterations)
-- Use when tasks have hard acceptance criteria or when a previous chain step produced a plan to execute
+| Harness | Best for | Key trigger |
+|---------|----------|-------------|
+| `tdd-driven` | bugfix, feature | uncertainty=[low,medium], verifiability=[easy,moderate] |
+| `systematic-debugging` | bugfix, incident | any uncertainty |
+| `rapid-prototype` | feature, fast MVP | uncertainty=low, latency_sensitivity=high |
+| `research-iteration` | research, benchmark | uncertainty=high (model: opus) |
+| `careful-refactor` | refactor | blast_radius=[cross-module, repo-wide] |
+| `code-review` | post-execution review | post_execution=true |
+| `migration-safe` | migration | blast_radius=repo-wide |
+| `ralplan-consensus` | upfront planning (chain first step) | uncertainty=[medium,high], blast_radius=[cross-module, repo-wide] |
+| `ralph-loop` | persistent iteration | uncertainty=[medium,high], max 10 iterations |
 </harness_pool>
 
 <protocol_binding>

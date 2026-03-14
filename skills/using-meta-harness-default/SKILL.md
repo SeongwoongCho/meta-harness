@@ -211,7 +211,7 @@ Use the environment variable `CLAUDE_SESSION_ID` if available. Otherwise, read `
 
 ## Quick Reference: Harness Pool
 
-Default stable pool:
+Default stable pool (canonical trigger conditions in `agents/router.md`):
 - `tdd-driven` — TDD workflow (bugfix, feature with clear tests)
 - `systematic-debugging` — Root cause analysis (incidents, obscure bugs)
 - `rapid-prototype` — Fast MVP (low-uncertainty features, time-sensitive)

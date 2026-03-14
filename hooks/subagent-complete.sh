@@ -4,16 +4,9 @@
 # Consume stdin
 HOOK_INPUT=$(cat 2>/dev/null || echo "")
 
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-STATE_DIR="${PROJECT_ROOT}/.meta-harness"
-
-SESSION_ID="${CLAUDE_SESSION_ID:-}"
-if [ -z "$SESSION_ID" ]; then
-  SESSION_ID_FILE="${STATE_DIR}/.current-session-id"
-  if [ -f "$SESSION_ID_FILE" ]; then
-    SESSION_ID=$(cat "$SESSION_ID_FILE")
-  fi
-fi
+source "$(dirname "$0")/lib.sh"
+STATE_DIR="$(state_dir)"
+SESSION_ID="$(resolve_session_id "$STATE_DIR")"
 
 # Record completion if session exists
 if [ -n "$SESSION_ID" ]; then

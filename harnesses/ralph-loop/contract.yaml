@@ -49,6 +49,12 @@ stopping_criteria:
     threshold: 10
     description: "Maximum 10 iterations reached — escalate to user"
 
+verification_steps:
+  - "Run full test suite: all tests green"
+  - "Run build: no errors"
+  - "Grep modified files for console.log, debugger, TODO, HACK, FIXME — none found"
+  - "Acceptance criteria from task description confirmed met"
+
 cost_budget:
   max_tokens: 500000
   max_time_minutes: 30

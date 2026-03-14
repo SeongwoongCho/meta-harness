@@ -3,10 +3,11 @@
 
 set -euo pipefail
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)}"
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
+PLUGIN_ROOT="$(resolve_plugin_root)"
 SKILL_FILE="${PLUGIN_ROOT}/skills/using-meta-harness-default/SKILL.md"
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-STATE_DIR="${PROJECT_ROOT}/.meta-harness"
+PROJECT_ROOT="$(resolve_project_root)"
+STATE_DIR="$(state_dir)"
 
 # Generate a stable session ID and create directories
 SESSION_ID="${CLAUDE_SESSION_ID:-session-$(date +%s)-$$}"

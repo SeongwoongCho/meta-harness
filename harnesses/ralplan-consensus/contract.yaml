@@ -49,6 +49,13 @@ stopping_criteria:
       self_review_complete: true
     description: "Plan has ≥3 implementation steps, ≥2 risks, ≥1 alternative, and self-review complete"
 
+verification_steps:
+  - "Plan has ≥3 concrete implementation steps"
+  - "≥2 risks identified with mitigations"
+  - "≥1 alternative approach considered and rejected with reasoning"
+  - "Self-review challenges ≥2 assumptions"
+  - "Output is structured markdown consumable by downstream harness"
+
 cost_budget:
   max_tokens: 300000
   max_time_minutes: 15
