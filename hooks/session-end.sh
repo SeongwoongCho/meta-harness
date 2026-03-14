@@ -54,27 +54,64 @@ try:
 except Exception:
     weights = {}
 
-# Apply weight updates from session
-# Pool format: {"stable": {"harness-name": {...}}, "experimental": {"harness-name": {...}}}
-for pool_tier in ("stable", "experimental"):
-    if pool_tier not in pool:
+# Collect per-harness stats from eval files in this session
+import glob as _glob
+eval_dir = os.path.dirname(weights_file)
+harness_stats = {}  # {name: {runs, successes, failures, last_result}}
+for ef in sorted(_glob.glob(os.path.join(eval_dir, "eval-*.json"))):
+    try:
+        with open(ef) as _f:
+            ev = json.load(_f)
+    except Exception:
         continue
-    for harness_name, delta in weights.get(pool_tier, {}).items():
-        if harness_name in pool[pool_tier]:
-            entry = pool[pool_tier][harness_name]
-            # Apply delta (bounded to [0.5, 2.0] range)
-            current = entry.get("weight", 1.0)
-            new_weight = max(0.5, min(2.0, current + delta.get("weight_delta", 0)))
-            entry["weight"] = round(new_weight, 4)
-            # Update counters
-            entry["successes"] = entry.get("successes", 0) + delta.get("successes", 0)
-            entry["failures"] = entry.get("failures", 0) + delta.get("failures", 0)
-            entry["total_runs"] = entry.get("total_runs", 0) + delta.get("runs", 0)
-            # Track consecutive successes for promotion
-            if delta.get("last_result") == "success":
-                entry["consecutive_successes"] = entry.get("consecutive_successes", 0) + 1
-            elif delta.get("last_result") == "failure":
-                entry["consecutive_successes"] = 0
+    if ev.get("fast_path"):
+        continue
+    passed = ev.get("quality_gate_passed", True)
+    # Credit each harness in a chain, or the single harness
+    chain = ev.get("harness_chain")
+    if not chain:
+        h = ev.get("harness", "")
+        # Parse "chain:a+b+c" format into individual harness names
+        if h.startswith("chain:"):
+            chain = h[len("chain:"):].split("+")
+        elif h and h != "fast-path":
+            chain = [h]
+        else:
+            chain = []
+    for ch in chain:
+        s = harness_stats.setdefault(ch, {"runs": 0, "successes": 0, "failures": 0, "last_result": None})
+        s["runs"] += 1
+        if passed:
+            s["successes"] += 1
+            s["last_result"] = "success"
+        else:
+            s["failures"] += 1
+            s["last_result"] = "failure"
+
+# Apply weight deltas and counters
+# weights.json format: flat {harness_name: {delta: N, reason: "..."}}
+for harness_name, w_data in weights.items():
+    weight_delta = w_data.get("delta", 0) if isinstance(w_data, dict) else 0
+    # Find harness in stable or experimental tier
+    for pool_tier in ("stable", "experimental"):
+        if pool_tier not in pool or harness_name not in pool[pool_tier]:
+            continue
+        entry = pool[pool_tier][harness_name]
+        # Apply delta (bounded to [0.5, 2.0] range)
+        current = entry.get("weight", 1.0)
+        entry["weight"] = round(max(0.5, min(2.0, current + weight_delta)), 4)
+        # Update counters from eval files
+        stats = harness_stats.get(harness_name, {})
+        entry["total_runs"] = entry.get("total_runs", 0) + stats.get("runs", 0)
+        entry["successes"] = entry.get("successes", 0) + stats.get("successes", 0)
+        entry["failures"] = entry.get("failures", 0) + stats.get("failures", 0)
+        # Track consecutive successes for promotion
+        lr = stats.get("last_result")
+        if lr == "success":
+            entry["consecutive_successes"] = entry.get("consecutive_successes", 0) + stats.get("successes", 0)
+        elif lr == "failure":
+            entry["consecutive_successes"] = 0
+        break
 
 pool["last_updated"] = timestamp
 pool["last_merged_session"] = session_id
