@@ -1,15 +1,28 @@
 ---
-description: "Initialize meta-harness for this project. Defines domain, evaluation criteria, and preferences via interactive Q&A."
-argument-hint: "[domain]"
+description: "Initialize meta-harness for this project. Defines domain, evaluation criteria, and preferences via interactive Q&A. Use --general to skip questions and apply sensible defaults."
+argument-hint: "[--general] [domain]"
 ---
 
 # meta-harness-init
 
 Initialize meta-harness for this project by running an interactive Q&A to define the project domain, evaluation criteria, ensemble preferences, and evolution settings. Writes `.meta-harness/config.yaml`.
 
-## Instructions
+## --general Flag (Quick Init)
 
-If a `[domain]` argument was provided, use it as the default answer for the domain question and skip asking it.
+If `--general` is passed as an argument, **skip ALL questions** and initialize with sensible defaults that work for any project:
+
+- domain: `general`
+- default_protocol: `code-quality-standard`
+- primary_metrics: `[test_pass_rate, build_success, maintainability]`
+- custom_dimensions: (none)
+- ensemble mode: `auto`
+- evolution: `conservative` (promote after 5 successes)
+
+Jump directly to the **Writing the Config** section with these values, then show the **Completion Message**.
+
+## Interactive Mode (default)
+
+If a `[domain]` argument was provided (without `--general`), use it as the default answer for the domain question and skip asking it.
 
 Run the following questions using `AskUserQuestion`. Ask them one at a time and wait for each answer before proceeding.
 
