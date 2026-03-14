@@ -54,6 +54,35 @@ The router returns structured JSON:
 }
 ```
 
+### Step 3.5: Execute Harness Chain (if harness_chain has more than 1 entry)
+
+If the router response includes `harness_chain` with more than 1 entry, execute them sequentially instead of jumping to Step 4b/4c:
+
+```
+chain_context = ""
+for index, harness in enumerate(harness_chain):
+  chain_position = f"step {index+1} of {len(harness_chain)}"
+
+  Read("harnesses/{harness}/agent.md")
+  Read("harnesses/{harness}/skill.md")
+
+  result = Task(
+    subagent_type="meta-harness:{harness}",
+    prompt="{agent.md content}\n\n## Workflow\n{skill.md content}\n\n## Task\n{task_description}\n\n## Chain Position\n{chain_position}\n\n## Prior Chain Context\n{chain_context}\n\n## Session ID\n{session_id}"
+  )
+
+  chain_context += f"\n\n### Result from {harness} ({chain_position}):\n{result}"
+```
+
+Key rules for chaining:
+- Each harness receives: the original task description + accumulated results from all prior harnesses + its chain position
+- Execute harnesses one at a time in order — do not parallelize a chain
+- If a harness in the chain fails, apply its `failure_modes` from `contract.yaml` before continuing or aborting the chain
+- After the full chain completes, treat the final `chain_context` as the execution result for Steps 5 and 6
+- Evaluation runs ONCE at the end of the full chain (Step 5), not after each individual step
+
+If `harness_chain` has only 1 entry (or is absent), skip this step and proceed to Step 4a/4b/4c as normal.
+
 ### Step 4a: Fast-Path (skip_routing = true)
 
 If the router returns `skip_routing: true` (trivial follow-ups like "fix that typo", "add a comment", "clarify X"), execute the task directly without spawning a harness subagent. Skip to user response.
@@ -190,5 +219,7 @@ Default stable pool:
 - `careful-refactor` — Safe refactoring (cross-module/repo-wide blast radius)
 - `code-review` — Multi-perspective review (post-execution or explicit review tasks)
 - `migration-safe` — Migration/upgrade (repo-wide blast, rollback required)
+- `ralplan-consensus` — Upfront planning with self-review (first step in chains for medium/high uncertainty)
+- `ralph-loop` — Persistent execution loop (iterates until acceptance criteria pass, max 10 iterations)
 
 Default protocol: `code-quality-standard` (unless `.meta-harness/config.yaml` specifies otherwise or task domain suggests a specialized protocol).

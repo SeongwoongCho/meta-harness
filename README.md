@@ -343,6 +343,30 @@ evolution:
 
 ---
 
+## Harness Chaining
+
+For complex tasks, the router can select a **harness chain** — a sequence of harnesses executed one after another. Each harness in the chain receives the original task description plus the accumulated results of all prior harnesses as context.
+
+```
+harness_chain: ["ralplan-consensus", "careful-refactor", "code-review"]
+                      │                      │                  │
+                      ▼                      ▼                  ▼
+                 Create plan          Execute plan          Review result
+                 (opus model)        (with plan as         (with full
+                                      context)              chain context)
+```
+
+The router decides freely whether to chain based on task complexity:
+
+| Task Complexity | Typical Chain |
+|----------------|---------------|
+| Low uncertainty, local change | `["tdd-driven"]` — single harness |
+| Medium uncertainty, cross-module | `["ralplan-consensus", "tdd-driven"]` — plan then execute |
+| High uncertainty, repo-wide | `["ralplan-consensus", "careful-refactor", "code-review"]` — full cycle |
+| Needs iterative convergence | `["ralplan-consensus", "ralph-loop"]` — plan then persist |
+
+Evaluation runs **once** at the end of the full chain, not after each step.
+
 ## Built-in Harnesses
 
 | Harness | Best For | Trigger Conditions | Model |
@@ -354,6 +378,8 @@ evolution:
 | **careful-refactor** | Safe structural refactoring (Mikado method) | `task_type: [refactor]`, `blast_radius: [cross-module, repo-wide]` | Sonnet |
 | **code-review** | Multi-perspective code review | `task_type: [*]`, `post_execution: true` | Opus |
 | **migration-safe** | Dependency upgrades and migrations | `task_type: [migration]`, `blast_radius: [repo-wide]` | Sonnet |
+| **ralplan-consensus** | Upfront planning with self-review (first step in chains) | `uncertainty: [medium, high]`, `blast_radius: [cross-module, repo-wide]` | Opus |
+| **ralph-loop** | Persistent execution until acceptance criteria pass | `uncertainty: [medium, high]`, max 10 iterations | Sonnet |
 
 ---
 

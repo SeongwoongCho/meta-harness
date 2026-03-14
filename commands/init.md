@@ -181,7 +181,9 @@ Initialize `.meta-harness/harness-pool.json` from built-in harness defaults if i
     "research-iteration":   {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
     "careful-refactor":     {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
     "code-review":          {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
-    "migration-safe":       {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0}
+    "migration-safe":       {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
+    "ralplan-consensus":    {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
+    "ralph-loop":           {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0}
   },
   "experimental": {}
 }
@@ -194,7 +196,7 @@ Report:
 meta-harness initialized for {domain} project.
 
 Config written to: .meta-harness/config.yaml
-Pool state initialized: .meta-harness/harness-pool.json (7 stable harnesses)
+Pool state initialized: .meta-harness/harness-pool.json (9 stable harnesses)
 Default protocol: {protocol}
 Ensemble mode: {mode}
 Evolution: {enabled/disabled} ({threshold} consecutive successes for promotion)
