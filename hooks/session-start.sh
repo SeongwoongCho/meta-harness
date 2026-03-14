@@ -1,38 +1,37 @@
 #!/usr/bin/env bash
 # session-start.sh — Inject using-meta-harness-default/SKILL.md as additionalContext.
-# Run: chmod +x hooks/session-start.sh
-set -euo pipefail
+
+# Consume stdin
+cat > /dev/null 2>&1 || true
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 SKILL_FILE="${PLUGIN_ROOT}/skills/using-meta-harness-default/SKILL.md"
-# Use git root if available, otherwise PWD
 PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 STATE_DIR="${PROJECT_ROOT}/.meta-harness"
 
-# Generate a stable session ID for this session and write it for other hooks to use
+# Generate a stable session ID and write for other hooks
 SESSION_ID="${CLAUDE_SESSION_ID:-}"
 if [ -z "$SESSION_ID" ]; then
   SESSION_ID="session-$(date +%s)-$$"
 fi
-mkdir -p "${STATE_DIR}"
-printf '%s' "${SESSION_ID}" > "${STATE_DIR}/.current-session-id"
+mkdir -p "${STATE_DIR}/sessions/${SESSION_ID}/evidence" 2>/dev/null || true
+printf '%s' "${SESSION_ID}" > "${STATE_DIR}/.current-session-id" 2>/dev/null || true
 
-# Create per-session evidence directory
-mkdir -p "${STATE_DIR}/sessions/${SESSION_ID}/evidence"
-
-# Read SKILL.md content — exit cleanly if file not found
+# Read SKILL.md — exit cleanly if not found
 if [ ! -f "$SKILL_FILE" ]; then
   exit 0
 fi
 
-SKILL_CONTENT=$(cat "$SKILL_FILE")
+# Use python3 for reliable JSON escaping (no sed fragility)
+python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1], 'r') as f:
+        content = f.read()
+    output = {'hookSpecificOutput': {'additionalContext': content}}
+    print(json.dumps(output))
+except Exception:
+    print('{\"hookSpecificOutput\":{\"additionalContext\":\"[meta-harness] Skill loaded.\"}}')
+" "$SKILL_FILE"
 
-# Escape content for JSON: backslashes, double quotes, newlines, tabs
-ESCAPED=$(printf '%s' "$SKILL_CONTENT" \
-  | sed 's/\\/\\\\/g' \
-  | sed 's/"/\\"/g' \
-  | sed ':a;N;$!ba;s/\n/\\n/g' \
-  | sed 's/\t/\\t/g')
-
-# Output valid hook JSON with additionalContext
-printf '{"hookSpecificOutput":{"additionalContext":"%s"}}\n' "$ESCAPED"
+exit 0
