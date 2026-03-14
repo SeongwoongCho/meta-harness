@@ -268,6 +268,7 @@ On evaluator response:
   "timestamp": "{iso_timestamp}",
   "harness": "{selected_harness}",
   "taxonomy": {taxonomy_object},
+  "ensemble": ensemble_required,
   "scores": {dimension_scores},
   "overall_score": 0.82,
   "quality_gate_passed": true,

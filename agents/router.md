@@ -52,11 +52,26 @@ See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 </taxonomy_definition>
 
 <ensemble_rule>
-Compute `ensemble_required` as:
+Compute `ensemble_required` using this two-step check:
 
+**Step A — Gate condition (REQUIRED):**
 ```
-ensemble_required = (uncertainty == "high") AND (verifiability == "hard" OR blast_radius == "repo-wide")
+uncertainty == "high"
 ```
+If uncertainty is NOT "high", ensemble_required = false. Stop here.
+
+**Step B — Second condition (ANY ONE of these is sufficient):**
+```
+verifiability == "hard"   → ensemble_required = true
+blast_radius == "repo-wide"  → ensemble_required = true
+```
+If EITHER verifiability is "hard" OR blast_radius is "repo-wide", ensemble_required = true.
+
+**Examples:**
+- uncertainty=high, blast_radius=repo-wide, verifiability=moderate → ensemble_required = **true** (blast_radius alone satisfies Step B)
+- uncertainty=high, verifiability=hard, blast_radius=local → ensemble_required = **true** (verifiability alone satisfies Step B)
+- uncertainty=high, verifiability=moderate, blast_radius=cross-module → ensemble_required = **false** (neither Step B condition met)
+- uncertainty=medium, blast_radius=repo-wide → ensemble_required = **false** (fails Step A)
 
 This is the only condition that triggers ensemble. Do not enable ensemble for any other combination — it doubles execution cost.
 

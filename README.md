@@ -60,7 +60,7 @@ User Task
 | **Content** | What the harness actually does | Evolution manager rewrites agent personas and `skill.md` via A/B testing |
 | **Genesis** | Which harnesses exist | Evolution manager creates new harnesses by combining existing ones |
 
-Hard tasks (`uncertainty=high`) automatically trigger **ensemble mode** — two harnesses run in parallel, a synthesizer merges the best of both.
+Hard tasks (`uncertainty=high` **and** `verifiability=hard` or `blast_radius=repo-wide`) automatically trigger **ensemble mode** — two harnesses run in parallel, a synthesizer merges the best of both.
 
 ---
 
