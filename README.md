@@ -52,12 +52,13 @@ User Task
 └─────────────────────────────────────┘
 ```
 
-**Two levels of self-improvement:**
+**Three levels of self-improvement:**
 
 | Level | What improves | How |
 |-------|--------------|-----|
 | **Routing** | Which harness gets picked | Weights adjust after every evaluation |
 | **Content** | What the harness actually does | Evolution manager rewrites `agent.md`/`skill.md` via A/B testing |
+| **Genesis** | Which harnesses exist | Evolution manager creates new harnesses by combining existing ones |
 
 Hard tasks (`uncertainty=high`) automatically trigger **ensemble mode** — two harnesses run in parallel, a synthesizer merges the best of both.
 
@@ -105,9 +106,9 @@ That's it. Every task is now routed through the meta-harness pipeline automatica
 | **rapid-prototype** | Fast MVP when latency matters | Sonnet |
 | **research-iteration** | Exploratory research with unclear requirements | Opus |
 | **careful-refactor** | Safe structural refactoring (Mikado method) | Sonnet |
-| **code-review** | Multi-perspective review with automated security scans | Opus |
+| **code-review** | Multi-perspective OWASP-aligned security & quality review | Opus |
 | **migration-safe** | Dependency upgrades and migrations | Sonnet |
-| **ralplan-consensus** | Upfront planning with self-review | Opus |
+| **ralplan-consensus** | Task-type-aware planning with self-review | Opus |
 | **ralph-loop** | Persistent execution until acceptance criteria pass | Sonnet |
 
 The router supports **harness chaining** — e.g. `plan → execute → review` for complex tasks. Chains are **adaptive**: if a harness discovers mid-execution that the next planned step is wrong, it emits a `next_harness_hint` and the orchestrator reroutes dynamically.
@@ -142,6 +143,27 @@ Every task is classified by LLM reasoning (not keyword matching):
 Protocols are **task-type-aware**: `code-quality-standard` automatically adjusts dimension weights per task type (e.g. research tasks de-weight `build_success` and add `analysis_depth`). The evaluator model is auto-routed — Sonnet for simple tasks, Opus for complex ones.
 
 Custom dimensions (e.g. `api_response_time`, `model_accuracy`) are fully supported via `config.yaml`.
+
+---
+
+## Evolution System
+
+The evolution manager analyzes evaluation history every 5 runs per harness and proposes improvements:
+
+| Proposal Type | What it does | Example |
+|---------------|-------------|---------|
+| **Content modification** | Adds/modifies steps in `skill.md` or `agent.md` | "Add error handling review step to tdd-driven" |
+| **Contract modification** | Adjusts trigger conditions | "Restrict rapid-prototype to local blast radius" |
+| **Harness genesis** | Creates entirely new harnesses | "Combine tdd-driven + systematic-debugging for high-uncertainty bugs" |
+| **Promotion / Demotion** | Moves harnesses between stable and experimental pools | "Promote after 5 consecutive successes" |
+
+Genesis proposals are driven by **cross-harness pattern recognition** — the evolution manager reads evaluation logs across all harnesses to detect:
+
+- **Workflow gaps**: a task profile that no existing harness handles well
+- **Repeated chains**: a chain combination used 5+ times that should be consolidated
+- **Complementary weaknesses**: two harnesses whose strengths/weaknesses are exact opposites
+
+All proposals go to the experimental pool first. Promotion to stable requires 5 consecutive successful evaluations.
 
 ---
 
