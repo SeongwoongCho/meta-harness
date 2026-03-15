@@ -32,16 +32,55 @@ This project follows a structured branching strategy. **All AI agents must follo
 
 ### Release Flow
 
-When a version is ready to release:
-1. Merge `dev` into `main` via a PR.
-2. Tag the merge commit on `main` with the version: `vX.Y.Z` (semver).
-3. Push the tag: `git push origin vX.Y.Z`.
+#### Automated Release (recommended)
+
+Use the **prepare-release** workflow to automate version bumping and PR creation:
+
+1. Go to **Actions → Prepare Release → Run workflow** on GitHub.
+2. Enter the new version (e.g. `1.2.0`) and click **Run workflow**.
+3. The workflow will:
+   - Run `scripts/bump_version.py <version>` to update all version files.
+   - Commit the version bump to `dev`.
+   - Open a PR from `dev` → `main` with auto-generated release notes.
+4. Review and merge the PR.
+5. Tag the merge commit: `git tag v1.2.0 && git push origin v1.2.0`.
+6. The **release** workflow runs automatically on tag push, validates the version, generates the changelog, and creates a GitHub Release.
+
+#### Manual Release
+
+When a version is ready to release manually:
+1. Bump all version files in one command:
+   ```
+   python3 scripts/bump_version.py <new_version>
+   ```
+2. Commit, push, and open a PR from `dev` → `main`.
+3. Merge the PR, then tag the merge commit on `main`:
+   ```
+   git tag v<new_version>
+   git push origin v<new_version>
+   ```
+
+#### Release Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/bump_version.py <version>` | Update version in `plugin.json`, `marketplace.json`, and `CLAUDE.md` |
+| `scripts/generate_changelog.py [FROM_TAG] [TO_REF]` | Generate markdown changelog from git log |
+
+#### GitHub Actions Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `.github/workflows/release.yml` | `git push origin vX.Y.Z` | Validates version, generates changelog, creates GitHub Release |
+| `.github/workflows/prepare-release.yml` | `workflow_dispatch` | Bumps version, commits to `dev`, opens PR to `main` |
+| `.github/workflows/test.yml` | Push/PR to `main` | Runs full test suite |
 
 ### Version Files
 
-When bumping the project version, update **both** files:
+When bumping the project version, all three locations must be in sync (use `scripts/bump_version.py` to update them atomically):
 - `.claude-plugin/plugin.json` — `"version"` field
 - `.claude-plugin/marketplace.json` — `"version"` field (appears twice: once in `plugins[0]` and once at the root)
+- `CLAUDE.md` — bold version on the **Current Version** line
 
 ### Current Version
 

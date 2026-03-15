@@ -112,6 +112,11 @@ That's it. Every task is now routed through the adaptive-harness pipeline automa
 | **migration-safe** | Schema, dependency, and API migrations with audit trails and rollback plans | Sonnet |
 | **ralplan-consensus** | Implementation planning with self-review — analyzes, plans, then challenges its own assumptions | Opus |
 | **ralph-loop** | Persistent execution loop until all acceptance criteria pass (max iterations bounded) | Sonnet |
+| **engineering-retro** | Weekly retrospective with commit history analysis, contributor metrics, trend tracking, and growth coaching | Sonnet |
+| **plan-review** | Challenges scope and reviews architecture, quality, tests, and performance one issue at a time with failure mode analysis | Opus |
+| **qa-testing** | Tests applications like a real user, computes a health score, and produces a structured report with screenshot evidence | Sonnet |
+| **pre-landing-review** | Pre-merge diff review with critical (blocking) and informational (advisory) passes and interactive resolution | Sonnet |
+| **ship-workflow** | Automated release: merges main, runs tests, bumps version, generates changelog, creates bisectable commits, and opens a PR | Sonnet |
 
 ### Experimental Harnesses
 

@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract version from tag
+        id: tag_version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Read version from plugin.json
+        id: plugin_version
+        run: |
+          PLUGIN_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          echo "version=${PLUGIN_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate tag matches plugin.json version
+        run: |
+          TAG_VERSION="${{ steps.tag_version.outputs.version }}"
+          PLUGIN_VERSION="${{ steps.plugin_version.outputs.version }}"
+          if [ "${TAG_VERSION}" != "${PLUGIN_VERSION}" ]; then
+            echo "ERROR: Tag version '${TAG_VERSION}' does not match plugin.json version '${PLUGIN_VERSION}'."
+            echo "Please run: python3 scripts/bump_version.py ${TAG_VERSION}"
+            exit 1
+          fi
+          echo "Version check passed: ${TAG_VERSION}"
+
+      - name: Find previous tag
+        id: prev_tag
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Previous tag: ${PREV_TAG:-none}"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG="${{ steps.prev_tag.outputs.tag }}"
+          CURRENT_TAG="${{ steps.tag_version.outputs.tag }}"
+          if [ -n "${PREV_TAG}" ]; then
+            CHANGELOG=$(python3 scripts/generate_changelog.py "${PREV_TAG}" "${CURRENT_TAG}")
+          else
+            CHANGELOG=$(python3 scripts/generate_changelog.py)
+          fi
+          # Write to file so multiline is preserved
+          echo "${CHANGELOG}" > /tmp/changelog.md
+          cat /tmp/changelog.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_version.outputs.tag }}
+          name: "adaptive-harness ${{ steps.tag_version.outputs.tag }}"
+          body_path: /tmp/changelog.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
