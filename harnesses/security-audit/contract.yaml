@@ -1,0 +1,72 @@
+name: security-audit
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - research
+    - bugfix
+  uncertainty:
+    - medium
+    - high
+  blast_radius:
+    - local
+    - cross-module
+    - repo-wide
+  latency_sensitivity: any
+  domains:
+    - backend
+    - infra
+  notes: "Selected for security-focused tasks: vulnerability audits, secrets scanning, dependency audits, threat modeling, and security fix recommendations."
+
+workflow:
+  - "Scope the audit: identify entry points, trust boundaries, and sensitive data flows"
+  - "Run OWASP Top-10 scan: check for injection, broken auth, IDOR, SSRF, and misconfiguration"
+  - "Dependency audit: identify outdated or known-vulnerable dependencies"
+  - "Secrets scan: Grep for hardcoded credentials, tokens, API keys, and private keys"
+  - "Threat model: enumerate attack vectors and their likelihood/impact"
+  - "Prioritize findings: Critical → High → Medium → Low using CVSS-like scoring"
+  - "Generate fix recommendations for each finding with code examples where applicable"
+  - "Produce a structured security report"
+
+tool_policy:
+  allowed:
+    - Read
+    - Grep
+    - Glob
+    - Bash
+  denied:
+    - Write
+    - Edit
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Audit mode only — no code changes; produce a report and recommendations"
+    - "Bash is used only for running static analysis tools (bandit, npm audit, etc.)"
+    - "Never store or transmit discovered secrets; redact in the report"
+
+stopping_criteria:
+  - condition: full_scope_audited
+    description: "All identified entry points, trust boundaries, and sensitive flows have been reviewed"
+  - condition: report_complete
+    description: "Structured security report with prioritized findings and fix recommendations is produced"
+
+verification_steps:
+  - "All OWASP Top-10 categories checked"
+  - "All dependencies reviewed for known CVEs"
+  - "Grep scans for secrets completed on all relevant file types"
+  - "Every finding has a severity, description, and fix recommendation"
+  - "Report is structured and actionable"
+
+cost_budget:
+  max_tokens: 500000
+  max_time_minutes: 45
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "static_analysis_tool_unavailable"
+    description: "Required static analysis tools are not installed"
+    action: report_partial
+  - condition: "scope_unclear"
+    description: "Audit scope is too broad or trust boundaries are undefined"
+    action: escalate_to_user

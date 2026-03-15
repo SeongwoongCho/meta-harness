@@ -1,0 +1,70 @@
+name: documentation-writer
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - feature
+    - research
+  uncertainty:
+    - low
+    - medium
+  blast_radius:
+    - local
+    - cross-module
+  latency_sensitivity: any
+  domains:
+    - docs
+  notes: "Selected for documentation-focused tasks: writing, updating, or auditing docs, READMEs, API references, guides, and changelogs."
+
+workflow:
+  - "Understand scope: identify all docs to create or update and their audiences"
+  - "Read existing documentation to establish style, tone, and structural conventions"
+  - "Read source code and interfaces being documented (limit to public API surface)"
+  - "Draft documentation following existing conventions"
+  - "Cross-reference: verify every code reference, parameter name, and example is accurate"
+  - "Check for broken or stale links"
+  - "Polish: improve clarity, remove jargon, ensure consistent terminology"
+  - "Final review: confirm all original scope items are covered"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+    - Bash
+  restrictions:
+    - "No code execution — documentation only"
+    - "Never fabricate API signatures or behavior; read the source"
+    - "Preserve existing structure unless explicitly asked to restructure"
+
+stopping_criteria:
+  - condition: all_scope_items_documented
+    description: "Every item in the original documentation scope has been written or updated"
+  - condition: accuracy_verified
+    description: "All code references, examples, and parameter descriptions match the source"
+
+verification_steps:
+  - "All scope items covered"
+  - "All code references verified against source files"
+  - "No broken internal links"
+  - "Consistent style and terminology throughout"
+
+cost_budget:
+  max_tokens: 300000
+  max_time_minutes: 20
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "source_code_missing"
+    description: "Source code for the documented API is not accessible"
+    action: escalate_to_user
+  - condition: "scope_too_large"
+    description: "Documentation scope covers more than one major component and requires architectural understanding"
+    action: fallback
+    fallback_harness: ralplan-consensus
