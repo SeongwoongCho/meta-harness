@@ -111,24 +111,19 @@ Parse the router's JSON response.
 
 If `--no-ensemble` flag was given, override `ensemble_required: false` in the router response regardless of what the router returned.
 
-## Step 3: Display Routing Decision
+## Step 3+4: Execute Harness (IMMEDIATELY after router returns)
 
-Show the user the routing decision before executing:
+**Do NOT display the routing decision as a separate text response.** The routing decision display and harness execution must happen in the SAME response turn. If you output text to the user and stop, the pipeline breaks.
+
+**Instead:** Include routing info as a brief inline note, then immediately make the next tool call in the same message:
 
 ```
-Routing decision:
-  Task type:     {task_type}
-  Uncertainty:   {uncertainty}
-  Blast radius:  {blast_radius}
-  Verifiability: {verifiability}
-  Domain:        {domain}
+Routing: {selected_harness} ({task_type}, {uncertainty}, {blast_radius}). {ensemble_required ? "Ensemble mode." : ""}
 
-  Selected harness: {selected_harness}
-  Ensemble:         {yes|no}
-  Reasoning: {reasoning}
+[immediately followed by Read() and Agent() tool calls — no pause]
 ```
 
-## Step 4: Execute Harness
+**The router's `## NEXT_ACTION` section tells you exactly what tool calls to make. Follow it step by step.**
 
 **MANDATORY: Spawn a subagent.** Do NOT read the harness instructions and follow them yourself. You MUST use the Agent tool. The orchestrator orchestrates; subagents execute.
 
