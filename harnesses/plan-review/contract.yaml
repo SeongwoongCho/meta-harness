@@ -1,0 +1,85 @@
+name: plan-review
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - plan
+    - planning
+    - design
+    - architecture
+  uncertainty:
+    - medium
+    - high
+  verifiability:
+    - moderate
+    - hard
+  blast_radius:
+    - cross-module
+    - repo-wide
+  latency_sensitivity: low
+  domains:
+    - "*"
+
+workflow:
+  - "Determine review mode: engineering (execution rigor) or product (scope and vision)"
+  - "Step 0 — Scope Challenge: identify existing code solving sub-problems, minimum change set, complexity check"
+  - "Ask user to choose scope posture: SCOPE REDUCTION / HOLD SCOPE / SCOPE EXPANSION"
+  - "Architecture review: system design, dependency graph, data flow, failure scenarios; one issue per question"
+  - "Code quality review: DRY violations, error handling, edge cases, over/under-engineering; one issue per question"
+  - "Test review: diagram all new UX flows and codepaths; identify gaps; one issue per question"
+  - "Performance review: N+1 queries, memory, caching, slow paths; one issue per question"
+  - "Write 'NOT in scope' section listing explicitly deferred work"
+  - "Write 'What already exists' section listing reusable code"
+  - "Propose TODOS.md additions one at a time via separate questions"
+  - "Write failure mode analysis: one realistic production failure per new codepath"
+  - "Write completion summary showing all sections and issue counts"
+
+tool_policy:
+  allowed:
+    - Read
+    - Grep
+    - Glob
+    - Bash
+  denied:
+    - Write
+    - Edit
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Read-only — this is a review pass; do not write or modify any files"
+    - "Bash is used only for git log and file inspection commands"
+    - "One issue per AskUserQuestion — never batch multiple issues into one question"
+    - "After user selects scope posture, do not re-argue for a different scope"
+
+stopping_criteria:
+  - condition: all_sections_reviewed
+    description: "All four review sections (architecture, quality, tests, performance) completed"
+  - condition: completion_summary_written
+    description: "Completion summary showing section-by-section issue counts is written"
+  - condition: scope_posture_agreed
+    description: "User has selected scope posture (reduction/hold/expansion) in Step 0"
+
+verification_steps:
+  - "Confirm Step 0 scope challenge was completed and scope posture agreed"
+  - "Confirm all four review sections are present in output"
+  - "Confirm 'NOT in scope' section is written"
+  - "Confirm 'What already exists' section is written"
+  - "Confirm completion summary is present"
+  - "Confirm no files were modified during review"
+
+cost_budget:
+  max_tokens: 200000
+  max_time_minutes: 30
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "no_plan_provided"
+    description: "No plan document or description found to review"
+    action: escalate_to_user
+  - condition: "scope_not_agreed"
+    description: "User did not respond to scope choice in Step 0"
+    action: escalate_to_user
+  - condition: "budget_reached_before_completion"
+    description: "Token budget reached — write partial completion summary with sections covered"
+    action: report_partial

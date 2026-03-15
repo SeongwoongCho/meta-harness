@@ -1,0 +1,82 @@
+name: pre-landing-review
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - review
+    - pre-merge
+    - pre-landing
+  uncertainty:
+    - low
+    - medium
+    - high
+  verifiability:
+    - easy
+    - moderate
+    - hard
+  blast_radius:
+    - local
+    - cross-module
+    - repo-wide
+  latency_sensitivity: any
+  domains:
+    - "*"
+
+workflow:
+  - "Check current branch — if on main or no diff against main, report nothing to review and stop"
+  - "Fetch origin/main to avoid stale comparisons"
+  - "Run git diff origin/main to get the full diff (committed and uncommitted)"
+  - "Pass 1 — CRITICAL: review for data safety, security, and trust boundary violations"
+  - "Pass 2 — INFORMATIONAL: review for conditional side effects, dead code, test gaps, magic values"
+  - "Always output ALL findings — both critical and informational"
+  - "Output summary header: 'Pre-Landing Review: N issues (X critical, Y informational)'"
+  - "For each CRITICAL issue: ask user individually — A) Fix it now, B) Acknowledge and continue, C) False positive"
+  - "If user chose Fix: apply recommended fixes to the specific files; stop and ask user to re-run"
+  - "If all CRITICAL issues are acknowledged or false-positive: continue"
+  - "Output informational findings and finish — do not commit or push"
+
+tool_policy:
+  allowed:
+    - Read
+    - Glob
+    - Grep
+    - Bash
+  denied:
+    - Write
+    - Edit
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Read-only by default — only modify files if user explicitly chooses Fix on a critical issue"
+    - "Never commit, push, or create PRs"
+    - "Bash is used only for git commands (fetch, diff, branch)"
+    - "Be terse: one line problem, one line fix"
+
+stopping_criteria:
+  - condition: all_findings_reported
+    description: "Both critical and informational passes complete; all findings output to user"
+  - condition: critical_issues_resolved
+    description: "All critical issues are either fixed, acknowledged, or marked false positive by user"
+
+verification_steps:
+  - "Confirm both review passes (critical and informational) were completed"
+  - "Confirm every finding has a file:line reference and one-line fix suggestion"
+  - "Confirm summary header is present with correct counts"
+  - "Confirm no files were modified unless user explicitly chose Fix on a critical issue"
+
+cost_budget:
+  max_tokens: 100000
+  max_time_minutes: 15
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "on_main_no_diff"
+    description: "On main branch or no diff against main — nothing to review"
+    action: report_partial
+  - condition: "critical_issue_fix_chosen"
+    description: "User chose to fix a critical issue — apply fixes and stop for re-run"
+    action: report_partial
+  - condition: "budget_reached_before_completion"
+    description: "Token budget reached before completing both passes"
+    action: report_partial
