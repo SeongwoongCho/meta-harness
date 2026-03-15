@@ -54,7 +54,7 @@ def compute_weight_delta(overall_score: float) -> float:
 # Taxonomy classification tests (rule-based encoding)
 # ---------------------------------------------------------------------------
 
-VALID_TASK_TYPES = {"bugfix", "feature", "refactor", "research", "migration", "incident", "benchmark"}
+VALID_TASK_TYPES = {"bugfix", "feature", "refactor", "research", "migration", "incident", "benchmark", "greenfield"}
 VALID_UNCERTAINTY = {"low", "medium", "high"}
 VALID_BLAST_RADIUS = {"local", "cross-module", "repo-wide"}
 VALID_VERIFIABILITY = {"easy", "moderate", "hard"}

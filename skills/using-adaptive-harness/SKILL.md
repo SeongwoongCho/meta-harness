@@ -5,6 +5,56 @@ description: "Auto-mode bootstrap for adaptive-harness. Intercepts tasks, routes
 
 # Adaptive-Harness Orchestration Protocol
 
+## QUICK REFERENCE — Follow this on EVERY task
+
+This is the complete action sequence. After each step, IMMEDIATELY proceed to the next. Never pause, never respond to user mid-pipeline.
+
+```
+# 0. Determine mode
+agent_mode = "dontAsk" if "--skip-interview" else "default"
+plugin_root = Read(".adaptive-harness/.plugin-root") or "{{PLUGIN_ROOT}}"
+
+# 1. ROUTE (then IMMEDIATELY execute — no text output between route and execute)
+router_result = Agent(subagent_type="adaptive-harness:router", mode=agent_mode, prompt="Classify: {task}\nRead .adaptive-harness/harness-pool.json")
+response = parse_json(router_result)
+# Router output includes ## NEXT_ACTION — follow those steps NOW, in this same response turn
+
+# 2. EXECUTE (pick ONE path — do NOT output routing decision as separate text first)
+if response.skip_routing:
+    → Do the task directly. Write lightweight eval JSON. DONE.
+
+elif response.ensemble_chains:
+    → CHAIN ENSEMBLE:
+    a. Ensure git repo: Bash("git rev-parse --is-inside-work-tree 2>/dev/null || (git init && git add -A && git commit --allow-empty -m init)")
+    b. Run shared planning harness ONCE (no worktree)
+    c. Bash("git add -A && git diff --cached --quiet || git commit -m 'planning artifacts'")
+    d. Fan out execution harnesses IN PARALLEL, each with isolation="worktree"
+    e. Read synthesizer skill: Read("{plugin_root}/harnesses/synthesizer/skill.md")
+    f. Spawn synthesizer with BOTH worktree paths + skill.md → merges files into main workspace
+
+elif response.ensemble_harnesses:
+    → SIMPLE ENSEMBLE:
+    a. Spawn all harnesses IN PARALLEL, each with isolation="worktree"
+    b. Spawn synthesizer with worktree paths + skill.md
+
+elif response.harness_chain and len > 1:
+    → CHAIN: Execute sequentially, passing chain_context between steps
+
+else:
+    → SINGLE: Read agent.md + skill.md, spawn one harness subagent
+
+# 3. EVALUATE (immediately after execution completes)
+Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt="Score result...")
+
+# 4. RECORD (write eval JSON, update weights, copy to evaluation-logs/)
+
+# 5. REPORT to user
+```
+
+**⚠ After the router returns, look for the `## NEXT_ACTION` section in the router's output. It contains the exact steps to execute next. Follow those steps IMMEDIATELY — your VERY NEXT tool call must be one of: Bash (git init), Read (harness files), or Agent (harness/synthesizer/evaluator). If your next action is text output to the user, you are violating the protocol.**
+
+---
+
 ## Purpose
 
 You are the adaptive-harness orchestrator running in the main conversation context. Your role is to intercept every incoming task, route it through the appropriate harness, execute it via a subagent, evaluate the results, and update harness weights. You are NOT a subagent — you run in the main context and spawn subagents for routing, execution, and evaluation.
@@ -50,6 +100,55 @@ Pipeline execution order — no step may be skipped:
 6. **Then** report results to user
 7. Handle failure modes if needed
 
+## Execution Mode: Autonomous vs Interactive
+
+The pipeline supports two execution modes, controlled by the `--skip-interview` flag:
+
+**Autonomous mode** (`--skip-interview` flag present):
+- All subagent Task() calls use `mode: "dontAsk"`
+- No permission prompts — pipeline runs uninterrupted
+- No clarifying questions before routing
+- Best for: well-defined tasks, batch execution, CI/CD integration
+
+**Interactive mode** (default, no `--skip-interview` flag):
+- Subagent Task() calls use default mode (user approves each tool use)
+- User can review and approve/deny each step
+- Clarifying questions asked before routing (see run.md Step 0)
+- Best for: exploratory tasks, first-time setups, tasks where user wants oversight
+
+**How to detect the mode:**
+1. Check if `--skip-interview` was passed in the task arguments (from `/adaptive-harness:run` command)
+2. OR check `.adaptive-harness/.pipeline-mode` file: if it contains `auto`, use autonomous mode
+3. OR if the task was routed via the auto-mode session-start hook (this skill), check the `ARGUMENTS` variable for `--skip-interview`
+
+**Determine `agent_mode` early in the pipeline (Step 1):**
+```
+# Set at pipeline start, reuse for all Task() calls
+if "--skip-interview" in task_arguments or pipeline_mode == "auto":
+  agent_mode = "dontAsk"
+else:
+  agent_mode = "default"
+```
+
+**Template for every Task() call in the pipeline:**
+```
+Task(
+  subagent_type="adaptive-harness:{agent_name}",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, "default" otherwise
+  prompt="..."
+)
+```
+
+For ensemble execution with worktree isolation:
+```
+Task(
+  subagent_type="adaptive-harness:{harness}",
+  mode=agent_mode,
+  isolation="worktree",
+  prompt="..."
+)
+```
+
 ---
 
 ## NEVER-SKIP Rules (Zero Exceptions)
@@ -84,20 +183,40 @@ Spawn the router agent for every task (the router will return `skip_routing: tru
 ```
 Task(
   subagent_type="adaptive-harness:router",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
   prompt="Classify this task and select the optimal harness.\n\nTask: {task_description}\n\nRead .adaptive-harness/harness-pool.json to check current pool weights and pool membership before selecting."
 )
 ```
 
 Read `.adaptive-harness/harness-pool.json` via the Read tool on-demand to provide the router with pool state context when needed.
 
-### Step 3: Parse Router Response
+### Step 3: Parse Router Response and Select Execution Path
 
-The router returns structured JSON:
+The router returns structured JSON. Parse it and **immediately branch** to the correct execution path:
+
+```
+response = parse_router_json(router_result)
+
+if response.skip_routing:
+    → Step 4a (Fast-Path)
+elif response.ensemble_chains:
+    → Step 4c Mode 2 (Chain Ensemble with WORKTREE ISOLATION)
+    # ⚠ MANDATORY: each execution harness MUST use isolation="worktree"
+elif response.ensemble_required and response.ensemble_harnesses:
+    → Step 4c Mode 1 (Simple Ensemble with WORKTREE ISOLATION)
+    # ⚠ MANDATORY: each harness MUST use isolation="worktree"
+elif response.harness_chain and len(response.harness_chain) > 1:
+    → Step 3.5 (Sequential Chain)
+else:
+    → Step 4b (Single Harness)
+```
+
+Router response JSON structure:
 
 ```json
 {
   "taxonomy": {
-    "task_type": "bugfix|feature|refactor|research|migration|benchmark|incident",
+    "task_type": "bugfix|feature|refactor|research|migration|benchmark|incident|greenfield",
     "uncertainty": "low|medium|high",
     "blast_radius": "local|cross-module|repo-wide",
     "verifiability": "easy|moderate|hard",
@@ -106,6 +225,7 @@ The router returns structured JSON:
   },
   "selected_harness": "tdd-driven",
   "ensemble_required": false,
+  "ensemble_chains": null,
   "skip_routing": false,
   "reasoning": "Explanation of selection"
 }
@@ -125,6 +245,7 @@ for index, harness in enumerate(harness_chain):
 
   result = Task(
     subagent_type="adaptive-harness:{harness}",
+    mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
     prompt="{agent.md content}\n\n## Workflow\n{skill.md content}\n\n## Task\n{task_description}\n\n## Chain Position\n{chain_position}\n\n## Prior Chain Context\n{chain_context}\n\n## Session ID\n{session_id}"
   )
 
@@ -220,6 +341,7 @@ This ensures every task leaves an audit trail. Fast-path evals do NOT update har
 ```
 Task(
   subagent_type="adaptive-harness:{selected_harness}",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
   prompt="{agent.md content}\n\n## Workflow\n{skill.md content}\n\n## Task\n{task_description}\n\n## Session ID\n{session_id}"
 )
 ```
@@ -230,24 +352,160 @@ Task(
 
 Ensemble triggers when the router classifies: `uncertainty=high` AND (`verifiability=hard` OR `blast_radius=repo-wide`).
 
-1. Identify 2-3 candidate harnesses from the pool (router provides them in its response as `ensemble_harnesses: [...]`).
+The router returns one of two ensemble modes:
 
-2. Spawn all harness subagents in **parallel**:
+#### Ensemble Pre-Check: Git Repository Requirement
 
-```
-# Spawn simultaneously, do not wait for each before starting the next
-Task(subagent_type="adaptive-harness:{harness_1}", prompt="...")
-Task(subagent_type="adaptive-harness:{harness_2}", prompt="...")
-```
-
-3. Collect all results, then spawn the synthesizer agent:
+**Before starting any ensemble execution**, check if the working directory is a git repository:
 
 ```
+Bash("git rev-parse --is-inside-work-tree 2>/dev/null")
+```
+
+- If **yes** (exit code 0): Use worktree isolation (`isolation: "worktree"`) for parallel execution.
+- If **no** (not a git repo): **Initialize git first**, then use worktrees.
+  ```
+  Bash("git init && git add -A && git commit -m 'initial commit for ensemble isolation' --allow-empty")
+  ```
+  This is required because greenfield projects start in empty non-git directories, but `isolation: "worktree"` depends on git worktree which requires a git repository. The init + commit creates the minimal baseline needed for worktree branching.
+
+#### Mode 1: Simple Harness Ensemble (`ensemble_harnesses` present)
+
+For tasks that don't need a planning step — just run 2+ harnesses in parallel on the same task.
+
+**⚠ MANDATORY: Every harness Task() call below MUST include `isolation="worktree"`.**
+
+1. Identify 2-3 candidate harnesses from the pool (router provides them as `ensemble_harnesses: [...]`).
+
+2. Spawn all harness subagents in **parallel with worktree isolation**:
+
+```
+# Each harness gets its own isolated worktree copy of the repository.
+# This prevents harnesses from overwriting each other's files.
 Task(
-  subagent_type="adaptive-harness:synthesizer",
-  prompt="Merge these parallel harness results into an optimal combined result.\n\nHarness 1 ({harness_1}) result:\n{result_1}\n\nHarness 2 ({harness_2}) result:\n{result_2}"
+  subagent_type="adaptive-harness:{harness_1}",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
+  isolation="worktree",
+  prompt="..."
+)
+Task(
+  subagent_type="adaptive-harness:{harness_2}",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
+  isolation="worktree",
+  prompt="..."
 )
 ```
+
+3. Collect all results. Each result includes the worktree path and branch where the harness wrote its code.
+
+4. Spawn the synthesizer agent with worktree paths so it can read and compare both implementations:
+
+```
+# Read synthesizer skill BEFORE spawning
+Read("{plugin_root}/agents/synthesizer.md")
+Read("{plugin_root}/harnesses/synthesizer/skill.md")
+
+Task(
+  subagent_type="adaptive-harness:synthesizer",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
+  prompt="{synthesizer_agent.md}\n\n## Workflow\n{synthesizer_skill.md}\n\n## Task\n{task_description}\n\n## Main Workspace\n{main_workspace_path}\n\n## Worktree A: {harness_1}\n- Path: {worktree_path_1}\n- Branch: {branch_1}\n- Summary: {result_1}\n\n## Worktree B: {harness_2}\n- Path: {worktree_path_2}\n- Branch: {branch_2}\n- Summary: {result_2}\n\nFollow the skill.md workflow: Inventory → Merge Plan → Execute → Reconcile → Verify → Report."
+)
+```
+
+#### Mode 2: Chain Ensemble (`ensemble_chains` present)
+
+For tasks that benefit from planning + multiple execution approaches. Runs the shared planning step ONCE in the main workspace, then fans out execution harnesses in **isolated worktrees**, then synthesizes by cherry-picking the best files from each worktree.
+
+**⚠⚠⚠ WORKTREE ISOLATION IS MANDATORY — NOT OPTIONAL ⚠⚠⚠**
+
+Every execution harness Task() call in ensemble mode MUST include `isolation="worktree"`. This is the single most critical parameter in the entire ensemble flow. Without it:
+- Harnesses overwrite each other's files in the same directory
+- Synthesizer cannot compare independent implementations
+- The ensemble produces a worse result than a single harness
+
+If you are about to write a Task() call for an ensemble execution harness and it does NOT contain `isolation="worktree"`, STOP and add it. There are ZERO exceptions to this rule.
+
+The router provides:
+- `ensemble_chains`: array of 2+ chains, e.g., `[["ralplan-consensus", "system-design"], ["ralplan-consensus", "tdd-driven"]]`
+- `shared_planning_harness`: the common first harness across chains (e.g., `"ralplan-consensus"`)
+
+**Execution flow:**
+
+0. **Ensure git repo exists** (see Ensemble Pre-Check above). For greenfield projects, also commit any files created by the planning step before fan-out — worktrees branch from the current HEAD, so planning artifacts must be committed to be visible in worktrees.
+
+1. **Run shared planning harness ONCE in the main workspace** (avoids redundant planning):
+
+```
+Read("{plugin_root}/agents/{shared_planning_harness}.md")
+Read("{plugin_root}/harnesses/{shared_planning_harness}/skill.md")
+
+planning_result = Task(
+  subagent_type="adaptive-harness:{shared_planning_harness}",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
+  prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}\n\n## Session ID\n{session_id}"
+)
+
+# IMPORTANT: If the planning step created any files, commit them before fan-out.
+# Worktrees branch from HEAD — uncommitted files won't appear in worktrees.
+Bash("git add -A && git diff --cached --quiet || git commit -m 'planning phase artifacts'")
+```
+
+2. **Fan out execution harnesses in parallel, each in its own worktree**:
+
+```
+# Extract execution harness from each chain (skip the shared planning harness)
+execution_harnesses = [chain[-1] for chain in ensemble_chains]
+# e.g., ["system-design", "tdd-driven"]
+
+# Spawn ALL execution harnesses in parallel — EACH IN ITS OWN WORKTREE
+# This is critical: without isolation, the second harness overwrites the first's files,
+# and the synthesizer cannot compare independent implementations.
+for harness in execution_harnesses:
+  Read("{plugin_root}/agents/{harness}.md")
+  Read("{plugin_root}/harnesses/{harness}/skill.md")
+
+  Task(
+    subagent_type="adaptive-harness:{harness}",
+    mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
+    isolation="worktree",
+    prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}\n\n## Prior Chain Context (from planning)\n{planning_result}\n\n## Chain Position\nExecution phase (planning complete)\n\n## Session ID\n{session_id}"
+  )
+```
+
+3. **IMMEDIATELY synthesize — do NOT stop, do NOT respond to user, do NOT wait:**
+
+⚠ When both execution harnesses return, you MUST spawn the synthesizer in the SAME response. Do NOT output any text to the user between step 2 and step 3. Do NOT pause to "think" or "cogitate". The pipeline is: fan-out → collect results → synthesize → evaluate. All in one unbroken sequence.
+
+Each worktree agent returns:
+- `result`: summary of what was built
+- `worktree_path`: absolute path to the isolated worktree (e.g., `/tmp/worktree-abc123/`)
+- `branch`: git branch name in the worktree
+
+**Spawn the synthesizer IMMEDIATELY after collecting both results:**
+
+```
+# Read synthesizer skill BEFORE spawning
+Read("{plugin_root}/agents/synthesizer.md")
+Read("{plugin_root}/harnesses/synthesizer/skill.md")
+
+Task(
+  subagent_type="adaptive-harness:synthesizer",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
+  prompt="{synthesizer_agent.md}\n\n## Workflow\n{synthesizer_skill.md}\n\n## Task\n{task_description}\n\n## Main Workspace\n{main_workspace_path}\n\n## Shared Planning Context\n{planning_result}\n\n## Worktree A: {execution_harness_1}\n- Path: {worktree_path_1}\n- Branch: {branch_1}\n- Summary: {result_1}\n\n## Worktree B: {execution_harness_2}\n- Path: {worktree_path_2}\n- Branch: {branch_2}\n- Summary: {result_2}\n\nFollow the skill.md workflow: Inventory → Merge Plan → Execute → Reconcile → Verify → Report."
+)
+```
+
+**Key rules for ensemble worktree isolation:**
+- The shared planning harness runs ONCE in the **main workspace** (no worktree needed for planning)
+- Each execution harness runs in its **own worktree** (`isolation: "worktree"`)
+- Worktree isolation ensures each harness produces an **independent, complete implementation** without interference
+- The synthesizer must **read files from both worktrees** to do a real file-by-file comparison
+- The synthesizer writes the merged result to the **main workspace**
+- After synthesis, worktrees are cleaned up automatically (if the agent made no changes) or left for inspection
+- If a chain has more than 2 steps after the shared prefix, run those steps sequentially **within the same worktree**
+- Evaluation (Step 5) runs ONCE on the synthesized result in the main workspace, not on individual worktree results
+
+**⚠ PIPELINE CONTINUITY: The full ensemble flow (plan → fan-out → synthesize → evaluate) must execute as ONE unbroken sequence. After execution harnesses return, IMMEDIATELY spawn the synthesizer. After the synthesizer returns, IMMEDIATELY spawn the evaluator. Never pause, never respond to the user, never output intermediate text between these steps.**
 
 ### Step 5: Collect Evidence and Evaluate (MANDATORY — do not skip)
 
@@ -266,6 +524,7 @@ After subagent completion (detected when the subagent's Task() call returns):
 ```
 Task(
   subagent_type="adaptive-harness:evaluator",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
   model=evaluator_model,  # "sonnet" or "opus" based on routing
   prompt="Score this task result.\n\nTask: {task_description}\nTask type: {taxonomy.task_type}\nSelected harness: {selected_harness}\nResult summary: {result_summary}\n\nRead .adaptive-harness/sessions/{session_id}/evidence/ for collected evidence."
 )
@@ -311,6 +570,7 @@ On evaluator response:
    ```
    Task(
      subagent_type="adaptive-harness:evolution-manager",
+     mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
      prompt="Analyze evaluation history and propose harness improvements.\n\nTrigger: {selected_harness} has reached {count} evaluations.\nPlugin root: {{PLUGIN_ROOT}}\n\nRead .adaptive-harness/evaluation-logs/{selected_harness}/ for evaluation history.\nRead {{PLUGIN_ROOT}}/agents/{selected_harness}.md and {{PLUGIN_ROOT}}/harnesses/{selected_harness}/skill.md for current harness content.\nRead .adaptive-harness/harness-pool.json for pool state.\n\nGenerate evolution proposals and write them to .adaptive-harness/evolution-proposals/."
    )
    ```
@@ -410,5 +670,6 @@ Default stable pool (canonical trigger conditions in `agents/router.md`):
 - `migration-safe` — Migration/upgrade (repo-wide blast, rollback required)
 - `ralplan-consensus` — Upfront planning with self-review (first step in chains for medium/high uncertainty)
 - `ralph-loop` — Persistent execution loop (iterates until acceptance criteria pass, max 10 iterations)
+- `system-design` — Multi-component system architecture + implementation (greenfield projects, high uncertainty, repo-wide blast)
 
 All tasks are evaluated using 6 fixed dimensions: correctness, completeness, quality, robustness, clarity, verifiability.

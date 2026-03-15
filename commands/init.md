@@ -14,7 +14,7 @@ If `--general` is passed as an argument, **skip ALL questions** and initialize w
 - domain: `general`
 - primary_metrics: `[correctness, completeness, quality]`
 - ensemble mode: `auto`
-- evolution: `conservative` (promote after 5 successes)
+- evolution: `conservative` (promote after 5 consecutive successes, evolution triggered every 2 evaluations)
 
 Jump directly to the **Writing the Config** section with these values, then show the **Completion Message**.
 
@@ -142,7 +142,8 @@ Initialize `.adaptive-harness/harness-pool.json` from built-in harness defaults 
     "code-review":          {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
     "migration-safe":       {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
     "ralplan-consensus":    {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
-    "ralph-loop":           {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0}
+    "ralph-loop":           {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
+    "system-design":        {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0}
   },
   "experimental": {},
   "last_updated": "{iso_timestamp}",
@@ -157,12 +158,12 @@ Report:
 adaptive-harness initialized for {domain} project.
 
 Config written to: .adaptive-harness/config.yaml
-Pool state initialized: .adaptive-harness/harness-pool.json (9 stable harnesses)
+Pool state: .adaptive-harness/harness-pool.json ({N} stable harnesses)
 Ensemble mode: {mode}
-Evolution: {enabled/disabled} ({threshold} consecutive successes for promotion)
+Evolution: {enabled/disabled} (triggered every 2 evaluations, promotion after {threshold} consecutive successes)
 
 Next steps:
   /adaptive-harness:run <task>   — Run a task through the pipeline
   /adaptive-harness:status       — View harness pool state
-  /adaptive-harness:evolve       — Trigger evolution analysis after 5+ runs
+  /adaptive-harness:evolve       — Manually trigger evolution analysis
 ```

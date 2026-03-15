@@ -43,7 +43,7 @@ See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 
 | Axis | Values |
 |------|--------|
-| `task_type` | `bugfix` / `feature` / `refactor` / `research` / `migration` / `incident` / `benchmark` |
+| `task_type` | `bugfix` / `feature` / `refactor` / `research` / `migration` / `incident` / `benchmark` / `greenfield` |
 | `uncertainty` | `low` / `medium` / `high` |
 | `blast_radius` | `local` / `cross-module` / `repo-wide` |
 | `verifiability` | `easy` / `moderate` / `hard` |
@@ -51,6 +51,35 @@ See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 | `domain` | `backend` / `frontend` / `mobile` / `ml-research` / `data-engineering` / `devops` / `security` / `infra` / `docs` |
 | `domain_hint` | *(optional)* free-text hint for mixed-domain or niche tasks — for logging only, not used in routing |
 </taxonomy_definition>
+
+<greenfield_detection>
+Before classifying, detect **greenfield projects** — tasks that build a multi-component system from scratch. Greenfield tasks are frequently under-classified (too low uncertainty, too narrow blast_radius), leading to single-harness execution that produces incomplete results.
+
+**Greenfield signals (if 2+ are present, classify as greenfield):**
+1. Task asks to "build", "create", "implement", "만들어줘", "구현해줘" a full system (not a single feature in existing code)
+2. Multiple external services or components are mentioned (e.g., DB + queue + dashboard + API)
+3. Working directory is empty or has no existing source code (`src/`, `lib/`, `app/` directories absent)
+4. Task describes a pipeline or workflow spanning 3+ stages (e.g., webhook → analysis → storage → visualization)
+5. Infrastructure artifacts are implied (Docker, docker-compose, Dockerfile, CI/CD)
+
+**When greenfield is detected:**
+- Set `task_type: "greenfield"` (or `"feature"` if greenfield is not supported by downstream)
+- Set `uncertainty: "high"` — building from scratch always has high architectural uncertainty
+- Set `blast_radius: "repo-wide"` — the entire project is being created
+- Set `verifiability: "moderate"` — end-to-end verification requires integration testing
+- Select `system-design` harness as the primary execution harness
+- Set `ensemble_required: true` (greenfield + high uncertainty + repo-wide blast always triggers ensemble)
+- Use **chain ensemble**: `ensemble_chains: [["ralplan-consensus", "system-design"], ["ralplan-consensus", "tdd-driven"]]`
+  → system-design focuses on architecture, infrastructure, and integration
+  → tdd-driven focuses on test quality and correctness
+  → Synthesizer merges the best of both approaches
+
+**Example greenfield classification:**
+Task: "Build a FastAPI backend that receives GitHub webhooks, runs static analysis, stores metrics in InfluxDB, and visualizes via Grafana"
+→ Signals: "build" keyword, 4 components (FastAPI + webhooks + InfluxDB + Grafana), pipeline (webhook → analysis → storage → dashboard), infrastructure implied (docker-compose)
+→ Classification: task_type=greenfield, uncertainty=high, blast_radius=repo-wide, verifiability=moderate
+→ Chain ensemble: [["ralplan-consensus", "system-design"], ["ralplan-consensus", "tdd-driven"]]
+</greenfield_detection>
 
 <ensemble_rule>
 Compute `ensemble_required` using this two-step check:
@@ -76,7 +105,31 @@ If EITHER verifiability is "hard" OR blast_radius is "repo-wide", ensemble_requi
 
 This is the only condition that triggers ensemble. Do not enable ensemble for any other combination — it doubles execution cost.
 
-When `ensemble_required` is true, also provide `ensemble_harnesses`: a list of 2 harness names to run in parallel. Select harnesses with complementary approaches for the task type.
+**Ensemble mode selection:**
+
+When `ensemble_required` is true, choose between two ensemble modes:
+
+1. **Harness ensemble** (simple): Two single harnesses run in parallel on the same task.
+   - Use when the task can be fully handled by a single harness (no planning step needed).
+   - Output: `"ensemble_harnesses": ["harness_a", "harness_b"]`
+
+2. **Chain ensemble** (advanced): Two full chains run in parallel, each chain executed sequentially, then results synthesized.
+   - Use when the task benefits from a planning step AND multiple execution approaches.
+   - Each chain shares the SAME planning harness (to avoid redundant planning) but differs in the execution harness.
+   - Output: `"ensemble_chains": [["ralplan-consensus", "system-design"], ["ralplan-consensus", "tdd-driven"]]`
+   - The orchestrator runs the shared planning step ONCE, then fans out the execution harnesses in parallel with the shared plan context, then synthesizes.
+
+**When to use chain ensemble:**
+- Greenfield tasks (task_type=greenfield): `["ralplan-consensus", "system-design"]` + `["ralplan-consensus", "tdd-driven"]`
+  → system-design brings architecture/infra, tdd-driven brings test quality. Synthesizer merges the best of both.
+- Complex migrations: `["ralplan-consensus", "migration-safe"]` + `["ralplan-consensus", "careful-refactor"]`
+- Any task where ensemble_required=true AND the task would normally get a chain (medium+ uncertainty)
+
+**When to use simple harness ensemble:**
+- Research tasks with hard verifiability (no planning step needed)
+- Tasks where planning is not applicable
+
+Select harnesses with **complementary strengths** for the task type. Avoid pairing harnesses with identical approaches.
 </ensemble_rule>
 
 <harness_pool>
@@ -98,20 +151,39 @@ Read `.adaptive-harness/harness-pool.json` if it exists for current weights. Ful
 | `documentation-writer` | docs writing and updates | domain=docs |
 | `security-audit` | OWASP scan, secrets scan, threat modeling | domain=[backend,infra], security-focused |
 | `performance-optimization` | profiling, benchmarking, latency reduction | task_type=benchmark, latency_sensitivity=high |
+| `system-design` | multi-component system architecture + implementation | task_type=greenfield, uncertainty=high, blast_radius=repo-wide |
 </harness_pool>
 
 
 <chaining_guidelines>
-After selecting the primary harness, decide whether to form a `harness_chain` (sequential execution). The chain is your free judgment based on the task's needs — these are examples, not rules:
+After selecting the primary harness, decide whether to form a `harness_chain` (sequential execution).
 
-- **Low difficulty / low uncertainty**: single harness is sufficient (e.g., `["tdd-driven"]`)
-- **Medium difficulty or cross-module blast**: may benefit from a planning step first (e.g., `["ralplan-consensus", "tdd-driven"]`)
-- **High difficulty / high uncertainty / repo-wide blast**: full plan → execute → review cycle (e.g., `["ralplan-consensus", "careful-refactor", "code-review"]`)
-- **Persistence needed (iterative convergence)**: wrap execution in ralph-loop (e.g., `["ralplan-consensus", "ralph-loop"]`)
-- **Greenfield tasks (building from scratch)**: Skip `ralplan-consensus`. The planning harness's primary value is codebase exploration (reading existing files to understand architecture). For greenfield projects with no existing source code, pass requirements directly to the execution harness. Detection: task says "build from scratch", "create new project", "implement X" with no existing source files, or the working directory has no `src/` or `lib/` directories.
+**Mandatory chaining rules (MUST follow):**
+
+1. **Planning is MANDATORY for medium+ uncertainty features:**
+   If `uncertainty >= medium` AND `task_type in [feature, greenfield, migration, refactor]`:
+   → Chain MUST start with `ralplan-consensus`: e.g., `["ralplan-consensus", "{execution_harness}"]`
+   Rationale: Without upfront planning, execution harnesses optimize locally (tests, code quality) but miss architectural decisions (async workers, service decomposition, infrastructure). Planning ensures system-level thinking before code-level execution.
+
+2. **Greenfield tasks always use system-design:**
+   If greenfield detected (see `<greenfield_detection>`):
+   → Chain: `["ralplan-consensus", "system-design"]`
+   → For complex greenfield (5+ components): `["ralplan-consensus", "system-design", "code-review"]`
+
+3. **Low uncertainty exceptions:**
+   If `uncertainty == low` AND `blast_radius == local`:
+   → Single harness is sufficient (e.g., `["tdd-driven"]`)
+   → Planning adds overhead without proportional value for simple, well-understood tasks
+
+**Discretionary chaining (examples, not rules):**
+- **Medium difficulty or cross-module blast**: `["ralplan-consensus", "tdd-driven"]`
+- **High difficulty / repo-wide blast**: `["ralplan-consensus", "careful-refactor", "code-review"]`
+- **Persistence needed**: `["ralplan-consensus", "ralph-loop"]`
+- **Ambiguous requirements**: `["deep-interview", "ralplan-consensus", "{execution_harness}"]`
 
 General-capable harnesses available for chaining:
-- `ralplan-consensus` — upfront planning with self-review; use as first step when approach is unclear
+- `ralplan-consensus` — upfront planning with self-review; MANDATORY first step for medium+ uncertainty
+- `system-design` — multi-component system architecture + implementation; for greenfield projects
 - `ralph-loop` — persistent execution loop; use when task needs iterative convergence (high uncertainty or known-hard acceptance criteria)
 - `deep-interview` — clarification-first harness; use as first step when requirements are ambiguous (uncertainty=high) before any execution harness
 - `simple-executor` — lightweight executor; use as a standalone single harness for trivial local tasks
@@ -149,7 +221,7 @@ Follow this process:
 </selection_algorithm>
 
 <output_format>
-Output ONLY valid JSON. No preamble, no explanation outside the JSON.
+Output the routing JSON, then ALWAYS append the `## NEXT_ACTION` section below it. The orchestrator depends on this section to know what to do immediately after routing.
 
 For a standard routing decision:
 ```json
@@ -196,7 +268,7 @@ For a chained execution (high uncertainty refactor):
 }
 ```
 
-For ensemble execution:
+For simple harness ensemble (no planning needed):
 ```json
 {
   "taxonomy": {
@@ -210,10 +282,37 @@ For ensemble execution:
   "selected_harness": "research-iteration",
   "ensemble_required": true,
   "ensemble_harnesses": ["research-iteration", "careful-refactor"],
-  "reasoning": "High uncertainty + hard verifiability + repo-wide blast triggers ensemble. research-iteration provides exploratory depth; careful-refactor provides safety discipline for the architecture-wide changes involved. Synthesizer will merge the best of both approaches.",
+  "reasoning": "High uncertainty + hard verifiability + repo-wide blast triggers ensemble. research-iteration provides exploratory depth; careful-refactor provides safety discipline.",
   "candidate_scores": {
     "research-iteration": 0.80,
     "careful-refactor": 0.75
+  }
+}
+```
+
+For chain ensemble (planning + parallel execution + synthesis):
+```json
+{
+  "taxonomy": {
+    "task_type": "greenfield",
+    "uncertainty": "high",
+    "blast_radius": "repo-wide",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "backend"
+  },
+  "selected_harness": "system-design",
+  "ensemble_required": true,
+  "ensemble_chains": [
+    ["ralplan-consensus", "system-design"],
+    ["ralplan-consensus", "tdd-driven"]
+  ],
+  "shared_planning_harness": "ralplan-consensus",
+  "reasoning": "Greenfield multi-component system triggers chain ensemble. Both chains share ralplan-consensus for planning, then diverge: system-design focuses on architecture/infra/integration, tdd-driven focuses on test quality/correctness. Synthesizer merges complementary strengths.",
+  "candidate_scores": {
+    "system-design": 0.85,
+    "tdd-driven": 0.80,
+    "rapid-prototype": 0.55
   }
 }
 ```
@@ -235,6 +334,56 @@ For trivial follow-up (fast-path):
 ```json
 {"skip_routing": true}
 ```
+
+**After the JSON, ALWAYS append a `## NEXT_ACTION` section.** This tells the orchestrator exactly what to do next. The orchestrator will read this and execute it immediately.
+
+For single harness:
+```
+## NEXT_ACTION
+ACTION: SINGLE_HARNESS
+HARNESS: tdd-driven
+STEPS:
+1. Read({plugin_root}/agents/tdd-driven.md)
+2. Read({plugin_root}/harnesses/tdd-driven/skill.md)
+3. Agent(subagent_type="adaptive-harness:tdd-driven", mode=agent_mode, prompt=agent.md + skill.md + task)
+4. Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt=score result)
+```
+
+For chain (no ensemble):
+```
+## NEXT_ACTION
+ACTION: CHAIN
+CHAIN: ["ralplan-consensus", "tdd-driven"]
+STEPS:
+1. Read + spawn ralplan-consensus → get planning_result
+2. Read + spawn tdd-driven with planning_result as context
+3. Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt=score result)
+```
+
+For chain ensemble:
+```
+## NEXT_ACTION
+ACTION: CHAIN_ENSEMBLE
+SHARED_PLANNING: ralplan-consensus
+EXECUTION_HARNESSES: ["system-design", "tdd-driven"]
+STEPS:
+1. Bash(git init if needed)
+2. Read + spawn ralplan-consensus → get planning_result
+3. Bash(git add -A && git commit -m 'planning artifacts')
+4. Read + spawn system-design with isolation="worktree" AND tdd-driven with isolation="worktree" (PARALLEL)
+5. Read({plugin_root}/agents/synthesizer.md) + Read({plugin_root}/harnesses/synthesizer/skill.md)
+6. Agent(subagent_type="adaptive-harness:synthesizer", mode=agent_mode, prompt=synthesizer.md + skill.md + worktree paths)
+7. Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt=score result)
+```
+
+For skip_routing:
+```
+## NEXT_ACTION
+ACTION: FAST_PATH
+STEPS:
+1. Execute the task directly (no harness subagent needed)
+2. Write lightweight eval JSON to .adaptive-harness/sessions/
+```
 </output_format>
 
 <instructions>
@@ -244,5 +393,5 @@ For trivial follow-up (fast-path):
 - `reasoning` must explain WHY this harness was chosen, not just what it does.
 - `candidate_scores` must include all harnesses seriously considered (score range 0.0-1.0).
 - If the task description is ambiguous, classify conservatively: prefer lower uncertainty, choose tdd-driven for general code tasks.
-- Output ONLY the JSON object. No markdown code fences, no surrounding text.
+- **ALWAYS include the `## NEXT_ACTION` section after the JSON.** This is mandatory. The orchestrator depends on it to proceed without stalling.
 </instructions>

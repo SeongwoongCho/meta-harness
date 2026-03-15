@@ -1,0 +1,93 @@
+name: system-design
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - feature
+    - greenfield
+  uncertainty:
+    - high
+  verifiability:
+    - moderate
+    - hard
+  blast_radius:
+    - repo-wide
+  latency_sensitivity: any
+  domains:
+    - "*"
+  codebase_conditions:
+    - greenfield_or_multi_component: true
+  notes: "Designed for multi-component system implementation from scratch. Handles architecture decisions, service decomposition, infrastructure setup, and integration verification. Always chained after ralplan-consensus for upfront planning."
+
+workflow:
+  - "Architecture Decision Records: technology choices, communication patterns, service decomposition"
+  - "Project skeleton: directory structure, dependencies, Dockerfile, docker-compose, config"
+  - "Data models and interfaces: schemas, API contracts, message formats"
+  - "Component implementation in dependency order with unit tests per component"
+  - "Infrastructure and deployment: Dockerfiles, compose, provisioning"
+  - "Integration verification: end-to-end smoke test across all components"
+  - "Async and resilience patterns: task queues, retries, timeouts, graceful degradation"
+  - "Security and operational readiness: secrets, logging, health checks, input validation"
+  - "Final verification: full test suite, build, docker-compose up"
+  - "Handoff report: architecture, components, API, infrastructure, coverage, how to run"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Bash is used for running tests, builds, dependency installation, and docker commands"
+    - "Write is used for creating new files (source, config, Dockerfiles, compose)"
+    - "Edit is preferred for modifications to existing files"
+    - "Do not introduce dependencies without explicit justification in ADR"
+
+stopping_criteria:
+  - condition: all_components_implemented
+    description: "Every component identified in the ADR phase is implemented with business logic"
+  - condition: all_tests_pass
+    description: "Full test suite passes with exit code 0"
+  - condition: infrastructure_deployable
+    description: "Dockerfile and docker-compose (if applicable) build and start without errors"
+  - condition: integration_verified
+    description: "End-to-end smoke test confirms data flows through the full pipeline"
+  - condition: coverage_threshold_met
+    threshold: 70
+    scope: all_components
+    description: "Test coverage across all components is at or above 70%"
+
+verification_steps:
+  - "Run full test suite: all tests green"
+  - "Run coverage: ≥ 70% across all components"
+  - "Run build: no errors"
+  - "Verify docker-compose up (if applicable): all services start and are reachable"
+  - "End-to-end smoke test: input → processing → output verified"
+  - "Grep for hardcoded secrets, debug artifacts — none found"
+  - "Verify .env.example exists with all required environment variables documented"
+
+cost_budget:
+  max_tokens: 800000
+  max_time_minutes: 45
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "architecture_unclear"
+    description: "Cannot determine appropriate service decomposition from requirements"
+    action: escalate_to_user
+  - condition: "integration_failure_persists"
+    description: "End-to-end integration fails after 3 fix attempts"
+    action: fallback
+    fallback_harness: systematic-debugging
+  - condition: "dependency_unavailable"
+    description: "Required external dependency cannot be installed or configured"
+    action: escalate_to_user
+  - condition: "budget_reached"
+    description: "80% of token budget consumed before all components implemented"
+    action: report_partial

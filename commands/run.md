@@ -45,7 +45,15 @@ $ARGUMENTS = "<task description> [--harness=name] [--no-ensemble] [--skip-interv
 - `task_description` — Everything before any `--` flags. Required. Treat as opaque text to pass to the router.
 - `--harness=name` — Optional. Override router selection with a specific harness name. Skip the router agent if provided.
 - `--no-ensemble` — Optional flag. Force single-harness execution even if router recommends ensemble.
-- `--skip-interview` — Optional flag. Skip the default clarifying interview and let the system decide autonomously. By default (without this flag), 2-3 clarifying questions are asked before routing.
+- `--skip-interview` — Optional flag. Skip the default clarifying interview and let the system decide autonomously. By default (without this flag), 2-3 clarifying questions are asked before routing. Also sets `agent_mode = "dontAsk"` for all subagent calls (fully autonomous execution).
+
+**Determine `agent_mode` from flags:**
+```
+if "--skip-interview" in arguments:
+  agent_mode = "dontAsk"    # Fully autonomous: no permission prompts
+else:
+  agent_mode = "default"    # Interactive: user approves each tool use
+```
 
 If no task description is provided, report: "Usage: /adaptive-harness:run <task description> [--harness=name] [--no-ensemble] [--skip-interview]"
 
@@ -93,6 +101,7 @@ If `--harness=name` was given:
 ```
 Agent(
   subagent_type="adaptive-harness:router",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
   description="Route task to harness",
   prompt="Classify this task and select the optimal harness.\n\nTask: {task_description}\n\nRead .adaptive-harness/harness-pool.json for current pool weights."
 )
@@ -102,24 +111,19 @@ Parse the router's JSON response.
 
 If `--no-ensemble` flag was given, override `ensemble_required: false` in the router response regardless of what the router returned.
 
-## Step 3: Display Routing Decision
+## Step 3+4: Execute Harness (IMMEDIATELY after router returns)
 
-Show the user the routing decision before executing:
+**Do NOT display the routing decision as a separate text response.** The routing decision display and harness execution must happen in the SAME response turn. If you output text to the user and stop, the pipeline breaks.
+
+**Instead:** Include routing info as a brief inline note, then immediately make the next tool call in the same message:
 
 ```
-Routing decision:
-  Task type:     {task_type}
-  Uncertainty:   {uncertainty}
-  Blast radius:  {blast_radius}
-  Verifiability: {verifiability}
-  Domain:        {domain}
+Routing: {selected_harness} ({task_type}, {uncertainty}, {blast_radius}). {ensemble_required ? "Ensemble mode." : ""}
 
-  Selected harness: {selected_harness}
-  Ensemble:         {yes|no}
-  Reasoning: {reasoning}
+[immediately followed by Read() and Agent() tool calls — no pause]
 ```
 
-## Step 4: Execute Harness
+**The router's `## NEXT_ACTION` section tells you exactly what tool calls to make. Follow it step by step.**
 
 **MANDATORY: Spawn a subagent.** Do NOT read the harness instructions and follow them yourself. You MUST use the Agent tool. The orchestrator orchestrates; subagents execute.
 
@@ -129,6 +133,7 @@ Read("{plugin_root}/agents/{selected_harness}.md")
 Read("{plugin_root}/harnesses/{selected_harness}/skill.md")
 Agent(
   subagent_type="adaptive-harness:{selected_harness}",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
   description="Execute {selected_harness} harness",
   prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}"
 )
@@ -150,6 +155,7 @@ Spawn all ensemble harnesses in parallel, then spawn synthesizer.
 ```
 Agent(
   subagent_type="adaptive-harness:evaluator",
+  mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
   description="Evaluate harness results",
   prompt="Score this task result.\n\nTask: {task_description}\nSelected harness: {selected_harness}\nResult summary: {result_summary}\n\nRead .adaptive-harness/sessions/{session_id}/evidence/ for collected evidence."
 )
