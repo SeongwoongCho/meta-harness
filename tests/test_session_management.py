@@ -9,7 +9,7 @@ import subprocess
 import pytest
 
 
-WORKSPACE_ROOT = "/home/seongwoong/workspace/adaptive-harness"
+WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS_DIR = os.path.join(WORKSPACE_ROOT, "hooks")
 
 
@@ -158,7 +158,7 @@ class TestSessionStartScript:
         """Run session-start.sh and verify it creates session directory."""
         session_start_sh = os.path.join(HOOKS_DIR, "session-start.sh")
         state_dir = str(tmp_path / ".adaptive-harness")
-        plugin_root = "/home/seongwoong/.claude/plugins/cache/adaptive-harness/adaptive-harness/1.0.0"
+        plugin_root = WORKSPACE_ROOT
         session_id = "test-session-start-001"
         env = os.environ.copy()
         env["CLAUDE_SESSION_ID"] = session_id
@@ -184,7 +184,7 @@ class TestSessionStartScript:
 
     def test_session_start_creates_current_session_id_file(self, tmp_path):
         session_start_sh = os.path.join(HOOKS_DIR, "session-start.sh")
-        plugin_root = "/home/seongwoong/.claude/plugins/cache/adaptive-harness/adaptive-harness/1.0.0"
+        plugin_root = WORKSPACE_ROOT
         state_dir = str(tmp_path / ".adaptive-harness")
         session_id = "test-session-id-file"
         env = os.environ.copy()
@@ -207,7 +207,7 @@ class TestSessionStartScript:
 
     def test_session_start_output_is_valid_json(self, tmp_path):
         session_start_sh = os.path.join(HOOKS_DIR, "session-start.sh")
-        plugin_root = "/home/seongwoong/.claude/plugins/cache/adaptive-harness/adaptive-harness/1.0.0"
+        plugin_root = WORKSPACE_ROOT
         env = os.environ.copy()
         env["CLAUDE_PLUGIN_ROOT"] = plugin_root
         env["CLAUDE_SESSION_ID"] = "test-json-output"
