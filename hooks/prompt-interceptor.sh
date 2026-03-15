@@ -44,7 +44,7 @@ elif [ "$PIPELINE_MODE" = "auto" ]; then
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "[adaptive-harness] Route this task through the adaptive-harness pipeline (using-adaptive-harness skill) before responding directly."
+    "additionalContext": "[adaptive-harness] MANDATORY: Your FIRST action must be spawning the router agent via Agent(subagent_type=\"adaptive-harness:router\"). Do NOT read files, explore code, or start working before routing. Do NOT rationalize skipping the pipeline (e.g., \"this modifies the plugin itself\", \"too simple\", \"I already know how\"). The router decides — you route."
   }
 }
 EOF

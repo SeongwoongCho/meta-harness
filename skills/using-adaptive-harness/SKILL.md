@@ -52,6 +52,21 @@ Pipeline execution order — no step may be skipped:
 
 ---
 
+## NEVER-SKIP Rules (Zero Exceptions)
+
+The following rationalizations are INVALID reasons to skip the pipeline. If you catch yourself thinking any of these, you are wrong — route the task:
+
+1. **"This task modifies the adaptive-harness plugin itself"** — The router handles meta-tasks. It will select an appropriate harness (tdd-driven, careful-refactor, etc.) or return `skip_routing: true`. The plugin's own repo is just another codebase.
+2. **"This is too simple for the pipeline"** — The router decides simplicity via `skip_routing`. You don't.
+3. **"I already know how to do this"** — Irrelevant. The pipeline exists for evaluation and weight tracking, not just execution quality.
+4. **"The pipeline would be circular/recursive"** — False. Harness subagents execute the work; the orchestrator routes. There is no recursion.
+5. **"I'll save time by skipping"** — The user chose auto-mode. Respect their choice.
+6. **"I need to explore the codebase first before routing"** — No. The router and harness subagents explore. Your first action is ALWAYS spawning the router.
+
+**Self-check**: If your first tool call after receiving a user task is anything other than `Agent(subagent_type="adaptive-harness:router", ...)`, you are violating the protocol.
+
+---
+
 ## Orchestration Protocol
 
 ### Step 1: Receive Task
@@ -59,6 +74,8 @@ Pipeline execution order — no step may be skipped:
 When a new user task arrives, **always proceed to Step 2**. Do NOT classify the task as "trivial" or "substantive" yourself — the router makes that decision via `skip_routing`. You are not qualified to skip the pipeline; the router is.
 
 The only exception: bare acknowledgments with zero task content ("ok", "thanks", "got it") do not need routing. Everything else — including short requests like "fix that", "add a comment", or "refactor this" — goes to the router.
+
+**CRITICAL**: Your FIRST tool call after receiving a task MUST be spawning the router agent. If your first tool call is Read, Grep, Glob, Bash, Edit, or Write (anything other than Agent/Task with `subagent_type="adaptive-harness:router"`), you are violating the protocol. The router runs BEFORE any exploration or implementation.
 
 ### Step 2: Route via Router Agent
 
@@ -372,6 +389,7 @@ This ensures observability — the evolution manager can detect when tasks are b
 ## Key Design Constraints
 
 - **You are the orchestrator** — this skill runs in the main conversation context. Do not spawn an "orchestrator" subagent.
+- **NEVER bypass the router** — Every task goes to the router first. No exceptions for meta-tasks, simple tasks, or tasks that modify the pipeline itself. See "NEVER-SKIP Rules" above.
 - **Never execute harness work in the main context** — When the router selects a harness (`skip_routing=false`), you MUST spawn a Task() subagent. Do not read the harness `agent.md`/`skill.md` and follow those instructions yourself. The main context orchestrates; subagents execute. This separation is required for evaluation to work.
 - **Subagents cannot spawn sub-subagents** — all fan-out (router, harness execution, evaluator, synthesizer) happens from the main context.
 - **Evidence collection is automatic** — the `collect-evidence.sh` hook captures Bash tool output from harness subagents. You read it after subagent completion, you do not collect it manually.
