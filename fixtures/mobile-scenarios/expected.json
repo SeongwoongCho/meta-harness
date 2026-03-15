@@ -1,0 +1,20 @@
+{
+  "expected_taxonomy": {
+    "task_type": "feature",
+    "uncertainty": "medium",
+    "blast_radius": "local",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "mobile"
+  },
+  "expected_harness": ["tdd-driven"],
+  "expected_score_range": {
+    "min": 0.6,
+    "max": 0.9
+  },
+  "reasoning": "New deep link handling feature in a React Native app. Medium uncertainty because background/foreground lifecycle adds implementation complexity. Local blast radius (notification handler + navigation module). Moderate verifiability: unit tests cover routing logic but end-to-end push notification behaviour requires device testing. TDD is optimal to lock in the link-parsing and routing contract before wiring up lifecycle events.",
+  "pass_criteria": {
+    "router_accuracy_threshold": 0.8,
+    "score_tolerance": 0.15
+  }
+}

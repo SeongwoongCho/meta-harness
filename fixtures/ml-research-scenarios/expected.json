@@ -1,0 +1,20 @@
+{
+  "expected_taxonomy": {
+    "task_type": "research",
+    "uncertainty": "high",
+    "blast_radius": "local",
+    "verifiability": "hard",
+    "latency_sensitivity": "low",
+    "domain": "ml-research"
+  },
+  "expected_harness": ["research-iteration"],
+  "expected_score_range": {
+    "min": 0.65,
+    "max": 0.95
+  },
+  "reasoning": "Comparative benchmarking of ML models. High uncertainty because relative performance of the three models is unknown before experiments run. Local blast radius (benchmark scripts and results, no production code changes). Hard verifiability because the recommendation requires expert judgment on trade-offs, not just metric values. research-iteration is optimal for structured experimentation with iterative analysis.",
+  "pass_criteria": {
+    "router_accuracy_threshold": 0.8,
+    "score_tolerance": 0.15
+  }
+}

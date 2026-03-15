@@ -19,6 +19,7 @@ trigger:
   domains:
     - backend
     - infra
+    - security
 
 workflow:
   - "Implement the primary solution with standard tests — confirm full test suite passes"

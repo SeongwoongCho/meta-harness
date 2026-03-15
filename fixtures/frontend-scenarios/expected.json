@@ -1,0 +1,20 @@
+{
+  "expected_taxonomy": {
+    "task_type": "feature",
+    "uncertainty": "low",
+    "blast_radius": "local",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "frontend"
+  },
+  "expected_harness": ["tdd-driven"],
+  "expected_score_range": {
+    "min": 0.65,
+    "max": 0.95
+  },
+  "reasoning": "New dark mode feature scoped to the settings page. Low uncertainty because CSS theming and localStorage patterns are well-established. Local blast radius (settings component + theme utility). Moderate verifiability: theme class logic is unit-testable but visual correctness and FOUC require browser testing. TDD optimal: write tests for the theme selection logic first.",
+  "pass_criteria": {
+    "router_accuracy_threshold": 0.8,
+    "score_tolerance": 0.15
+  }
+}

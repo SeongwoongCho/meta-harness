@@ -142,7 +142,8 @@ Every task is classified by LLM reasoning (not keyword matching):
 | `blast_radius` | local / cross-module / repo-wide |
 | `verifiability` | easy / moderate / hard |
 | `latency_sensitivity` | low / high |
-| `domain` | backend / frontend / ml-research / infra / docs |
+| `domain` | backend / frontend / mobile / ml-research / data-engineering / devops / security / infra / docs |
+| `domain_hint` | *(optional)* free-text hint for mixed-domain tasks — logged for analytics, not used in routing (e.g., `"also touches devops"`, `"Spark ETL pipeline"`) |
 
 ---
 
