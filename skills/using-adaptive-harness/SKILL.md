@@ -232,6 +232,21 @@ Ensemble triggers when the router classifies: `uncertainty=high` AND (`verifiabi
 
 The router returns one of two ensemble modes:
 
+#### Ensemble Pre-Check: Git Repository Requirement
+
+**Before starting any ensemble execution**, check if the working directory is a git repository:
+
+```
+Bash("git rev-parse --is-inside-work-tree 2>/dev/null")
+```
+
+- If **yes** (exit code 0): Use worktree isolation (`isolation: "worktree"`) for parallel execution.
+- If **no** (not a git repo): **Initialize git first**, then use worktrees.
+  ```
+  Bash("git init && git add -A && git commit -m 'initial commit for ensemble isolation' --allow-empty")
+  ```
+  This is required because greenfield projects start in empty non-git directories, but `isolation: "worktree"` depends on git worktree which requires a git repository. The init + commit creates the minimal baseline needed for worktree branching.
+
 #### Mode 1: Simple Harness Ensemble (`ensemble_harnesses` present)
 
 For tasks that don't need a planning step — just run 2+ harnesses in parallel on the same task.
@@ -276,6 +291,8 @@ The router provides:
 
 **Execution flow:**
 
+0. **Ensure git repo exists** (see Ensemble Pre-Check above). For greenfield projects, also commit any files created by the planning step before fan-out — worktrees branch from the current HEAD, so planning artifacts must be committed to be visible in worktrees.
+
 1. **Run shared planning harness ONCE in the main workspace** (avoids redundant planning):
 
 ```
@@ -286,6 +303,10 @@ planning_result = Task(
   subagent_type="adaptive-harness:{shared_planning_harness}",
   prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}\n\n## Session ID\n{session_id}"
 )
+
+# IMPORTANT: If the planning step created any files, commit them before fan-out.
+# Worktrees branch from HEAD — uncommitted files won't appear in worktrees.
+Bash("git add -A && git diff --cached --quiet || git commit -m 'planning phase artifacts'")
 ```
 
 2. **Fan out execution harnesses in parallel, each in its own worktree**:
