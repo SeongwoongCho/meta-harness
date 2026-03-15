@@ -1,0 +1,85 @@
+name: engineering-retro
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - retro
+    - retrospective
+    - review
+  uncertainty:
+    - low
+    - medium
+  verifiability:
+    - easy
+    - moderate
+  blast_radius:
+    - local
+    - cross-module
+  latency_sensitivity: low
+  domains:
+    - "*"
+
+workflow:
+  - "Parse time window from argument: 7d (default), 24h, 14d, 30d, or compare mode"
+  - "Identify current user via git config user.name and git config user.email"
+  - "Gather raw data in parallel: commits with stats, per-author breakdowns, file hotspots, PR numbers"
+  - "Compute metrics table: commits, contributors, PRs, LOC, test ratio, sessions, streaks"
+  - "Show per-author leaderboard sorted by commits; current user listed first"
+  - "Compute commit-time distribution in Pacific time and detect work sessions (45-min gap threshold)"
+  - "Categorize commits by conventional prefix (feat/fix/refactor/test/chore/docs)"
+  - "Identify top 10 hotspot files and flag churn (5+ changes)"
+  - "Compute focus score and identify ship-of-the-week (highest-LOC PR)"
+  - "Write per-contributor analysis: contributions, praise anchored in commits, growth suggestions"
+  - "Load prior retro history from .context/retros/ and compute deltas if available"
+  - "Save JSON snapshot to .context/retros/{date}-{n}.json"
+  - "Write full narrative report to conversation: summary table, patterns, velocity, team breakdown"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Bash
+    - Glob
+  denied:
+    - Edit
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "All narrative output goes directly to the conversation — only the JSON snapshot is written to disk"
+    - "Bash is used only for git commands and timestamp conversions"
+    - "Use origin/main for all git queries — not local main which may be stale"
+    - "Convert all timestamps to Pacific time (TZ=America/Los_Angeles)"
+    - "Write is used only for the .context/retros/ JSON snapshot"
+
+stopping_criteria:
+  - condition: metrics_computed
+    description: "All metrics (commits, LOC, test ratio, sessions, streaks) are computed"
+  - condition: narrative_written
+    description: "Full narrative report including team breakdown written to conversation"
+  - condition: snapshot_saved
+    description: "JSON snapshot saved to .context/retros/"
+
+verification_steps:
+  - "Confirm summary metrics table is present in output"
+  - "Confirm per-author leaderboard shows current user first"
+  - "Confirm session analysis uses 45-minute gap threshold"
+  - "Confirm praise and growth suggestions are anchored in actual commits"
+  - "Confirm JSON snapshot saved to .context/retros/"
+  - "Confirm no sensitive data (credentials, private emails) in output"
+
+cost_budget:
+  max_tokens: 200000
+  max_time_minutes: 20
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "no_commits_in_window"
+    description: "Zero commits in the requested time window"
+    action: report_partial
+  - condition: "invalid_argument"
+    description: "Argument does not match expected format (NNd, NNh, NNw, compare)"
+    action: escalate_to_user
+  - condition: "budget_reached_before_completion"
+    description: "Token budget reached before writing full narrative"
+    action: report_partial

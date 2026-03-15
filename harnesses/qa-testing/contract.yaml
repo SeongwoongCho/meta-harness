@@ -1,0 +1,84 @@
+name: qa-testing
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - qa
+    - testing
+    - quality
+  uncertainty:
+    - low
+    - medium
+    - high
+  verifiability:
+    - easy
+    - moderate
+    - hard
+  blast_radius:
+    - local
+    - cross-module
+    - repo-wide
+  latency_sensitivity: any
+  domains:
+    - "*"
+
+workflow:
+  - "Parse request for: target URL, mode (full/quick/diff-aware), scope, and auth credentials"
+  - "Diff-aware mode (default on feature branch with no URL): analyze git diff, identify affected routes"
+  - "Detect running app on common local ports or use provided URL"
+  - "Authenticate if credentials provided; never store or log real passwords"
+  - "Orient: take initial screenshot, map navigation structure, check console errors on landing"
+  - "Explore: visit each page systematically — visual scan, interactive elements, forms, states, console"
+  - "Document each issue immediately when found — do not batch; require at least one screenshot per issue"
+  - "Compute health score using weighted rubric across 8 categories"
+  - "Write structured report: health score, top 3 issues, per-category breakdown, console summary"
+  - "Save baseline JSON for future regression comparisons"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Bash
+    - Glob
+  denied:
+    - Edit
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Test as a user — do not read source code during testing"
+    - "Write is used only for the QA report and baseline JSON"
+    - "Bash is used to run browser automation commands and git diff analysis"
+    - "Never include real passwords or credentials in reports — write [REDACTED]"
+    - "Document issues incrementally as found — never batch"
+
+stopping_criteria:
+  - condition: report_written
+    description: "Structured QA report written with health score, issue list, and per-category scores"
+  - condition: baseline_saved
+    description: "Baseline JSON saved for regression comparison"
+  - condition: exploration_complete
+    description: "All identified pages/routes have been visited and documented"
+
+verification_steps:
+  - "Confirm health score is computed and present in report"
+  - "Confirm each issue has severity, category, repro steps, and at least one screenshot reference"
+  - "Confirm top 3 issues are identified in the report"
+  - "Confirm baseline JSON is saved"
+  - "Confirm no real credentials appear in the report"
+
+cost_budget:
+  max_tokens: 200000
+  max_time_minutes: 30
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "no_url_and_no_local_app"
+    description: "No URL provided and no local app detected on common ports"
+    action: escalate_to_user
+  - condition: "auth_required_but_not_provided"
+    description: "App requires login but no credentials were supplied"
+    action: escalate_to_user
+  - condition: "budget_reached_before_completion"
+    description: "Token budget reached — write partial report with issues found so far"
+    action: report_partial
