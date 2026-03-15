@@ -103,24 +103,24 @@ That's it. Every task is now routed through the adaptive-harness pipeline automa
 
 | Harness | Best For | Model |
 |---------|----------|-------|
-| **tdd-driven** | Bugs & features with clear test expectations | Sonnet |
-| **systematic-debugging** | Root cause analysis of complex bugs | Sonnet |
-| **rapid-prototype** | Fast MVP when latency matters | Sonnet |
-| **research-iteration** | Exploratory research with unclear requirements | Opus |
-| **careful-refactor** | Safe structural refactoring (Mikado method) | Sonnet |
-| **code-review** | Multi-perspective OWASP-aligned security & quality review | Opus |
-| **migration-safe** | Dependency upgrades and migrations | Sonnet |
-| **ralplan-consensus** | Task-type-aware planning with self-review | Opus |
-| **ralph-loop** | Persistent execution until acceptance criteria pass | Sonnet |
+| **tdd-driven** | Strict red-green-refactor cycles with enforced test coverage gates | Sonnet |
+| **systematic-debugging** | Root cause analysis through structured reproduce-isolate-fix-verify phases | Sonnet |
+| **rapid-prototype** | Fast MVP building with speed as the primary constraint | Sonnet |
+| **research-iteration** | Hypothesis-driven cycles for high-uncertainty problems with rigorous measurement | Opus |
+| **careful-refactor** | Safe refactoring via Mikado method without changing observable behavior | Sonnet |
+| **code-review** | Multi-perspective review across security, quality, performance, and maintainability | Opus |
+| **migration-safe** | Schema, dependency, and API migrations with audit trails and rollback plans | Sonnet |
+| **ralplan-consensus** | Implementation planning with self-review — analyzes, plans, then challenges its own assumptions | Opus |
+| **ralph-loop** | Persistent execution loop until all acceptance criteria pass (max iterations bounded) | Sonnet |
 
 ### Experimental Harnesses
 
 | Harness | Best For | Model |
 |---------|----------|-------|
-| **progressive-refinement** | Medium-uncertainty tasks needing iterative quality improvement | Sonnet |
-| **divide-and-conquer** | Large cross-module/repo-wide tasks that decompose into parts | Sonnet |
-| **adversarial-review** | Backend/infra features needing security and edge-case hardening | Sonnet |
-| **spike-then-harden** | High-uncertainty features where the problem space is unknown | Sonnet |
+| **progressive-refinement** | Iterative quality improvement — rough solution first, then targets weakest dimension each pass | Sonnet |
+| **divide-and-conquer** | Splits large tasks into independent sub-tasks, solves in isolation, integrates and verifies | Sonnet |
+| **adversarial-review** | Implements a solution, then deliberately tries to break it with adversarial tests and edge-case attacks | Sonnet |
+| **spike-then-harden** | Two-phase: fast throwaway prototype to learn the problem space, then production-quality rewrite | Sonnet |
 
 The router supports **harness chaining** — e.g. `plan → execute → review` for complex tasks. Chains are **adaptive**: if a harness discovers mid-execution that the next planned step is wrong, it emits a `next_harness_hint` and the orchestrator reroutes dynamically.
 
