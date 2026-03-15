@@ -14,11 +14,12 @@ This is the complete action sequence. After each step, IMMEDIATELY proceed to th
 agent_mode = "dontAsk" if "--skip-interview" else "default"
 plugin_root = Read(".adaptive-harness/.plugin-root") or "{{PLUGIN_ROOT}}"
 
-# 1. ROUTE
+# 1. ROUTE (then IMMEDIATELY execute — no text output between route and execute)
 router_result = Agent(subagent_type="adaptive-harness:router", mode=agent_mode, prompt="Classify: {task}\nRead .adaptive-harness/harness-pool.json")
 response = parse_json(router_result)
+# Router output includes ## NEXT_ACTION — follow those steps NOW, in this same response turn
 
-# 2. EXECUTE (pick ONE path based on router response)
+# 2. EXECUTE (pick ONE path — do NOT output routing decision as separate text first)
 if response.skip_routing:
     → Do the task directly. Write lightweight eval JSON. DONE.
 
