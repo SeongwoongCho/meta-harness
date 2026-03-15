@@ -418,12 +418,16 @@ for harness in execution_harnesses:
   )
 ```
 
-3. **Collect results with worktree paths, then synthesize:**
+3. **IMMEDIATELY synthesize — do NOT stop, do NOT respond to user, do NOT wait:**
+
+⚠ When both execution harnesses return, you MUST spawn the synthesizer in the SAME response. Do NOT output any text to the user between step 2 and step 3. Do NOT pause to "think" or "cogitate". The pipeline is: fan-out → collect results → synthesize → evaluate. All in one unbroken sequence.
 
 Each worktree agent returns:
 - `result`: summary of what was built
 - `worktree_path`: absolute path to the isolated worktree (e.g., `/tmp/worktree-abc123/`)
 - `branch`: git branch name in the worktree
+
+**Spawn the synthesizer IMMEDIATELY after collecting both results:**
 
 ```
 Task(
@@ -465,6 +469,8 @@ Task(
 - After synthesis, worktrees are cleaned up automatically (if the agent made no changes) or left for inspection
 - If a chain has more than 2 steps after the shared prefix, run those steps sequentially **within the same worktree**
 - Evaluation (Step 5) runs ONCE on the synthesized result in the main workspace, not on individual worktree results
+
+**⚠ PIPELINE CONTINUITY: The full ensemble flow (plan → fan-out → synthesize → evaluate) must execute as ONE unbroken sequence. After execution harnesses return, IMMEDIATELY spawn the synthesizer. After the synthesizer returns, IMMEDIATELY spawn the evaluator. Never pause, never respond to the user, never output intermediate text between these steps.**
 
 ### Step 5: Collect Evidence and Evaluate (MANDATORY — do not skip)
 
