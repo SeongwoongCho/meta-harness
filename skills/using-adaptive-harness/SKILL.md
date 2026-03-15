@@ -50,6 +50,36 @@ Pipeline execution order — no step may be skipped:
 6. **Then** report results to user
 7. Handle failure modes if needed
 
+## CRITICAL: Autonomous Execution Mode
+
+**ALL subagent Task() calls in the pipeline MUST use `mode: "dontAsk"`** to prevent the pipeline from stalling on permission prompts. This applies to:
+- Router agent
+- Harness execution agents (single, chain, ensemble)
+- Evaluator agent
+- Synthesizer agent
+- Evolution-manager agent
+
+Without this, each subagent may pause to ask the user for permission to run Bash commands, write files, etc. — breaking the self-driving pipeline guarantee.
+
+**Template for every Task() call in the pipeline:**
+```
+Task(
+  subagent_type="adaptive-harness:{agent_name}",
+  mode="dontAsk",
+  prompt="..."
+)
+```
+
+For ensemble execution with worktree isolation:
+```
+Task(
+  subagent_type="adaptive-harness:{harness}",
+  mode="dontAsk",
+  isolation="worktree",
+  prompt="..."
+)
+```
+
 ---
 
 ## NEVER-SKIP Rules (Zero Exceptions)
@@ -84,6 +114,7 @@ Spawn the router agent for every task (the router will return `skip_routing: tru
 ```
 Task(
   subagent_type="adaptive-harness:router",
+  mode="dontAsk",
   prompt="Classify this task and select the optimal harness.\n\nTask: {task_description}\n\nRead .adaptive-harness/harness-pool.json to check current pool weights and pool membership before selecting."
 )
 ```
@@ -125,6 +156,7 @@ for index, harness in enumerate(harness_chain):
 
   result = Task(
     subagent_type="adaptive-harness:{harness}",
+    mode="dontAsk",
     prompt="{agent.md content}\n\n## Workflow\n{skill.md content}\n\n## Task\n{task_description}\n\n## Chain Position\n{chain_position}\n\n## Prior Chain Context\n{chain_context}\n\n## Session ID\n{session_id}"
   )
 
@@ -220,6 +252,7 @@ This ensures every task leaves an audit trail. Fast-path evals do NOT update har
 ```
 Task(
   subagent_type="adaptive-harness:{selected_harness}",
+  mode="dontAsk",
   prompt="{agent.md content}\n\n## Workflow\n{skill.md content}\n\n## Task\n{task_description}\n\n## Session ID\n{session_id}"
 )
 ```
@@ -260,11 +293,13 @@ For tasks that don't need a planning step — just run 2+ harnesses in parallel 
 # This prevents harnesses from overwriting each other's files.
 Task(
   subagent_type="adaptive-harness:{harness_1}",
+  mode="dontAsk",
   isolation="worktree",
   prompt="..."
 )
 Task(
   subagent_type="adaptive-harness:{harness_2}",
+  mode="dontAsk",
   isolation="worktree",
   prompt="..."
 )
@@ -277,6 +312,7 @@ Task(
 ```
 Task(
   subagent_type="adaptive-harness:synthesizer",
+  mode="dontAsk",
   prompt="Merge these parallel harness results into an optimal combined result.\n\nHarness 1 ({harness_1}):\n- Worktree: {worktree_path_1}\n- Branch: {branch_1}\n- Result summary: {result_1}\n\nHarness 2 ({harness_2}):\n- Worktree: {worktree_path_2}\n- Branch: {branch_2}\n- Result summary: {result_2}\n\nRead files from BOTH worktrees to compare implementations. Cherry-pick the best files from each into the main workspace."
 )
 ```
@@ -301,6 +337,7 @@ Read("{plugin_root}/harnesses/{shared_planning_harness}/skill.md")
 
 planning_result = Task(
   subagent_type="adaptive-harness:{shared_planning_harness}",
+  mode="dontAsk",
   prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}\n\n## Session ID\n{session_id}"
 )
 
@@ -325,6 +362,7 @@ for harness in execution_harnesses:
 
   Task(
     subagent_type="adaptive-harness:{harness}",
+    mode="dontAsk",
     isolation="worktree",
     prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}\n\n## Prior Chain Context (from planning)\n{planning_result}\n\n## Chain Position\nExecution phase (planning complete)\n\n## Session ID\n{session_id}"
   )
@@ -340,6 +378,7 @@ Each worktree agent returns:
 ```
 Task(
   subagent_type="adaptive-harness:synthesizer",
+  mode="dontAsk",
   prompt="Merge these parallel chain execution results into an optimal combined result.
 
 ## Shared Planning Context
@@ -394,6 +433,7 @@ After subagent completion (detected when the subagent's Task() call returns):
 ```
 Task(
   subagent_type="adaptive-harness:evaluator",
+  mode="dontAsk",
   model=evaluator_model,  # "sonnet" or "opus" based on routing
   prompt="Score this task result.\n\nTask: {task_description}\nTask type: {taxonomy.task_type}\nSelected harness: {selected_harness}\nResult summary: {result_summary}\n\nRead .adaptive-harness/sessions/{session_id}/evidence/ for collected evidence."
 )
@@ -439,6 +479,7 @@ On evaluator response:
    ```
    Task(
      subagent_type="adaptive-harness:evolution-manager",
+     mode="dontAsk",
      prompt="Analyze evaluation history and propose harness improvements.\n\nTrigger: {selected_harness} has reached {count} evaluations.\nPlugin root: {{PLUGIN_ROOT}}\n\nRead .adaptive-harness/evaluation-logs/{selected_harness}/ for evaluation history.\nRead {{PLUGIN_ROOT}}/agents/{selected_harness}.md and {{PLUGIN_ROOT}}/harnesses/{selected_harness}/skill.md for current harness content.\nRead .adaptive-harness/harness-pool.json for pool state.\n\nGenerate evolution proposals and write them to .adaptive-harness/evolution-proposals/."
    )
    ```
