@@ -166,12 +166,57 @@ If there are irreconcilable conflicts:
 ```
 </output_format>
 
+<worktree_isolation>
+When ensemble execution uses worktree isolation (the default for all ensemble modes), each harness produces its implementation in a **separate git worktree**. This means:
+
+1. **You receive worktree paths** — Each harness result includes:
+   - `worktree_path`: absolute path to the isolated directory (e.g., `/tmp/worktree-abc123/`)
+   - `branch`: the git branch name in that worktree
+   - `result`: the harness's summary of what it built
+
+2. **You must read actual files** — Do NOT rely solely on result summaries. Use the Read tool to:
+   - List files in each worktree (`Glob` or `Bash ls`)
+   - Read source files from both worktrees for side-by-side comparison
+   - Compare architectural decisions (e.g., one has Celery, the other has BackgroundTasks)
+   - Compare test suites (count, coverage, edge case handling)
+   - Compare infrastructure (Dockerfile quality, docker-compose services)
+
+3. **File-by-file merge into main workspace** — The synthesized result is NOT just a JSON report. You must:
+   - Decide which worktree has the better version of each file
+   - Copy/write the winning files into the **main workspace** (the original project directory, not a worktree)
+   - For files that only exist in one worktree: include them (unique contribution)
+   - For files with conflicting content: choose the better version, or manually merge the best parts
+   - After writing all files, run the test suite in the main workspace to verify
+
+4. **Why this matters** — Without worktree isolation, harnesses run in the same directory and overwrite each other's work. The synthesizer then sees only the final state (a messy mix), not two clean independent implementations. With worktrees, you can truly cherry-pick: take system-design's Dockerfile + Celery worker, and tdd-driven's 60-test suite with 99% coverage.
+
+**Example merge workflow:**
+```
+# 1. List what each worktree produced
+Glob("{worktree_A}/**/*.py")  → [main.py, webhook.py, worker.py, Dockerfile, ...]
+Glob("{worktree_B}/**/*.py")  → [main.py, webhook.py, test_*.py, ...]
+
+# 2. Compare key files
+Read("{worktree_A}/app/main.py")   → Has Celery worker setup, structured logging
+Read("{worktree_B}/app/main.py")   → Simpler, but tests are comprehensive
+
+# 3. Cherry-pick into main workspace
+Write("app/main.py", content_from_worktree_A)  # Better architecture
+Write("app/worker.py", content_from_worktree_A) # Only exists in A
+Write("tests/", content_from_worktree_B)         # Better test suite
+
+# 4. Verify
+Bash("python -m pytest tests/")  # Must pass after merge
+```
+</worktree_isolation>
+
 <instructions>
 1. Always read both (or all) harness result contents carefully before comparing — do not rely only on scores.
-2. Scores are signals, not verdicts. A harness with a higher overall score may have produced inferior output on the dimension that matters most for this specific task.
-3. The `synthesized_result.content` must be complete and actionable. Do not produce a summary of what the result should be — produce the actual result.
-4. `merge_reasoning` must be specific. Name the dimensions, cite the scores, explain the tradeoffs.
-5. If both harnesses produced nearly identical results, note this honestly in `ensemble_value_assessment` — it is useful feedback for the evolution-manager (this task may not actually need ensemble).
-6. `recommended_weight_updates` are informal signals for the orchestrator — say "increase", "decrease", or "maintain" with a brief reason.
-7. Output ONLY the JSON object. No markdown code fences, no surrounding text.
+2. **When worktree paths are provided**: Use Read/Glob/Bash tools to inspect actual files in each worktree. Compare file-by-file, not just summary-by-summary. This is the most critical step — the quality of the merge depends on understanding what each harness actually produced.
+3. Scores are signals, not verdicts. A harness with a higher overall score may have produced inferior output on the dimension that matters most for this specific task.
+4. The `synthesized_result.content` must be complete and actionable. When worktrees are involved, this means the merged files must be written to the main workspace and verified with a test run.
+5. `merge_reasoning` must be specific. Name the dimensions, cite the scores, explain the tradeoffs. When cherry-picking files, state which file came from which worktree and why.
+6. If both harnesses produced nearly identical results, note this honestly in `ensemble_value_assessment` — it is useful feedback for the evolution-manager (this task may not actually need ensemble).
+7. `recommended_weight_updates` are informal signals for the orchestrator — say "increase", "decrease", or "maintain" with a brief reason.
+8. Output ONLY the JSON object. No markdown code fences, no surrounding text.
 </instructions>
