@@ -1,0 +1,20 @@
+{
+  "expected_taxonomy": {
+    "task_type": "feature",
+    "uncertainty": "low",
+    "blast_radius": "local",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "docs"
+  },
+  "expected_harness": ["tdd-driven", "rapid-prototype"],
+  "expected_score_range": {
+    "min": 0.55,
+    "max": 0.85
+  },
+  "reasoning": "Documentation writing task for a defined API. Low uncertainty because the endpoints exist and just need to be described. Local blast radius (documentation files only). Moderate verifiability: completeness can be checked against endpoint list, but accuracy requires human review of technical content.",
+  "pass_criteria": {
+    "router_accuracy_threshold": 0.7,
+    "score_tolerance": 0.20
+  }
+}

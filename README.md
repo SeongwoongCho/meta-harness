@@ -117,6 +117,11 @@ That's it. Every task is now routed through the adaptive-harness pipeline automa
 | **qa-testing** | Tests applications like a real user, computes a health score, and produces a structured report with screenshot evidence | Sonnet |
 | **pre-landing-review** | Pre-merge diff review with critical (blocking) and informational (advisory) passes and interactive resolution | Sonnet |
 | **ship-workflow** | Automated release: merges main, runs tests, bumps version, generates changelog, creates bisectable commits, and opens a PR | Sonnet |
+| **deep-interview** | Resolves ambiguous requirements through structured clarifying interviews, builds a confirmed spec, then executes against it | Opus |
+| **simple-executor** | Lightweight executor for trivial, well-defined local changes — no planning overhead | Sonnet |
+| **documentation-writer** | Reads source truth first, then drafts accurate and well-styled docs, READMEs, API references, and guides | Sonnet |
+| **security-audit** | OWASP Top-10 scan, dependency audit, secrets scan, and threat modeling with a prioritized findings report | Opus |
+| **performance-optimization** | Measurement-driven optimization cycles: baseline → profile → hypothesize → implement → measure → verify | Sonnet |
 
 ### Experimental Harnesses
 
@@ -142,7 +147,8 @@ Every task is classified by LLM reasoning (not keyword matching):
 | `blast_radius` | local / cross-module / repo-wide |
 | `verifiability` | easy / moderate / hard |
 | `latency_sensitivity` | low / high |
-| `domain` | backend / frontend / ml-research / infra / docs |
+| `domain` | backend / frontend / mobile / ml-research / data-engineering / devops / security / infra / docs |
+| `domain_hint` | *(optional)* free-text hint for mixed-domain tasks — logged for analytics, not used in routing (e.g., `"also touches devops"`, `"Spark ETL pipeline"`) |
 
 ---
 
@@ -309,7 +315,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Acknowledgments
 
-Built on ideas from **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** (multi-agent orchestration) and **[superpowers](https://github.com/nicobailon/superpowers)** (skills-as-harness). The concept of harness engineering was formalized by [Martin Fowler](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html) — adaptive-harness makes it self-improving.
+Built on ideas from **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** (multi-agent orchestration) and **[superpowers](https://github.com/nicobailon/superpowers)** (skills-as-harness). The concept of harness engineering was formalized by [Martin Fowler](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html) — adaptive-harness makes it self-improving. Stack management patterns inspired by **[gstack](https://github.com/garrytan/gstack)**.
 
 ## License
 

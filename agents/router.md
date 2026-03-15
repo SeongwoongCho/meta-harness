@@ -48,7 +48,8 @@ See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 | `blast_radius` | `local` / `cross-module` / `repo-wide` |
 | `verifiability` | `easy` / `moderate` / `hard` |
 | `latency_sensitivity` | `low` / `high` |
-| `domain` | `backend` / `frontend` / `ml-research` / `infra` / `docs` |
+| `domain` | `backend` / `frontend` / `mobile` / `ml-research` / `data-engineering` / `devops` / `security` / `infra` / `docs` |
+| `domain_hint` | *(optional)* free-text hint for mixed-domain or niche tasks — for logging only, not used in routing |
 </taxonomy_definition>
 
 <ensemble_rule>
@@ -92,6 +93,11 @@ Read `.adaptive-harness/harness-pool.json` if it exists for current weights. Ful
 | `migration-safe` | migration | blast_radius=repo-wide |
 | `ralplan-consensus` | upfront planning (chain first step) | uncertainty=[medium,high], blast_radius=[cross-module, repo-wide] |
 | `ralph-loop` | persistent iteration | uncertainty=[medium,high], max 10 iterations |
+| `deep-interview` | ambiguous tasks, requirements clarification | uncertainty=high |
+| `simple-executor` | trivial local changes | uncertainty=low, blast_radius=local, verifiability=easy |
+| `documentation-writer` | docs writing and updates | domain=docs |
+| `security-audit` | OWASP scan, secrets scan, threat modeling | domain=[backend,infra], security-focused |
+| `performance-optimization` | profiling, benchmarking, latency reduction | task_type=benchmark, latency_sensitivity=high |
 </harness_pool>
 
 
@@ -107,6 +113,11 @@ After selecting the primary harness, decide whether to form a `harness_chain` (s
 General-capable harnesses available for chaining:
 - `ralplan-consensus` — upfront planning with self-review; use as first step when approach is unclear
 - `ralph-loop` — persistent execution loop; use when task needs iterative convergence (high uncertainty or known-hard acceptance criteria)
+- `deep-interview` — clarification-first harness; use as first step when requirements are ambiguous (uncertainty=high) before any execution harness
+- `simple-executor` — lightweight executor; use as a standalone single harness for trivial local tasks
+- `documentation-writer` — documentation specialist; use standalone or as final step after a feature implementation
+- `security-audit` — security auditor; use standalone or as a review step after implementation in security-sensitive domains
+- `performance-optimization` — performance optimizer; use standalone or after feature implementation when latency_sensitivity=high
 
 Always set `selected_harness` to the primary execution harness (first non-planning harness in the chain, for backward compatibility).
 </chaining_guidelines>
@@ -149,7 +160,8 @@ For a standard routing decision:
     "blast_radius": "local",
     "verifiability": "easy",
     "latency_sensitivity": "low",
-    "domain": "backend"
+    "domain": "backend",
+    "domain_hint": "also touches devops"
   },
   "selected_harness": "tdd-driven",
   "harness_chain": ["tdd-driven"],

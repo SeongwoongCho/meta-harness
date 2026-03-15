@@ -1,0 +1,21 @@
+{
+  "expected_taxonomy": {
+    "task_type": "feature",
+    "uncertainty": "medium",
+    "blast_radius": "cross-module",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "devops",
+    "domain_hint": "Kubernetes canary deployment"
+  },
+  "expected_harness": ["tdd-driven", "careful-refactor"],
+  "expected_score_range": {
+    "min": 0.6,
+    "max": 0.9
+  },
+  "reasoning": "New canary deployment stage in CI/CD pipeline. Medium uncertainty because Kubernetes traffic splitting and pipeline job dependencies require careful design. Cross-module blast radius (pipeline YAML, Kubernetes manifests, Slack notification config). Moderate verifiability: pipeline structure can be linted and unit-tested but end-to-end canary flow requires live infrastructure.",
+  "pass_criteria": {
+    "router_accuracy_threshold": 0.8,
+    "score_tolerance": 0.15
+  }
+}

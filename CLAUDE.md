@@ -84,4 +84,4 @@ When bumping the project version, all three locations must be in sync (use `scri
 
 ### Current Version
 
-**1.0.1**
+**1.0.2**

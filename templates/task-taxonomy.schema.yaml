@@ -33,8 +33,12 @@ task_taxonomy:
 
     domain:
       type: string
-      enum: [backend, frontend, ml-research, infra, docs]
+      enum: [backend, frontend, mobile, ml-research, data-engineering, devops, security, infra, docs]
       description: "Technical domain of the task"
+
+    domain_hint:
+      type: string
+      description: "Optional free-text hint for mixed-domain or niche tasks (logging/analytics only, not used in routing)"
 
 # Ensemble trigger condition (from consensus plan):
 # ensemble_required = (uncertainty == "high") AND (verifiability == "hard" OR blast_radius == "repo-wide")

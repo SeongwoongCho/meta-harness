@@ -1,0 +1,78 @@
+name: performance-optimization
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - benchmark
+    - bugfix
+  uncertainty:
+    - low
+    - medium
+  blast_radius:
+    - local
+    - cross-module
+  verifiability:
+    - easy
+    - moderate
+  latency_sensitivity: high
+  domains:
+    - backend
+    - ml-research
+    - infra
+  notes: "Selected for performance-focused tasks: profiling, benchmarking, latency reduction, throughput improvements, and memory optimization."
+
+workflow:
+  - "Establish baseline: run existing benchmarks or write a minimal benchmark to measure current performance"
+  - "Profile: identify the top bottlenecks using profiling tools or instrumented timing"
+  - "Hypothesize: form a specific, falsifiable hypothesis for each bottleneck"
+  - "Implement one optimization at a time — never batch multiple changes"
+  - "Measure: re-run the benchmark and compare against the baseline"
+  - "Accept or reject: keep the optimization only if improvement is statistically significant"
+  - "Verify correctness: run the full test suite after each accepted optimization"
+  - "Repeat until the performance target is met or all hypotheses are exhausted"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Each optimization must have a before/after measurement — never optimize blindly"
+    - "Bash is used for running benchmarks, profilers, and tests only"
+    - "Reject any optimization that causes test failures"
+
+stopping_criteria:
+  - condition: performance_target_met
+    description: "The stated performance target (latency, throughput, memory) is achieved"
+  - condition: all_hypotheses_exhausted
+    description: "All identified bottlenecks have been tested and the best achievable improvement is documented"
+
+verification_steps:
+  - "Baseline measurement recorded before any changes"
+  - "Each optimization has a before/after benchmark comparison"
+  - "Full test suite passes after all accepted optimizations"
+  - "Net performance improvement is positive and reproducible"
+
+cost_budget:
+  max_tokens: 400000
+  max_time_minutes: 40
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "profiling_tool_unavailable"
+    description: "No profiling or benchmarking tool is available in the environment"
+    action: report_partial
+  - condition: "no_improvement_possible"
+    description: "All identified bottlenecks have been tested and no further improvement is achievable"
+    action: escalate_to_user
+  - condition: "optimization_breaks_tests"
+    description: "An optimization causes test failures that cannot be resolved"
+    action: fallback
+    fallback_harness: systematic-debugging

@@ -70,13 +70,19 @@ How time-sensitive is task completion?
 
 What technical domain does this task primarily involve?
 
-| Value | Description |
-|-------|-------------|
-| `backend` | Server-side code, APIs, databases, services |
-| `frontend` | UI, browser code, CSS, accessibility |
-| `ml-research` | Machine learning, model training, data pipelines, research |
-| `infra` | Infrastructure, deployment, CI/CD, cloud configuration |
-| `docs` | Documentation, README, API docs, comments |
+| Value | Description | Separated from |
+|-------|-------------|----------------|
+| `backend` | Server-side code, APIs, databases, services | — |
+| `frontend` | UI, browser code, CSS, accessibility | — |
+| `mobile` | Native mobile apps (iOS, Android, React Native, Flutter) | `frontend` |
+| `ml-research` | Machine learning, model training, data pipelines, research | — |
+| `data-engineering` | ETL pipelines, data warehousing, Spark, Airflow, dbt | `ml-research` |
+| `devops` | CI/CD pipelines, deployment automation, observability | `infra` |
+| `security` | Vulnerability audits, auth hardening, compliance | `backend` + `infra` |
+| `infra` | Infrastructure provisioning, cloud configuration, networking | — |
+| `docs` | Documentation, README, API docs, comments | — |
+
+An optional `domain_hint` free-text field may accompany `domain` to give extra context for mixed-domain or niche tasks (e.g., `"also touches devops"`, `"Spark ETL pipeline"`, `"Kubernetes operator"`). This field is for logging and analytics only — it does not affect routing.
 
 ---
 
@@ -137,6 +143,10 @@ The following are NOT fast-path (they require actual work):
 | "Compare Redis vs Memcached for our cache layer" | research | high | local | hard | low | infra |
 | "API is throwing 500s in production" | incident | low | local | easy | high | backend |
 | "Extract shared auth logic used in 12 modules" | refactor | medium | cross-module | moderate | low | backend |
+| "Add deep link handling to React Native app" | feature | medium | local | moderate | low | mobile |
+| "Build Spark ETL pipeline for order aggregation" | feature | medium | local | moderate | low | data-engineering |
+| "Add canary deployment stage to CI/CD pipeline" | feature | medium | cross-module | moderate | low | devops |
+| "Audit and harden JWT authentication" | refactor | medium | cross-module | moderate | low | security |
 
 ---
 
