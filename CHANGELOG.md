@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Features
+- Add 5 new harnesses: deep-interview, simple-executor, documentation-writer, security-audit, performance-optimization
+- Register all 5 new harnesses in the stable pool with weight=1.0
+- Update router harness table and chaining guidelines for new harnesses
+- Add README documentation for new harnesses
+
 ### Chores
 - Add release automation scripts and GitHub Actions workflows
 

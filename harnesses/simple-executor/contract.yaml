@@ -1,0 +1,66 @@
+name: simple-executor
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - bugfix
+    - feature
+  uncertainty:
+    - low
+  blast_radius:
+    - local
+  verifiability:
+    - easy
+  latency_sensitivity: any
+  domains:
+    - "*"
+  notes: "Selected for trivial, well-defined tasks with local impact. Skips planning, TDD, and elaborate review cycles. Make the change, run a quick sanity check, done."
+
+workflow:
+  - "Read the task description — confirm it is fully self-contained and trivial"
+  - "Locate all affected files via Glob/Grep"
+  - "Make the change (Edit or Write)"
+  - "Sanity check: run the relevant test or linter if available"
+  - "Report the change made and the file(s) affected"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Bash is used only for quick sanity checks (run one test, one lint command)"
+    - "Do not spawn sub-agents or chains for trivial tasks"
+    - "If the task turns out to be non-trivial mid-execution, escalate to tdd-driven or ralplan-consensus"
+
+stopping_criteria:
+  - condition: change_applied
+    description: "The requested change has been applied to all affected files"
+  - condition: sanity_check_passed
+    description: "A quick sanity check (test run or lint) exits with code 0"
+
+verification_steps:
+  - "Change is applied and diff is minimal (no unintended edits)"
+  - "Sanity check passes (if a test command is available)"
+
+cost_budget:
+  max_tokens: 100000
+  max_time_minutes: 10
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "task_scope_expanded"
+    description: "Task turns out to require changes beyond a single local file or module"
+    action: fallback
+    fallback_harness: tdd-driven
+  - condition: "sanity_check_fails"
+    description: "Quick sanity check fails after the change"
+    action: fallback
+    fallback_harness: systematic-debugging
