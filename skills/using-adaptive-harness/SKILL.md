@@ -230,7 +230,13 @@ Task(
 
 Ensemble triggers when the router classifies: `uncertainty=high` AND (`verifiability=hard` OR `blast_radius=repo-wide`).
 
-1. Identify 2-3 candidate harnesses from the pool (router provides them in its response as `ensemble_harnesses: [...]`).
+The router returns one of two ensemble modes:
+
+#### Mode 1: Simple Harness Ensemble (`ensemble_harnesses` present)
+
+For tasks that don't need a planning step — just run 2+ harnesses in parallel on the same task.
+
+1. Identify 2-3 candidate harnesses from the pool (router provides them as `ensemble_harnesses: [...]`).
 
 2. Spawn all harness subagents in **parallel**:
 
@@ -248,6 +254,64 @@ Task(
   prompt="Merge these parallel harness results into an optimal combined result.\n\nHarness 1 ({harness_1}) result:\n{result_1}\n\nHarness 2 ({harness_2}) result:\n{result_2}"
 )
 ```
+
+#### Mode 2: Chain Ensemble (`ensemble_chains` present)
+
+For tasks that benefit from planning + multiple execution approaches. Runs the shared planning step ONCE, then fans out execution harnesses in parallel, then synthesizes.
+
+The router provides:
+- `ensemble_chains`: array of 2+ chains, e.g., `[["ralplan-consensus", "system-design"], ["ralplan-consensus", "tdd-driven"]]`
+- `shared_planning_harness`: the common first harness across chains (e.g., `"ralplan-consensus"`)
+
+**Execution flow:**
+
+1. **Run shared planning harness ONCE** (avoids redundant planning):
+
+```
+Read("{plugin_root}/agents/{shared_planning_harness}.md")
+Read("{plugin_root}/harnesses/{shared_planning_harness}/skill.md")
+
+planning_result = Task(
+  subagent_type="adaptive-harness:{shared_planning_harness}",
+  prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}\n\n## Session ID\n{session_id}"
+)
+```
+
+2. **Fan out execution harnesses in parallel**, each receiving the shared plan as context:
+
+```
+# Extract execution harness from each chain (skip the shared planning harness)
+execution_harnesses = [chain[-1] for chain in ensemble_chains]
+# e.g., ["system-design", "tdd-driven"]
+
+# Spawn ALL execution harnesses in parallel with the shared plan
+results = []
+for harness in execution_harnesses:
+  Read("{plugin_root}/agents/{harness}.md")
+  Read("{plugin_root}/harnesses/{harness}/skill.md")
+
+  # Spawn in parallel (all Task() calls in one message)
+  Task(
+    subagent_type="adaptive-harness:{harness}",
+    prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}\n\n## Prior Chain Context (from planning)\n{planning_result}\n\n## Chain Position\nExecution phase (planning complete)\n\n## Session ID\n{session_id}"
+  )
+```
+
+3. **Collect all results, then synthesize:**
+
+```
+Task(
+  subagent_type="adaptive-harness:synthesizer",
+  prompt="Merge these parallel chain execution results into an optimal combined result.\n\nShared planning context:\n{planning_result}\n\nChain 1 ({execution_harness_1}) result:\n{result_1}\n\nChain 2 ({execution_harness_2}) result:\n{result_2}\n\nInstructions: Each chain approached the same task from a different angle after shared planning. Merge the best elements: take architecture/infra from the system-design chain, take test quality/correctness from the tdd-driven chain. Resolve conflicts by preferring the more production-ready approach."
+)
+```
+
+**Key rules for chain ensemble:**
+- The shared planning harness runs ONCE — do not run it separately for each chain
+- Execution harnesses run in PARALLEL (spawn all Task() calls in one message)
+- Each execution harness receives the full planning result as `Prior Chain Context`
+- If a chain has more than 2 steps (e.g., `["ralplan", "system-design", "code-review"]`), run all steps after the shared prefix sequentially within that chain, but still parallelize across chains
+- Evaluation (Step 5) runs ONCE on the synthesized result, not on individual chain results
 
 ### Step 5: Collect Evidence and Evaluate (MANDATORY — do not skip)
 

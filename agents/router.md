@@ -68,14 +68,17 @@ Before classifying, detect **greenfield projects** — tasks that build a multi-
 - Set `blast_radius: "repo-wide"` — the entire project is being created
 - Set `verifiability: "moderate"` — end-to-end verification requires integration testing
 - Select `system-design` harness as the primary execution harness
-- Always chain: `["ralplan-consensus", "system-design"]` (plan the architecture first, then execute with system-design harness)
-- If the task is especially complex (5+ components, 3+ external services), consider ensemble with `["system-design", "tdd-driven"]`
+- Set `ensemble_required: true` (greenfield + high uncertainty + repo-wide blast always triggers ensemble)
+- Use **chain ensemble**: `ensemble_chains: [["ralplan-consensus", "system-design"], ["ralplan-consensus", "tdd-driven"]]`
+  → system-design focuses on architecture, infrastructure, and integration
+  → tdd-driven focuses on test quality and correctness
+  → Synthesizer merges the best of both approaches
 
 **Example greenfield classification:**
 Task: "Build a FastAPI backend that receives GitHub webhooks, runs static analysis, stores metrics in InfluxDB, and visualizes via Grafana"
 → Signals: "build" keyword, 4 components (FastAPI + webhooks + InfluxDB + Grafana), pipeline (webhook → analysis → storage → dashboard), infrastructure implied (docker-compose)
 → Classification: task_type=greenfield, uncertainty=high, blast_radius=repo-wide, verifiability=moderate
-→ Chain: ["ralplan-consensus", "system-design"]
+→ Chain ensemble: [["ralplan-consensus", "system-design"], ["ralplan-consensus", "tdd-driven"]]
 </greenfield_detection>
 
 <ensemble_rule>
@@ -102,7 +105,31 @@ If EITHER verifiability is "hard" OR blast_radius is "repo-wide", ensemble_requi
 
 This is the only condition that triggers ensemble. Do not enable ensemble for any other combination — it doubles execution cost.
 
-When `ensemble_required` is true, also provide `ensemble_harnesses`: a list of 2 harness names to run in parallel. Select harnesses with complementary approaches for the task type.
+**Ensemble mode selection:**
+
+When `ensemble_required` is true, choose between two ensemble modes:
+
+1. **Harness ensemble** (simple): Two single harnesses run in parallel on the same task.
+   - Use when the task can be fully handled by a single harness (no planning step needed).
+   - Output: `"ensemble_harnesses": ["harness_a", "harness_b"]`
+
+2. **Chain ensemble** (advanced): Two full chains run in parallel, each chain executed sequentially, then results synthesized.
+   - Use when the task benefits from a planning step AND multiple execution approaches.
+   - Each chain shares the SAME planning harness (to avoid redundant planning) but differs in the execution harness.
+   - Output: `"ensemble_chains": [["ralplan-consensus", "system-design"], ["ralplan-consensus", "tdd-driven"]]`
+   - The orchestrator runs the shared planning step ONCE, then fans out the execution harnesses in parallel with the shared plan context, then synthesizes.
+
+**When to use chain ensemble:**
+- Greenfield tasks (task_type=greenfield): `["ralplan-consensus", "system-design"]` + `["ralplan-consensus", "tdd-driven"]`
+  → system-design brings architecture/infra, tdd-driven brings test quality. Synthesizer merges the best of both.
+- Complex migrations: `["ralplan-consensus", "migration-safe"]` + `["ralplan-consensus", "careful-refactor"]`
+- Any task where ensemble_required=true AND the task would normally get a chain (medium+ uncertainty)
+
+**When to use simple harness ensemble:**
+- Research tasks with hard verifiability (no planning step needed)
+- Tasks where planning is not applicable
+
+Select harnesses with **complementary strengths** for the task type. Avoid pairing harnesses with identical approaches.
 </ensemble_rule>
 
 <harness_pool>
@@ -241,7 +268,7 @@ For a chained execution (high uncertainty refactor):
 }
 ```
 
-For ensemble execution:
+For simple harness ensemble (no planning needed):
 ```json
 {
   "taxonomy": {
@@ -255,10 +282,37 @@ For ensemble execution:
   "selected_harness": "research-iteration",
   "ensemble_required": true,
   "ensemble_harnesses": ["research-iteration", "careful-refactor"],
-  "reasoning": "High uncertainty + hard verifiability + repo-wide blast triggers ensemble. research-iteration provides exploratory depth; careful-refactor provides safety discipline for the architecture-wide changes involved. Synthesizer will merge the best of both approaches.",
+  "reasoning": "High uncertainty + hard verifiability + repo-wide blast triggers ensemble. research-iteration provides exploratory depth; careful-refactor provides safety discipline.",
   "candidate_scores": {
     "research-iteration": 0.80,
     "careful-refactor": 0.75
+  }
+}
+```
+
+For chain ensemble (planning + parallel execution + synthesis):
+```json
+{
+  "taxonomy": {
+    "task_type": "greenfield",
+    "uncertainty": "high",
+    "blast_radius": "repo-wide",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "backend"
+  },
+  "selected_harness": "system-design",
+  "ensemble_required": true,
+  "ensemble_chains": [
+    ["ralplan-consensus", "system-design"],
+    ["ralplan-consensus", "tdd-driven"]
+  ],
+  "shared_planning_harness": "ralplan-consensus",
+  "reasoning": "Greenfield multi-component system triggers chain ensemble. Both chains share ralplan-consensus for planning, then diverge: system-design focuses on architecture/infra/integration, tdd-driven focuses on test quality/correctness. Synthesizer merges complementary strengths.",
+  "candidate_scores": {
+    "system-design": 0.85,
+    "tdd-driven": 0.80,
+    "rapid-prototype": 0.55
   }
 }
 ```
