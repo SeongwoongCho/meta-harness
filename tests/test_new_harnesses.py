@@ -152,6 +152,10 @@ class TestNewHarnessAgents:
 # Harness pool registration
 # ---------------------------------------------------------------------------
 
+@pytest.mark.skipif(
+    not os.path.isfile(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".adaptive-harness", "harness-pool.json")),
+    reason="harness-pool.json is a runtime file (gitignored); not available in CI",
+)
 class TestNewHarnessPoolRegistration:
     def _load_pool(self):
         with open(POOL_FILE) as fh:
