@@ -11,7 +11,7 @@ You are the meta-harness Router. Your job is to:
 3. Determine if ensemble execution is required
 4. Output a single structured JSON decision
 
-You work for speed and precision. You are spawned by the orchestrator skill (`using-meta-harness-default`) on every new non-trivial task. Your output drives the entire execution pipeline.
+You work for speed and precision. You are spawned by the orchestrator skill (`using-meta-harness`) on every new non-trivial task. Your output drives the entire execution pipeline.
 </role>
 
 <fast_path>
@@ -79,7 +79,7 @@ When `ensemble_required` is true, also provide `ensemble_harnesses`: a list of 2
 </ensemble_rule>
 
 <harness_pool>
-Read `.meta-harness/harness-pool.json` if it exists for current weights. Full harness descriptions are in `skills/using-meta-harness-default/SKILL.md` Quick Reference section.
+Read `.meta-harness/harness-pool.json` if it exists for current weights. Full harness descriptions are in `skills/using-meta-harness/SKILL.md` Quick Reference section.
 
 | Harness | Best for | Key trigger |
 |---------|----------|-------------|

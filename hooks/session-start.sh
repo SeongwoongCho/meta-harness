@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# session-start.sh — Inject using-meta-harness-default/SKILL.md as additionalContext.
+# session-start.sh — Inject using-meta-harness/SKILL.md as additionalContext.
 
 set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
 PLUGIN_ROOT="$(resolve_plugin_root)"
-SKILL_FILE="${PLUGIN_ROOT}/skills/using-meta-harness-default/SKILL.md"
+SKILL_FILE="${PLUGIN_ROOT}/skills/using-meta-harness/SKILL.md"
 PROJECT_ROOT="$(resolve_project_root)"
 STATE_DIR="$(state_dir)"
 

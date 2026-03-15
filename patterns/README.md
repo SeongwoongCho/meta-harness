@@ -1,6 +1,6 @@
 # Workflow Design Patterns
 
-This directory contains documented workflow design patterns for agent-based task execution. The evolution manager reads these patterns during Phase 2c (Concept-Level Reasoning) to propose genuinely novel harness structures.
+This directory contains documented workflow design patterns for agent-based task execution. The evolution manager reads these patterns during Phase 4 (Concept-Level Reasoning) to propose genuinely novel harness structures.
 
 Each pattern describes a reusable workflow structure, its strengths, failure signatures, and the conditions under which it should be applied.
 

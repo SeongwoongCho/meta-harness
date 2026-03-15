@@ -91,7 +91,8 @@ That's it. Every task is now routed through the meta-harness pipeline automatica
 ```
 # Or run explicitly with options
 /meta-harness:run "Refactor the payment module"
-/meta-harness:run --interview "Build a new feature"
+/meta-harness:run "Build a new feature"              # interview runs by default
+/meta-harness:run --skip-interview "Build a new feature"  # skip interview
 /meta-harness:run --harness=tdd-driven "Fix the login bug"
 ```
 
@@ -158,9 +159,9 @@ These dimensions apply universally to all task types — code, research, plannin
 
 ## Evolution System
 
-The evolution manager triggers automatically every 5 evaluations per harness (or manually via `/meta-harness:evolve`). It runs three analysis phases:
+The evolution manager triggers automatically every 2 evaluations per harness (or manually via `/meta-harness:evolve`). It runs three analysis phases:
 
-### Phase 1-2: Optimize existing harnesses
+### Phase 1-2: Performance Trend Analysis and Pattern Recognition
 
 | Proposal Type | What it does | Example |
 |---------------|-------------|---------|
@@ -168,7 +169,7 @@ The evolution manager triggers automatically every 5 evaluations per harness (or
 | **Contract modification** | Adjusts trigger conditions | "Restrict rapid-prototype to local blast radius" |
 | **Promotion / Demotion** | Moves harnesses between pools | "Promote after 5 consecutive successes" |
 
-### Phase 2b: Cross-harness pattern recognition
+### Phase 3: Cross-Harness Pattern Recognition
 
 Reads evaluation logs across **all** harnesses to detect systemic patterns:
 
@@ -177,7 +178,7 @@ Reads evaluation logs across **all** harnesses to detect systemic patterns:
 - **Complementary weaknesses** — two harnesses whose strengths/weaknesses are exact opposites (hybrid candidate)
 - **Manual retries** — the same task reappears with a different harness (first selection was wrong)
 
-### Phase 2c: Concept-level reasoning (pattern-driven genesis)
+### Phase 4: Concept-Level Reasoning (Pattern-Driven Genesis)
 
 Instead of just combining existing harnesses, the evolution manager reasons about **workflow design principles** using a pattern library (`patterns/`):
 
@@ -209,7 +210,7 @@ When evaluation data shows failure signatures matching a pattern, the evolution 
 ### Lifecycle
 
 ```
-Eval accumulates → evolution-manager analyzes (Phase 1→2→2b→2c→3)
+Eval accumulates → evolution-manager analyzes (Phase 1→2→3→4→5)
   → writes proposal JSON (status: pending)
     → next session start applies it (harness created in experimental pool)
       → router selects it with 20% exploration rate

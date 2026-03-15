@@ -6,8 +6,9 @@
 cat > /dev/null 2>&1 || true
 
 # Check pipeline mode and pending evaluations
-PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-STATE_DIR="${PROJECT_ROOT}/.meta-harness"
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
+PROJECT_ROOT="$(resolve_project_root)"
+STATE_DIR="$(state_dir)"
 SESSION_ID="${CLAUDE_SESSION_ID:-}"
 if [ -z "$SESSION_ID" ]; then
   SID_FILE="${STATE_DIR}/.current-session-id"
@@ -43,7 +44,7 @@ elif [ "$PIPELINE_MODE" = "auto" ]; then
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "[meta-harness] Route this task through the meta-harness pipeline (using-meta-harness-default skill) before responding directly."
+    "additionalContext": "[meta-harness] Route this task through the meta-harness pipeline (using-meta-harness skill) before responding directly."
   }
 }
 EOF

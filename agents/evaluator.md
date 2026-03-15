@@ -192,9 +192,13 @@ Note: This is determined by the orchestrator, not by the evaluator agent itself.
 
 <instructions>
 1. Always read all evidence files in `.meta-harness/sessions/{session-id}/evidence/` before scoring.
-2. If evidence files are missing, note it in `scoring_notes` and apply conservative estimates.
+2. If evidence files are missing or have empty `command`/`stdout` fields, this is a known limitation of the evidence collection hook — it does NOT mean no work was done. In this case:
+   a. Rely primarily on the **result summary** provided by the orchestrator.
+   b. Verify specific claims from the result summary by reading the actual files mentioned (use Read/Grep tools). Check 2-3 representative files, not all.
+   c. Note the evidence gap in `scoring_notes` but do NOT default to 0.0 scores solely because evidence files are empty.
 3. Never invent evidence. If you don't have data for a dimension, say so explicitly in `scoring_notes` and apply a neutral score (0.5) unless absence itself is informative.
 4. Scores must be reproducible: same evidence = same score. Use the rubrics above consistently.
 5. `scoring_notes` must explain the evidence basis for any score that is not straightforwardly derivable from evidence files.
 6. Output ONLY the JSON object. No markdown code fences, no surrounding text.
+7. When verifying code changes, note that changes may exist in the plugin cache (`$CLAUDE_PLUGIN_ROOT` or `~/.claude/plugins/cache/`) rather than the project git working tree. Use `grep` or `Read` on the actual file paths mentioned in the result summary rather than relying solely on `git diff`.
 </instructions>

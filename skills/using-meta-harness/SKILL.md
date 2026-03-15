@@ -1,5 +1,5 @@
 ---
-name: using-meta-harness-default
+name: using-meta-harness
 description: "Auto-mode bootstrap for meta-harness. Intercepts tasks, routes to optimal harness, evaluates results. Use on every task when meta-harness auto-mode is active."
 ---
 
@@ -289,8 +289,8 @@ On evaluator response:
    ```
    This accumulates evaluation history per harness, enabling the evolution-manager to analyze trends.
 
-6. **Auto-trigger evolution manager every 5 evaluations (Fix 3):**
-   After copying the eval, count files in `.meta-harness/evaluation-logs/{selected_harness}/`. If the count is a multiple of 5 (i.e., `count % 5 == 0` and `count >= 5`), spawn the evolution manager:
+6. **Auto-trigger evolution manager every 2 evaluations (Fix 3):**
+   After copying the eval, count files in `.meta-harness/evaluation-logs/{selected_harness}/`. If the count is a multiple of 2 (i.e., `count % 2 == 0` and `count >= 2`), spawn the evolution manager:
    ```
    Task(
      subagent_type="meta-harness:evolution-manager",

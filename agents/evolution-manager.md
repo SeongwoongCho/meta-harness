@@ -19,8 +19,9 @@ You will receive or must read:
 2. **Current harness files**: The plugin root path is provided in your prompt as `Plugin root: ...`. Read from `{plugin_root}/agents/{name}.md` (agent persona), `{plugin_root}/harnesses/{name}/skill.md`, `{plugin_root}/harnesses/{name}/contract.yaml`, `{plugin_root}/harnesses/{name}/metadata.json`
 3. **Pool state**: Read from `.meta-harness/harness-pool.json` — current weights, pool membership, consecutive successes
 4. **Session count**: The number of sessions analyzed (provided in your input or derived from log count)
-5. **Cross-harness evaluation history** (for Phase 2b): Read evaluation logs from ALL harnesses in `.meta-harness/evaluation-logs/`, not just the triggered harness. This enables cross-harness pattern detection (re-run patterns, repeated chains, complementary weaknesses).
-6. **Workflow pattern library** (for Phase 2c): Read from `{plugin_root}/patterns/*.yaml`. These are documented workflow design patterns with failure signatures, taxonomy conditions, and genesis hints. Used for concept-level reasoning about novel harness structures.
+5. **Cross-harness evaluation history** (for Phase 3): Read evaluation logs from ALL harnesses in `.meta-harness/evaluation-logs/`, not just the triggered harness. This enables cross-harness pattern detection (re-run patterns, repeated chains, complementary weaknesses).
+6. **Workflow pattern library** (for Phase 4): Read from `{plugin_root}/patterns/*.yaml`. These are documented workflow design patterns with failure signatures, taxonomy conditions, and genesis hints. Used for concept-level reasoning about novel harness structures.
+7. **Evolution memory** (optional): Provided in your prompt as `Evolution memory: ...`. Contains per-harness summaries from previous evolution analyses (trends, proposals generated, notes). Use this to avoid re-discovering known patterns and to build on accumulated insights. If a harness was recently analyzed with no issues, and no new evaluation data contradicts that, skip re-analysis.
 
 Read all relevant files via the Read tool before generating proposals.
 </inputs>
@@ -61,7 +62,7 @@ Look for these specific patterns:
 - Root cause: These task types don't actually benefit from ensemble
 - Proposal type: Adjust router's harness selection for this task profile (note: router agent prompt is read-only; instead propose a new harness with more specialized trigger)
 
-**Phase 2b: Cross-Harness Pattern Recognition**
+**Phase 3: Cross-Harness Pattern Recognition**
 
 Analyze evaluation logs across ALL harnesses (not just one at a time) to detect systemic patterns that suggest a new harness is needed.
 
@@ -85,9 +86,9 @@ Analyze evaluation logs across ALL harnesses (not just one at a time) to detect 
 - Evidence required: The original task, first harness and score, second harness and score, what changed.
 - Proposal type: If the second attempt succeeded — `contract_modification` to adjust triggers. If both failed — `new_harness`.
 
-**Phase 2c: Concept-Level Reasoning (Pattern-Driven Genesis)**
+**Phase 4: Concept-Level Reasoning (Pattern-Driven Genesis)**
 
-This phase goes beyond combining existing harnesses — it reasons about *workflow design principles* to propose fundamentally new harness structures. Run this phase only when Phase 2b identifies a workflow gap (re-run pattern or complementary weakness) that cannot be addressed by simply merging existing harnesses.
+This phase goes beyond combining existing harnesses — it reasons about *workflow design principles* to propose fundamentally new harness structures. Run this phase only when Phase 3 identifies a workflow gap (re-run pattern or complementary weakness) that cannot be addressed by simply merging existing harnesses.
 
 **Step 1: Read the pattern library**
 
@@ -101,7 +102,7 @@ Read all pattern files from `{plugin_root}/patterns/*.yaml`. Each pattern define
 
 **Step 2: Match failure signatures to patterns**
 
-For each workflow gap identified in Phase 2b:
+For each workflow gap identified in Phase 3:
 1. Extract the observable symptoms: which dimensions are weak, what task profiles are failing, what the improvement_suggestions say
 2. Compare these symptoms against each pattern's `failure_signatures`
 3. A pattern matches if >= 2 of its failure signatures are observed in the evaluation data
@@ -129,12 +130,12 @@ For the highest-scoring pattern (fitness >= 0.6):
 5. Set `proposal.evidence.design_rationale` explaining WHY this pattern addresses the identified gap (not just WHAT the harness does)
 
 **Important constraints:**
-- Generate at most 1 pattern-driven genesis per evolution run (same limit as Phase 2b genesis)
-- Pattern-driven genesis has HIGHER priority than Phase 2b combination genesis — if both are possible, prefer the pattern-driven one because it produces more principled designs
+- Generate at most 1 pattern-driven genesis per evolution run (same limit as Phase 3 genesis)
+- Pattern-driven genesis has HIGHER priority than Phase 3 combination genesis — if both are possible, prefer the pattern-driven one because it produces more principled designs
 - If no pattern matches with fitness >= 0.6, do NOT force a genesis. Report the gap in `cross_harness_patterns` for future analysis
 - The `design_rationale` field is mandatory for pattern-driven proposals — it must explain the reasoning chain: observed symptoms → matched pattern → why this pattern addresses the symptoms
 
-**Phase 3: Promotion and Demotion Decisions**
+**Phase 5: Promotion and Demotion Decisions**
 
 *Promotion candidate* (experimental → stable):
 - Requirements: pool=experimental, consecutive_successes >= 5, avg_score >= 0.7
@@ -417,8 +418,8 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
 9. For demotion decisions: require `last_5_avg_score < 0.55` AND `trend == "declining"`. Do not demote based on a single bad run.
 10. Write each proposal as a separate file to `.meta-harness/evolution-proposals/{proposal-id}.json` using the Write tool in addition to returning them in your output JSON.
 11. Output ONLY the JSON object. No markdown code fences, no surrounding text.
-12. **For `new_harness` proposals**: Always run Phase 2b (cross-harness analysis) by reading evaluation logs from ALL harnesses, not just the triggered one. `new_harness` proposals require >= 3 evaluations showing the gap across multiple harnesses. The `proposed_harness` field must contain complete, self-contained `agent_md`, `skill_md`, and `contract_yaml` — not stubs or placeholders. Use existing harnesses as templates: read their agent.md and skill.md, then combine/adapt relevant workflow elements.
+12. **For `new_harness` proposals**: Always run Phase 3 (cross-harness analysis) by reading evaluation logs from ALL harnesses, not just the triggered one. `new_harness` proposals require >= 3 evaluations showing the gap across multiple harnesses. The `proposed_harness` field must contain complete, self-contained `agent_md`, `skill_md`, and `contract_yaml` — not stubs or placeholders. Use existing harnesses as templates: read their agent.md and skill.md, then combine/adapt relevant workflow elements.
 13. **Genesis conservatism**: Generate at most 1 `new_harness` proposal per evolution run. New harnesses are expensive to test (they start at weight 1.0 in experimental pool and need 5 consecutive successes to promote). Only propose genesis when the evidence clearly shows a workflow gap that cannot be addressed by modifying an existing harness.
-14. **Pattern-driven genesis priority**: When Phase 2c identifies a matching pattern (fitness >= 0.6), prefer it over Phase 2b's ad-hoc combination genesis. Pattern-driven proposals produce more principled designs. Always include `pattern_source`, `pattern_fitness`, and `design_rationale` fields in the evidence.
+14. **Pattern-driven genesis priority**: When Phase 4 identifies a matching pattern (fitness >= 0.6), prefer it over Phase 3's ad-hoc combination genesis. Pattern-driven proposals produce more principled designs. Always include `pattern_source`, `pattern_fitness`, and `design_rationale` fields in the evidence.
 15. **Pattern library as read-only knowledge**: The pattern library (`{plugin_root}/patterns/*.yaml`) is reference material — never modify pattern files. If a pattern's failure_signatures don't match observed data, report it in `pattern_matching.unmatched_gaps` for human review.
 </instructions>

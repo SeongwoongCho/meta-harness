@@ -83,7 +83,7 @@ CONFIGURATION
   Config file:         .meta-harness/config.yaml
 
 PIPELINE MODE INFO
-  auto  — All tasks auto-routed (using-meta-harness-default active)
+  auto  — All tasks auto-routed (using-meta-harness active)
   run   — One-shot /meta-harness:run in progress
   off   — No auto-routing (use /meta-harness:run for explicit runs)
 

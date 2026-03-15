@@ -15,7 +15,7 @@ evaluates the result, and evolves its harness pool over time.
 │  Stage 1: INITIALIZATION                                        │
 │                                                                 │
 │  SessionStart hook fires                                        │
-│    → session-start.sh injects using-meta-harness-default       │
+│    → session-start.sh injects using-meta-harness       │
 │       SKILL.md as additionalContext                             │
 │    → Harness pool state loaded on-demand (not at session start) │
 │    → .meta-harness/config.yaml read if present                  │
@@ -103,7 +103,7 @@ Claude Code Session
 ├─ SessionStart
 │   └─ hooks/session-start.sh
 │       Action: Output additionalContext containing SKILL.md content
-│       Injects: using-meta-harness-default/SKILL.md
+│       Injects: using-meta-harness/SKILL.md
 │       Size target: < 3 KB (context window efficiency)
 │
 ├─ UserPromptSubmit (fires on EVERY user message)
