@@ -18,8 +18,8 @@ try:
 except ImportError:
     YAML_AVAILABLE = False
 
-WORKSPACE_ROOT = "/home/seongwoong/workspace/adaptive-harness"
-PLUGIN_ROOT = "/home/seongwoong/.claude/plugins/cache/adaptive-harness/adaptive-harness/1.0.0"
+WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PLUGIN_ROOT = WORKSPACE_ROOT
 
 HARNESSES_DIR = os.path.join(WORKSPACE_ROOT, "harnesses")
 AGENTS_DIR = os.path.join(WORKSPACE_ROOT, "agents")

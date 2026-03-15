@@ -10,8 +10,8 @@ import subprocess
 import pytest
 
 
-PLUGIN_ROOT = "/home/seongwoong/.claude/plugins/cache/adaptive-harness/adaptive-harness/1.0.0"
-WORKSPACE_ROOT = "/home/seongwoong/workspace/adaptive-harness"
+WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PLUGIN_ROOT = WORKSPACE_ROOT
 HOOKS_DIR = os.path.join(WORKSPACE_ROOT, "hooks")
 
 STABLE_HARNESS_NAMES = [

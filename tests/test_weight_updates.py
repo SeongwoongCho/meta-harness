@@ -15,7 +15,7 @@ import subprocess
 import pytest
 
 
-WORKSPACE_ROOT = "/home/seongwoong/workspace/adaptive-harness"
+WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS_DIR = os.path.join(WORKSPACE_ROOT, "hooks")
 
 

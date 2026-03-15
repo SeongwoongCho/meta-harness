@@ -21,9 +21,9 @@ import subprocess
 import pytest
 
 
-WORKSPACE_ROOT = "/home/seongwoong/workspace/adaptive-harness"
+WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOKS_DIR = os.path.join(WORKSPACE_ROOT, "hooks")
-PLUGIN_ROOT = "/home/seongwoong/.claude/plugins/cache/adaptive-harness/adaptive-harness/1.0.0"
+PLUGIN_ROOT = WORKSPACE_ROOT
 
 
 def _run_hook(hook_name: str, env: dict, cwd: str, stdin: str = "") -> tuple[str, str, int]:
