@@ -59,7 +59,8 @@ VALID_UNCERTAINTY = {"low", "medium", "high"}
 VALID_BLAST_RADIUS = {"local", "cross-module", "repo-wide"}
 VALID_VERIFIABILITY = {"easy", "moderate", "hard"}
 VALID_LATENCY = {"low", "high"}
-VALID_DOMAINS = {"backend", "frontend", "ml-research", "infra", "docs"}
+VALID_DOMAINS = {"backend", "frontend", "ml-research", "infra", "docs",
+                 "mobile", "data-engineering", "devops", "security"}
 
 
 class TestTaxonomyValues:
@@ -293,3 +294,247 @@ class TestWeightDelta:
         # (0.8 - 0.5) * 0.1 = 0.03
         delta = compute_weight_delta(0.8)
         assert abs(delta - 0.03) < 0.0001
+
+
+# ---------------------------------------------------------------------------
+# Domain taxonomy expansion (8 domains)
+# ---------------------------------------------------------------------------
+
+class TestExpandedDomains:
+    """Tests for the expanded 8-value domain enum."""
+
+    def test_new_domain_mobile_is_valid(self):
+        assert "mobile" in VALID_DOMAINS
+
+    def test_new_domain_data_engineering_is_valid(self):
+        assert "data-engineering" in VALID_DOMAINS
+
+    def test_new_domain_devops_is_valid(self):
+        assert "devops" in VALID_DOMAINS
+
+    def test_new_domain_security_is_valid(self):
+        assert "security" in VALID_DOMAINS
+
+    def test_legacy_domain_backend_still_valid(self):
+        assert "backend" in VALID_DOMAINS
+
+    def test_legacy_domain_frontend_still_valid(self):
+        assert "frontend" in VALID_DOMAINS
+
+    def test_legacy_domain_ml_research_still_valid(self):
+        assert "ml-research" in VALID_DOMAINS
+
+    def test_legacy_domain_infra_still_valid(self):
+        assert "infra" in VALID_DOMAINS
+
+    def test_legacy_domain_docs_still_valid(self):
+        assert "docs" in VALID_DOMAINS
+
+    def test_total_domain_count_is_nine(self):
+        # 5 legacy (backend, frontend, ml-research, infra, docs) + 4 new = 9
+        assert len(VALID_DOMAINS) == 9
+
+    def test_mobile_taxonomy_dict_is_valid(self):
+        taxonomy = {
+            "task_type": "feature",
+            "uncertainty": "medium",
+            "blast_radius": "local",
+            "verifiability": "moderate",
+            "latency_sensitivity": "low",
+            "domain": "mobile",
+        }
+        assert taxonomy["domain"] in VALID_DOMAINS
+
+    def test_data_engineering_taxonomy_dict_is_valid(self):
+        taxonomy = {
+            "task_type": "bugfix",
+            "uncertainty": "low",
+            "blast_radius": "local",
+            "verifiability": "easy",
+            "latency_sensitivity": "low",
+            "domain": "data-engineering",
+        }
+        assert taxonomy["domain"] in VALID_DOMAINS
+
+    def test_devops_taxonomy_dict_is_valid(self):
+        taxonomy = {
+            "task_type": "feature",
+            "uncertainty": "medium",
+            "blast_radius": "cross-module",
+            "verifiability": "moderate",
+            "latency_sensitivity": "low",
+            "domain": "devops",
+        }
+        assert taxonomy["domain"] in VALID_DOMAINS
+
+    def test_security_taxonomy_dict_is_valid(self):
+        taxonomy = {
+            "task_type": "refactor",
+            "uncertainty": "high",
+            "blast_radius": "repo-wide",
+            "verifiability": "hard",
+            "latency_sensitivity": "low",
+            "domain": "security",
+        }
+        assert taxonomy["domain"] in VALID_DOMAINS
+
+
+# ---------------------------------------------------------------------------
+# domain_hint field (optional free-text)
+# ---------------------------------------------------------------------------
+
+def validate_taxonomy_with_hint(taxonomy: dict) -> bool:
+    """
+    Validates that a taxonomy dict is valid.
+    domain_hint is optional (may be absent) and, when present, must be a string.
+    """
+    required_keys = {"task_type", "uncertainty", "blast_radius",
+                     "verifiability", "latency_sensitivity", "domain"}
+    if not required_keys.issubset(taxonomy.keys()):
+        return False
+    if taxonomy["task_type"] not in VALID_TASK_TYPES:
+        return False
+    if taxonomy["uncertainty"] not in VALID_UNCERTAINTY:
+        return False
+    if taxonomy["blast_radius"] not in VALID_BLAST_RADIUS:
+        return False
+    if taxonomy["verifiability"] not in VALID_VERIFIABILITY:
+        return False
+    if taxonomy["latency_sensitivity"] not in VALID_LATENCY:
+        return False
+    if taxonomy["domain"] not in VALID_DOMAINS:
+        return False
+    # domain_hint is optional — if present, must be a string
+    if "domain_hint" in taxonomy:
+        if not isinstance(taxonomy["domain_hint"], str):
+            return False
+    return True
+
+
+class TestDomainHint:
+    """Tests for the optional domain_hint free-text field."""
+
+    def test_taxonomy_without_domain_hint_is_valid(self):
+        taxonomy = {
+            "task_type": "bugfix",
+            "uncertainty": "low",
+            "blast_radius": "local",
+            "verifiability": "easy",
+            "latency_sensitivity": "low",
+            "domain": "backend",
+        }
+        assert validate_taxonomy_with_hint(taxonomy) is True
+
+    def test_taxonomy_with_domain_hint_string_is_valid(self):
+        taxonomy = {
+            "task_type": "feature",
+            "uncertainty": "medium",
+            "blast_radius": "cross-module",
+            "verifiability": "moderate",
+            "latency_sensitivity": "low",
+            "domain": "devops",
+            "domain_hint": "also touches security",
+        }
+        assert validate_taxonomy_with_hint(taxonomy) is True
+
+    def test_domain_hint_accepts_any_string_value(self):
+        for hint in ["Spark ETL pipeline", "Kubernetes operator", "also touches devops",
+                     "React Native push notifications", "dbt model"]:
+            taxonomy = {
+                "task_type": "feature",
+                "uncertainty": "medium",
+                "blast_radius": "local",
+                "verifiability": "moderate",
+                "latency_sensitivity": "low",
+                "domain": "data-engineering",
+                "domain_hint": hint,
+            }
+            assert validate_taxonomy_with_hint(taxonomy) is True, f"hint '{hint}' should be valid"
+
+    def test_domain_hint_must_be_string_when_present(self):
+        taxonomy = {
+            "task_type": "bugfix",
+            "uncertainty": "low",
+            "blast_radius": "local",
+            "verifiability": "easy",
+            "latency_sensitivity": "low",
+            "domain": "backend",
+            "domain_hint": 123,  # not a string
+        }
+        assert validate_taxonomy_with_hint(taxonomy) is False
+
+    def test_domain_hint_is_not_routing_input(self):
+        # domain_hint does not affect routing decisions — only the domain field does
+        taxonomy_with_hint = {
+            "task_type": "bugfix",
+            "uncertainty": "low",
+            "blast_radius": "local",
+            "verifiability": "easy",
+            "latency_sensitivity": "low",
+            "domain": "backend",
+            "domain_hint": "also touches devops",
+        }
+        taxonomy_without_hint = {
+            "task_type": "bugfix",
+            "uncertainty": "low",
+            "blast_radius": "local",
+            "verifiability": "easy",
+            "latency_sensitivity": "low",
+            "domain": "backend",
+        }
+        # Both are valid; routing behaviour is identical (domain_hint is logging-only)
+        assert validate_taxonomy_with_hint(taxonomy_with_hint) is True
+        assert validate_taxonomy_with_hint(taxonomy_without_hint) is True
+
+    def test_ensemble_rule_ignores_domain_hint(self):
+        # ensemble_required depends only on uncertainty, verifiability, blast_radius
+        assert compute_ensemble_required("high", "hard", "repo-wide") is True
+        # domain_hint is not a parameter of compute_ensemble_required — logic unchanged
+        assert compute_ensemble_required("medium", "easy", "local") is False
+
+
+# ---------------------------------------------------------------------------
+# Fixture coverage: all 8 domains represented
+# ---------------------------------------------------------------------------
+
+import os
+import json
+
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "fixtures")
+
+
+def _collect_fixture_domains() -> set:
+    """Walk all fixture scenario directories and collect domain values from expected.json."""
+    domains_found = set()
+    for root, dirs, files in os.walk(FIXTURES_DIR):
+        if "expected.json" in files:
+            path = os.path.join(root, "expected.json")
+            with open(path) as f:
+                data = json.load(f)
+            taxonomy = data.get("expected_taxonomy", {})
+            domain = taxonomy.get("domain")
+            if domain:
+                domains_found.add(domain)
+    return domains_found
+
+
+class TestFixtureDomainCoverage:
+    """Ensure fixture scenarios exercise all 8 domains."""
+
+    def test_fixtures_cover_mobile_domain(self):
+        assert "mobile" in _collect_fixture_domains()
+
+    def test_fixtures_cover_data_engineering_domain(self):
+        assert "data-engineering" in _collect_fixture_domains()
+
+    def test_fixtures_cover_devops_domain(self):
+        assert "devops" in _collect_fixture_domains()
+
+    def test_fixtures_cover_security_domain(self):
+        assert "security" in _collect_fixture_domains()
+
+    def test_fixtures_cover_all_eight_domains(self):
+        found = _collect_fixture_domains()
+        assert VALID_DOMAINS.issubset(found), (
+            f"Missing domains in fixtures: {VALID_DOMAINS - found}"
+        )

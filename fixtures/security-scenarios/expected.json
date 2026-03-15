@@ -1,0 +1,21 @@
+{
+  "expected_taxonomy": {
+    "task_type": "refactor",
+    "uncertainty": "medium",
+    "blast_radius": "cross-module",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "security",
+    "domain_hint": "JWT auth hardening"
+  },
+  "expected_harness": ["tdd-driven", "adversarial-review"],
+  "expected_score_range": {
+    "min": 0.6,
+    "max": 0.9
+  },
+  "reasoning": "Security hardening refactor of JWT auth. Medium uncertainty because some attack mitigations have multiple valid approaches. Cross-module blast radius (auth middleware, token store, rate limiter, audit logger). Moderate verifiability: specific attack vectors can be unit-tested, but full security posture requires adversarial review. TDD locks in security contracts; adversarial-review stress-tests the implementation.",
+  "pass_criteria": {
+    "router_accuracy_threshold": 0.8,
+    "score_tolerance": 0.15
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "expected_taxonomy": {
+    "task_type": "migration",
+    "uncertainty": "medium",
+    "blast_radius": "repo-wide",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "infra"
+  },
+  "expected_harness": ["migration-safe"],
+  "expected_score_range": {
+    "min": 0.65,
+    "max": 0.95
+  },
+  "reasoning": "Infrastructure migration of PostgreSQL to RDS Multi-AZ. Medium uncertainty because migration steps are known but timing and replication cutover require careful coordination. Repo-wide blast radius (all services using the database must update connection strings). Moderate verifiability: Terraform plan output and smoke tests provide automated checks, but production cutover requires human sign-off. migration-safe is optimal for high-stakes data migrations with rollback requirements.",
+  "pass_criteria": {
+    "router_accuracy_threshold": 0.8,
+    "score_tolerance": 0.15
+  }
+}

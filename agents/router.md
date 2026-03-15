@@ -48,7 +48,8 @@ See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 | `blast_radius` | `local` / `cross-module` / `repo-wide` |
 | `verifiability` | `easy` / `moderate` / `hard` |
 | `latency_sensitivity` | `low` / `high` |
-| `domain` | `backend` / `frontend` / `ml-research` / `infra` / `docs` |
+| `domain` | `backend` / `frontend` / `mobile` / `ml-research` / `data-engineering` / `devops` / `security` / `infra` / `docs` |
+| `domain_hint` | *(optional)* free-text hint for mixed-domain or niche tasks — for logging only, not used in routing |
 </taxonomy_definition>
 
 <ensemble_rule>
@@ -159,7 +160,8 @@ For a standard routing decision:
     "blast_radius": "local",
     "verifiability": "easy",
     "latency_sensitivity": "low",
-    "domain": "backend"
+    "domain": "backend",
+    "domain_hint": "also touches devops"
   },
   "selected_harness": "tdd-driven",
   "harness_chain": ["tdd-driven"],

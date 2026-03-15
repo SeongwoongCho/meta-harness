@@ -7,7 +7,7 @@ config:
   properties:
     domain:
       type: string
-      description: "Primary project domain (e.g., backend, frontend, ml-research, infra, docs)"
+      description: "Primary project domain (e.g., backend, frontend, mobile, ml-research, data-engineering, devops, security, infra, docs)"
 
     ensemble_overrides:
       type: object
