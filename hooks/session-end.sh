@@ -16,9 +16,9 @@ SESSION_DIR="${STATE_DIR}/sessions/${SESSION_ID:-unknown}"
 WEIGHTS_FILE="${SESSION_DIR}/weights.json"
 TIMESTAMP="$(timestamp_utc)"
 
-# --- Merge weight updates ---
-# Only merge if both pool file and session weights file exist
-if [ -f "$POOL_FILE" ] && [ -f "$WEIGHTS_FILE" ]; then
+# --- Merge weight updates and eval stats ---
+# Proceed if pool file exists — weights.json is optional (eval stats still matter)
+if [ -f "$POOL_FILE" ]; then
   # Validate pool JSON is parseable BEFORE backing up (don't backup corrupt files)
   if ! python3 -c "import json; json.load(open('$POOL_FILE'))" 2>/dev/null; then
     echo "[meta-harness session-end] Pool file corrupt. Attempting restore from backup." >&2
@@ -48,16 +48,19 @@ except Exception as e:
     print(f"[meta-harness session-end] Failed to parse pool JSON: {e}", file=sys.stderr)
     sys.exit(0)
 
-try:
-    with open(weights_file, 'r') as f:
-        weights = json.load(f)
-except Exception:
+if os.path.isfile(weights_file):
+    try:
+        with open(weights_file, 'r') as f:
+            weights = json.load(f)
+    except Exception:
+        weights = {}
+else:
     weights = {}
 
 # Collect per-harness stats from eval files in this session
 import glob as _glob
 eval_dir = os.path.dirname(weights_file)
-harness_stats = {}  # {name: {runs, successes, failures, last_result}}
+harness_stats = {}  # {name: {runs, successes, failures, trailing_consecutive_successes}}
 for ef in sorted(_glob.glob(os.path.join(eval_dir, "eval-*.json"))):
     try:
         with open(ef) as _f:
@@ -79,38 +82,49 @@ for ef in sorted(_glob.glob(os.path.join(eval_dir, "eval-*.json"))):
         else:
             chain = []
     for ch in chain:
-        s = harness_stats.setdefault(ch, {"runs": 0, "successes": 0, "failures": 0, "last_result": None})
+        s = harness_stats.setdefault(ch, {"runs": 0, "successes": 0, "failures": 0, "trailing_consecutive_successes": 0})
         s["runs"] += 1
         if passed:
             s["successes"] += 1
-            s["last_result"] = "success"
+            s["trailing_consecutive_successes"] += 1
         else:
             s["failures"] += 1
-            s["last_result"] = "failure"
+            s["trailing_consecutive_successes"] = 0
 
-# Apply weight deltas and counters
-# weights.json format: flat {harness_name: {delta: N, reason: "..."}}
-for harness_name, w_data in weights.items():
-    weight_delta = w_data.get("delta", 0) if isinstance(w_data, dict) else 0
+# Collect all harness names that need updating (from weights.json AND eval files)
+all_harness_names = set(weights.keys()) | set(harness_stats.keys())
+
+for harness_name in all_harness_names:
     # Find harness in stable or experimental tier
     for pool_tier in ("stable", "experimental"):
         if pool_tier not in pool or harness_name not in pool[pool_tier]:
             continue
         entry = pool[pool_tier][harness_name]
-        # Apply delta (bounded to [0.5, 2.0] range)
-        current = entry.get("weight", 1.0)
-        entry["weight"] = round(max(0.5, min(2.0, current + weight_delta)), 4)
+
+        # Apply weight delta if present in weights.json
+        w_data = weights.get(harness_name, {})
+        weight_delta = w_data.get("delta", 0) if isinstance(w_data, dict) else 0
+        if weight_delta:
+            current = entry.get("weight", 1.0)
+            entry["weight"] = round(max(0.5, min(2.0, current + weight_delta)), 4)
+
         # Update counters from eval files
         stats = harness_stats.get(harness_name, {})
         entry["total_runs"] = entry.get("total_runs", 0) + stats.get("runs", 0)
         entry["successes"] = entry.get("successes", 0) + stats.get("successes", 0)
         entry["failures"] = entry.get("failures", 0) + stats.get("failures", 0)
+
         # Track consecutive successes for promotion
-        lr = stats.get("last_result")
-        if lr == "success":
-            entry["consecutive_successes"] = entry.get("consecutive_successes", 0) + stats.get("successes", 0)
-        elif lr == "failure":
-            entry["consecutive_successes"] = 0
+        # trailing_consecutive_successes counts only the unbroken run of
+        # successes at the END of this session's eval files for this harness.
+        trailing = stats.get("trailing_consecutive_successes", 0)
+        if trailing > 0 or stats.get("failures", 0) > 0:
+            if stats.get("failures", 0) > 0:
+                # Session had at least one failure — reset and start from trailing run
+                entry["consecutive_successes"] = trailing
+            else:
+                # All runs in this session succeeded — extend the existing streak
+                entry["consecutive_successes"] = entry.get("consecutive_successes", 0) + trailing
         break
 
 pool["last_updated"] = timestamp

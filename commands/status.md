@@ -19,7 +19,7 @@ Bash("cat .meta-harness/.pipeline-mode 2>/dev/null || echo 'off'")
 If `.meta-harness/harness-pool.json` does not exist:
 ```
 meta-harness has not been initialized for this project.
-Run /meta-harness-init to set up the harness pool.
+Run /meta-harness:init to set up the harness pool.
 ```
 
 ### Step 2: Read Recent Evaluation Logs
@@ -71,7 +71,7 @@ RECENT EVALUATIONS (last 10)
   ...
 
 EVOLUTION PROPOSALS
-  {N pending proposals — run /meta-harness-evolve to review}
+  {N pending proposals — run /meta-harness:evolve to review}
   OR
   No pending proposals.
 
@@ -109,5 +109,5 @@ After the main display, show any alerts:
 
 **No evaluations yet:**
 ```
-  No evaluation data yet. Run /meta-harness-run <task> to start collecting data.
+  No evaluation data yet. Run /meta-harness:run <task> to start collecting data.
 ```

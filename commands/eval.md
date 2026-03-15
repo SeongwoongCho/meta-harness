@@ -28,8 +28,8 @@ If no evaluation context found:
 ```
 No recent task result found to evaluate.
 
-To evaluate a specific file: /meta-harness-eval --file=path/to/file
-To run a task first: /meta-harness-run <task description>
+To evaluate a specific file: /meta-harness:eval --file=path/to/file
+To run a task first: /meta-harness:run <task description>
 ```
 
 **If `--file=path`:**

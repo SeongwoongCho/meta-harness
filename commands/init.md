@@ -105,7 +105,7 @@ evaluation:
     - completeness
 
 ensemble:
-  mode: "{auto|always|never}"           # from Question 5
+  mode: "{auto|always|never}"           # from Question 3
 
 evolution:
   enabled: true                         # false if "Disabled" chosen
@@ -132,6 +132,7 @@ Initialize `.meta-harness/harness-pool.json` from built-in harness defaults if i
 
 ```json
 {
+  "version": "1.0.0",
   "stable": {
     "tdd-driven":           {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
     "systematic-debugging": {"weight": 1.0, "successes": 0, "failures": 0, "total_runs": 0, "consecutive_successes": 0},
@@ -161,7 +162,7 @@ Ensemble mode: {mode}
 Evolution: {enabled/disabled} ({threshold} consecutive successes for promotion)
 
 Next steps:
-  /meta-harness-run <task>   — Run a task through the pipeline
-  /meta-harness-status       — View harness pool state
-  /meta-harness-evolve       — Trigger evolution analysis after 5+ runs
+  /meta-harness:run <task>   — Run a task through the pipeline
+  /meta-harness:status       — View harness pool state
+  /meta-harness:evolve       — Trigger evolution analysis after 5+ runs
 ```

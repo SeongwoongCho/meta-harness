@@ -115,12 +115,15 @@ Canonical rule is defined in `agents/router.md` (`<ensemble_rule>`):
 
 ## Fast-Path Condition
 
-The router outputs `skip_routing: true` for trivial follow-ups that don't warrant harness routing overhead:
+The router outputs `skip_routing: true` for **zero-work acknowledgments** that require no code changes, no analysis, and no file modifications:
 
-- Single-line corrections ("fix that typo", "add a newline")
+- Acknowledgments or meta-conversation ("ok", "sounds good", "thanks", "got it")
 - Pure clarification questions ("what does X mean?")
-- Acknowledgments or meta-conversation
-- Tasks the user has explicitly flagged as trivial
+
+The following are NOT fast-path (they require actual work):
+- "fix that typo" -- requires a code change
+- "add a newline" -- requires a file edit
+- "refactor this" -- requires analysis + code changes
 
 ---
 
@@ -128,7 +131,7 @@ The router outputs `skip_routing: true` for trivial follow-ups that don't warran
 
 | Task description | task_type | uncertainty | blast_radius | verifiability | latency_sensitivity | domain |
 |-----------------|-----------|-------------|--------------|---------------|--------------------|----|
-| "Login fails when email has uppercase" | bugfix | low | local | easy | medium | backend |
+| "Login fails when email has uppercase" | bugfix | low | local | easy | low | backend |
 | "Add dark mode to the settings page" | feature | medium | local | moderate | low | frontend |
 | "Migrate from Webpack 4 to Vite" | migration | high | repo-wide | moderate | low | frontend |
 | "Compare Redis vs Memcached for our cache layer" | research | high | local | hard | low | infra |
@@ -141,4 +144,4 @@ The router outputs `skip_routing: true` for trivial follow-ups that don't warran
 
 - The router agent assigns taxonomy values using LLM reasoning — it reads the task description, considers codebase context, and classifies holistically.
 - Classification is logged in every `eval-{timestamp}.json` for retrospective analysis and router accuracy improvement.
-- If you believe the router misclassified your task, use `/meta-harness-run --harness=name` to override the selection.
+- If you believe the router misclassified your task, use `/meta-harness:run --harness=name` to override the selection.

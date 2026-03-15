@@ -24,8 +24,8 @@ of tasks.
 ### Directory Structure
 
 ```
+agents/your-harness-name.md    # Agent role definition (Claude Code agent registry)
 harnesses/your-harness-name/
-├── agent.md       # Agent role definition
 ├── skill.md       # Step-by-step execution workflow
 ├── contract.yaml  # Execution contract (trigger, tool_policy, stopping_criteria, etc.)
 └── metadata.json  # Pool membership and initial performance stats
@@ -165,10 +165,10 @@ All new harnesses start with default stats. The runtime updates these as the har
 
 Before submitting, validate your harness against at least one fixture:
 
-1. Create a fixture under `fixtures/your-scenario/` (see Layer 3 below)
+1. Create a fixture under `fixtures/your-scenario/` (see Layer 2 below)
 2. Run the router manually against your fixture's `task.md`:
    ```
-   /meta-harness-run --harness=your-harness-name "$(cat fixtures/your-scenario/task.md)"
+   /meta-harness:run --harness=your-harness-name "$(cat fixtures/your-scenario/task.md)"
    ```
 3. Verify: the harness completes without errors and the evaluation score falls within the
    range specified in `expected.json`

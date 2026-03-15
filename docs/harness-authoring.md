@@ -357,7 +357,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for the expected.json format.
 ### Step 2: Run the router against your fixture
 
 ```
-/meta-harness-run --harness=your-harness-name "$(cat fixtures/your-test-scenario/task.md)"
+/meta-harness:run --harness=your-harness-name "$(cat fixtures/your-test-scenario/task.md)"
 ```
 
 ### Step 3: Verify the outputs
@@ -371,7 +371,7 @@ Check:
 ### Step 4: Run the router without specifying the harness
 
 ```
-/meta-harness-run "$(cat fixtures/your-test-scenario/task.md)"
+/meta-harness:run "$(cat fixtures/your-test-scenario/task.md)"
 ```
 
 Verify the router selects your harness (or one of the expected harnesses if you listed

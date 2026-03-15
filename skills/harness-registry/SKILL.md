@@ -40,7 +40,7 @@ EXPERIMENTAL POOL
   (none)
 ```
 
-If `.meta-harness/harness-pool.json` does not exist, report that no state has been initialized and suggest running `/meta-harness-init`.
+If `.meta-harness/harness-pool.json` does not exist, report that no state has been initialized and suggest running `/meta-harness:init`.
 
 ### Inspect a Specific Harness
 

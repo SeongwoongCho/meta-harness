@@ -29,7 +29,8 @@ You: Fix the login bug where empty email crashes the server
   3. Run test suite (47/47 pass)               ✓
 
 [evaluator]
-  correctness: 1.00 | completeness: 1.00 | quality: 0.91 | robustness: 0.88
+  correctness: 1.00 | completeness: 1.00 | quality: 0.91
+  robustness: 0.88 | clarity: 0.95 | verifiability: 0.92
   overall: 0.94  ← harness weight updated: 1.00 → 1.02
 ```
 
@@ -263,20 +264,26 @@ meta-harness doesn't replace your existing tools — it's a **meta-layer** that 
 
 ```
 agents/                 # Agent personas (Claude Code agent registry)
-  router.md             #   Task classifier
-  evaluator.md          #   Result scorer
-  tdd-driven.md         #   TDD harness agent
-  ...                   #   One per harness
+  router.md             #   Task classifier + harness selector
+  evaluator.md          #   Result scorer (6-dimension)
+  evolution-manager.md  #   Proposes harness improvements
+  tdd-driven.md         #   One agent file per harness
+  ...
 harnesses/              # Harness workflows and contracts
   tdd-driven/
     skill.md            #   Step-by-step workflow
     contract.yaml       #   Triggers, cost budget, failure modes
     metadata.json       #   Pool state
-  ...
+  experimental/         #   Evolution-generated variants
+    tdd-driven-v1.1/
+      agent.md          #   Experimental variants keep agent.md locally
+      skill.md
+      ...
 patterns/               # Workflow design patterns for genesis
 hooks/                  # Session lifecycle hooks
 skills/                 # Orchestration skills (SKILL.md files)
-commands/               # Slash commands (/run, /evolve, /status)
+commands/               # Slash commands (/run, /evolve, /status, /init, /eval)
+docs/                   # Architecture and design documentation
 ```
 
 Agent personas live in `agents/` (registered in the Claude Code agent registry). Harness workflows, contracts, and metadata live in `harnesses/{name}/`. This separation ensures agents are discoverable by Claude Code while keeping workflow details with the harness.

@@ -15,7 +15,10 @@ EVIDENCE_DIR="${STATE_DIR}/sessions/${SESSION_ID}/evidence"
 mkdir -p "$EVIDENCE_DIR" 2>/dev/null || exit 0
 
 TIMESTAMP="$(timestamp_utc)"
-EVIDENCE_FILE="${EVIDENCE_DIR}/${TIMESTAMP}.json"
+# Append random suffix to prevent collisions when multiple Bash calls
+# complete within the same second (timestamp_utc has 1-second resolution)
+RANDOM_SUFFIX="$(head -c 4 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+EVIDENCE_FILE="${EVIDENCE_DIR}/${TIMESTAMP}-${RANDOM_SUFFIX}.json"
 TMP_FILE="${EVIDENCE_FILE}.tmp"
 
 # Use python3 for reliable JSON handling; pass hook input via stdin to avoid arg length limits

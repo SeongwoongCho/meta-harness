@@ -51,7 +51,7 @@ If fewer than 2 NEW evaluation files found:
 Not enough evaluation data to run evolution.
 Current evaluations: {N} (minimum: 2)
 
-Run more tasks via /meta-harness-run or auto-mode to collect evaluation data.
+Run more tasks via /meta-harness:run or auto-mode to collect evaluation data.
 ```
 
 ### Step 2: Aggregate Evaluation History
@@ -135,10 +135,10 @@ For approved proposals:
 
 1. **Content modifications** — Write modified files to the experimental pool directory:
    ```
-   {plugin_root}/harnesses/{name}-experimental/agent.md  (experimental harnesses keep agent.md locally)
-   {plugin_root}/harnesses/{name}-experimental/skill.md
-   {plugin_root}/harnesses/{name}-experimental/contract.yaml
-   {plugin_root}/harnesses/{name}-experimental/metadata.json  ← set pool: "experimental"
+   {plugin_root}/harnesses/experimental/{variant-name}/agent.md  (experimental harnesses keep agent.md locally)
+   {plugin_root}/harnesses/experimental/{variant-name}/skill.md
+   {plugin_root}/harnesses/experimental/{variant-name}/contract.yaml
+   {plugin_root}/harnesses/experimental/{variant-name}/metadata.json  ← set pool: "experimental"
    ```
    Register in `.meta-harness/harness-pool.json` under `experimental`.
 
@@ -152,7 +152,7 @@ For approved proposals:
 Evolution cycle complete.
 
 Applied {N} proposals:
-  MODIFIED (experimental): tdd-driven-experimental
+  MODIFIED (experimental): experimental/tdd-driven-v1.1
     — Strengthened error handling steps in skill.md
     — Added robustness verification to stopping criteria
   PROMOTED: rapid-prototype → stable
@@ -162,7 +162,7 @@ Applied {N} proposals:
 Experimental pool additions take effect next session (loaded by session-start.sh).
 Promotions/demotions are effective immediately.
 
-To monitor results: /meta-harness-status
+To monitor results: /meta-harness:status
 To manually promote experimental harnesses: /harness-registry promote {name}
 ```
 

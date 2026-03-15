@@ -214,6 +214,9 @@ other's, not corruption.
     "correctness": 1.0,
     "completeness": 0.95,
     "quality": 0.88,
+    "robustness": 0.85,
+    "clarity": 0.90,
+    "verifiability": 0.92,
     "overall": 0.91
   },
   "quality_gate_passed": true,
@@ -240,7 +243,7 @@ weights if needed.
 ```
 Evaluation logs accumulate
          │
-         ▼ (triggered by /meta-harness-evolve or automatic threshold)
+         ▼ (triggered by /meta-harness:evolve or automatic threshold)
 evolution-manager agent analyzes:
   - Last N evaluation results per harness
   - Performance trends (improving / stable / declining)
@@ -256,7 +259,7 @@ Proposals written to: .meta-harness/evolution-proposals/{id}.json
   - Confidence score
          │
          ▼ (applied after user review or automatically if aggressiveness=aggressive)
-Changes written to: harnesses/{name}-experimental/ (new directory)
+Changes written to: harnesses/experimental/{variant-name}/ (new directory)
   NOT to the stable harness directory
          │
          ▼
@@ -266,7 +269,7 @@ Experimental harness enters the pool with weight=0.8
          ▼ After N consecutive successes (default: 5)
 Promoted to stable pool:
   harnesses/{name}/ updated with experimental content
-  harnesses/{name}-experimental/ removed
+  harnesses/experimental/{variant-name}/ removed
   Old stable version archived in git history (rollback available)
          │
          ▼ If score drops below demotion threshold
