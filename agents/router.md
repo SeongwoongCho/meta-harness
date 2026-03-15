@@ -43,7 +43,7 @@ See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 
 | Axis | Values |
 |------|--------|
-| `task_type` | `bugfix` / `feature` / `refactor` / `research` / `migration` / `incident` / `benchmark` |
+| `task_type` | `bugfix` / `feature` / `refactor` / `research` / `migration` / `incident` / `benchmark` / `greenfield` |
 | `uncertainty` | `low` / `medium` / `high` |
 | `blast_radius` | `local` / `cross-module` / `repo-wide` |
 | `verifiability` | `easy` / `moderate` / `hard` |
@@ -51,6 +51,32 @@ See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 | `domain` | `backend` / `frontend` / `mobile` / `ml-research` / `data-engineering` / `devops` / `security` / `infra` / `docs` |
 | `domain_hint` | *(optional)* free-text hint for mixed-domain or niche tasks — for logging only, not used in routing |
 </taxonomy_definition>
+
+<greenfield_detection>
+Before classifying, detect **greenfield projects** — tasks that build a multi-component system from scratch. Greenfield tasks are frequently under-classified (too low uncertainty, too narrow blast_radius), leading to single-harness execution that produces incomplete results.
+
+**Greenfield signals (if 2+ are present, classify as greenfield):**
+1. Task asks to "build", "create", "implement", "만들어줘", "구현해줘" a full system (not a single feature in existing code)
+2. Multiple external services or components are mentioned (e.g., DB + queue + dashboard + API)
+3. Working directory is empty or has no existing source code (`src/`, `lib/`, `app/` directories absent)
+4. Task describes a pipeline or workflow spanning 3+ stages (e.g., webhook → analysis → storage → visualization)
+5. Infrastructure artifacts are implied (Docker, docker-compose, Dockerfile, CI/CD)
+
+**When greenfield is detected:**
+- Set `task_type: "greenfield"` (or `"feature"` if greenfield is not supported by downstream)
+- Set `uncertainty: "high"` — building from scratch always has high architectural uncertainty
+- Set `blast_radius: "repo-wide"` — the entire project is being created
+- Set `verifiability: "moderate"` — end-to-end verification requires integration testing
+- Select `system-design` harness as the primary execution harness
+- Always chain: `["ralplan-consensus", "system-design"]` (plan the architecture first, then execute with system-design harness)
+- If the task is especially complex (5+ components, 3+ external services), consider ensemble with `["system-design", "tdd-driven"]`
+
+**Example greenfield classification:**
+Task: "Build a FastAPI backend that receives GitHub webhooks, runs static analysis, stores metrics in InfluxDB, and visualizes via Grafana"
+→ Signals: "build" keyword, 4 components (FastAPI + webhooks + InfluxDB + Grafana), pipeline (webhook → analysis → storage → dashboard), infrastructure implied (docker-compose)
+→ Classification: task_type=greenfield, uncertainty=high, blast_radius=repo-wide, verifiability=moderate
+→ Chain: ["ralplan-consensus", "system-design"]
+</greenfield_detection>
 
 <ensemble_rule>
 Compute `ensemble_required` using this two-step check:
@@ -98,20 +124,39 @@ Read `.adaptive-harness/harness-pool.json` if it exists for current weights. Ful
 | `documentation-writer` | docs writing and updates | domain=docs |
 | `security-audit` | OWASP scan, secrets scan, threat modeling | domain=[backend,infra], security-focused |
 | `performance-optimization` | profiling, benchmarking, latency reduction | task_type=benchmark, latency_sensitivity=high |
+| `system-design` | multi-component system architecture + implementation | task_type=greenfield, uncertainty=high, blast_radius=repo-wide |
 </harness_pool>
 
 
 <chaining_guidelines>
-After selecting the primary harness, decide whether to form a `harness_chain` (sequential execution). The chain is your free judgment based on the task's needs — these are examples, not rules:
+After selecting the primary harness, decide whether to form a `harness_chain` (sequential execution).
 
-- **Low difficulty / low uncertainty**: single harness is sufficient (e.g., `["tdd-driven"]`)
-- **Medium difficulty or cross-module blast**: may benefit from a planning step first (e.g., `["ralplan-consensus", "tdd-driven"]`)
-- **High difficulty / high uncertainty / repo-wide blast**: full plan → execute → review cycle (e.g., `["ralplan-consensus", "careful-refactor", "code-review"]`)
-- **Persistence needed (iterative convergence)**: wrap execution in ralph-loop (e.g., `["ralplan-consensus", "ralph-loop"]`)
-- **Greenfield tasks (building from scratch)**: Skip `ralplan-consensus`. The planning harness's primary value is codebase exploration (reading existing files to understand architecture). For greenfield projects with no existing source code, pass requirements directly to the execution harness. Detection: task says "build from scratch", "create new project", "implement X" with no existing source files, or the working directory has no `src/` or `lib/` directories.
+**Mandatory chaining rules (MUST follow):**
+
+1. **Planning is MANDATORY for medium+ uncertainty features:**
+   If `uncertainty >= medium` AND `task_type in [feature, greenfield, migration, refactor]`:
+   → Chain MUST start with `ralplan-consensus`: e.g., `["ralplan-consensus", "{execution_harness}"]`
+   Rationale: Without upfront planning, execution harnesses optimize locally (tests, code quality) but miss architectural decisions (async workers, service decomposition, infrastructure). Planning ensures system-level thinking before code-level execution.
+
+2. **Greenfield tasks always use system-design:**
+   If greenfield detected (see `<greenfield_detection>`):
+   → Chain: `["ralplan-consensus", "system-design"]`
+   → For complex greenfield (5+ components): `["ralplan-consensus", "system-design", "code-review"]`
+
+3. **Low uncertainty exceptions:**
+   If `uncertainty == low` AND `blast_radius == local`:
+   → Single harness is sufficient (e.g., `["tdd-driven"]`)
+   → Planning adds overhead without proportional value for simple, well-understood tasks
+
+**Discretionary chaining (examples, not rules):**
+- **Medium difficulty or cross-module blast**: `["ralplan-consensus", "tdd-driven"]`
+- **High difficulty / repo-wide blast**: `["ralplan-consensus", "careful-refactor", "code-review"]`
+- **Persistence needed**: `["ralplan-consensus", "ralph-loop"]`
+- **Ambiguous requirements**: `["deep-interview", "ralplan-consensus", "{execution_harness}"]`
 
 General-capable harnesses available for chaining:
-- `ralplan-consensus` — upfront planning with self-review; use as first step when approach is unclear
+- `ralplan-consensus` — upfront planning with self-review; MANDATORY first step for medium+ uncertainty
+- `system-design` — multi-component system architecture + implementation; for greenfield projects
 - `ralph-loop` — persistent execution loop; use when task needs iterative convergence (high uncertainty or known-hard acceptance criteria)
 - `deep-interview` — clarification-first harness; use as first step when requirements are ambiguous (uncertainty=high) before any execution harness
 - `simple-executor` — lightweight executor; use as a standalone single harness for trivial local tasks

@@ -410,5 +410,6 @@ Default stable pool (canonical trigger conditions in `agents/router.md`):
 - `migration-safe` — Migration/upgrade (repo-wide blast, rollback required)
 - `ralplan-consensus` — Upfront planning with self-review (first step in chains for medium/high uncertainty)
 - `ralph-loop` — Persistent execution loop (iterates until acceptance criteria pass, max 10 iterations)
+- `system-design` — Multi-component system architecture + implementation (greenfield projects, high uncertainty, repo-wide blast)
 
 All tasks are evaluated using 6 fixed dimensions: correctness, completeness, quality, robustness, clarity, verifiability.

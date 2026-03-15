@@ -26,6 +26,7 @@ What category of work does this task represent?
 | `migration` | Upgrade dependencies or migrate between systems | "Migrate from Express 4 to Fastify" |
 | `benchmark` | Measure and analyze performance | "Profile the query execution and find bottlenecks" |
 | `incident` | Urgent production issue requiring fast response | "API returning 500s in production right now" |
+| `greenfield` | Build a multi-component system from scratch | "Build a FastAPI backend with webhooks, InfluxDB, and Grafana dashboard" |
 
 ### Axis 2: uncertainty
 
@@ -147,6 +148,8 @@ The following are NOT fast-path (they require actual work):
 | "Build Spark ETL pipeline for order aggregation" | feature | medium | local | moderate | low | data-engineering |
 | "Add canary deployment stage to CI/CD pipeline" | feature | medium | cross-module | moderate | low | devops |
 | "Audit and harden JWT authentication" | refactor | medium | cross-module | moderate | low | security |
+| "Build a FastAPI backend with GitHub webhooks, InfluxDB storage, and Grafana dashboards" | greenfield | high | repo-wide | moderate | low | backend |
+| "Create a microservice that processes images, stores in S3, and serves via CDN" | greenfield | high | repo-wide | moderate | low | infra |
 
 ---
 

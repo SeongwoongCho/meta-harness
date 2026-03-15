@@ -32,6 +32,7 @@ workflow:
   - "Run coverage tool — confirm ≥ 80% for modified modules"
   - "Run full test suite and build — confirm clean"
   - "Grep for debug artifacts — remove any found"
+  - "Scope expansion verification — check all task keywords have corresponding implementations"
 
 tool_policy:
   allowed:
