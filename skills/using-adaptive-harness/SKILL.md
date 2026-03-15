@@ -140,14 +140,33 @@ Task(
 
 Read `.adaptive-harness/harness-pool.json` via the Read tool on-demand to provide the router with pool state context when needed.
 
-### Step 3: Parse Router Response
+### Step 3: Parse Router Response and Select Execution Path
 
-The router returns structured JSON:
+The router returns structured JSON. Parse it and **immediately branch** to the correct execution path:
+
+```
+response = parse_router_json(router_result)
+
+if response.skip_routing:
+    → Step 4a (Fast-Path)
+elif response.ensemble_chains:
+    → Step 4c Mode 2 (Chain Ensemble with WORKTREE ISOLATION)
+    # ⚠ MANDATORY: each execution harness MUST use isolation="worktree"
+elif response.ensemble_required and response.ensemble_harnesses:
+    → Step 4c Mode 1 (Simple Ensemble with WORKTREE ISOLATION)
+    # ⚠ MANDATORY: each harness MUST use isolation="worktree"
+elif response.harness_chain and len(response.harness_chain) > 1:
+    → Step 3.5 (Sequential Chain)
+else:
+    → Step 4b (Single Harness)
+```
+
+Router response JSON structure:
 
 ```json
 {
   "taxonomy": {
-    "task_type": "bugfix|feature|refactor|research|migration|benchmark|incident",
+    "task_type": "bugfix|feature|refactor|research|migration|benchmark|incident|greenfield",
     "uncertainty": "low|medium|high",
     "blast_radius": "local|cross-module|repo-wide",
     "verifiability": "easy|moderate|hard",
@@ -156,6 +175,7 @@ The router returns structured JSON:
   },
   "selected_harness": "tdd-driven",
   "ensemble_required": false,
+  "ensemble_chains": null,
   "skip_routing": false,
   "reasoning": "Explanation of selection"
 }
@@ -303,6 +323,8 @@ Bash("git rev-parse --is-inside-work-tree 2>/dev/null")
 
 For tasks that don't need a planning step — just run 2+ harnesses in parallel on the same task.
 
+**⚠ MANDATORY: Every harness Task() call below MUST include `isolation="worktree"`.**
+
 1. Identify 2-3 candidate harnesses from the pool (router provides them as `ensemble_harnesses: [...]`).
 
 2. Spawn all harness subagents in **parallel with worktree isolation**:
@@ -339,6 +361,15 @@ Task(
 #### Mode 2: Chain Ensemble (`ensemble_chains` present)
 
 For tasks that benefit from planning + multiple execution approaches. Runs the shared planning step ONCE in the main workspace, then fans out execution harnesses in **isolated worktrees**, then synthesizes by cherry-picking the best files from each worktree.
+
+**⚠⚠⚠ WORKTREE ISOLATION IS MANDATORY — NOT OPTIONAL ⚠⚠⚠**
+
+Every execution harness Task() call in ensemble mode MUST include `isolation="worktree"`. This is the single most critical parameter in the entire ensemble flow. Without it:
+- Harnesses overwrite each other's files in the same directory
+- Synthesizer cannot compare independent implementations
+- The ensemble produces a worse result than a single harness
+
+If you are about to write a Task() call for an ensemble execution harness and it does NOT contain `isolation="worktree"`, STOP and add it. There are ZERO exceptions to this rule.
 
 The router provides:
 - `ensemble_chains`: array of 2+ chains, e.g., `[["ralplan-consensus", "system-design"], ["ralplan-consensus", "tdd-driven"]]`
