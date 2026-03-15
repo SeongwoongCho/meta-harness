@@ -32,16 +32,20 @@ resolve_project_root() {
   echo "$fallback"
 }
 
-# Resolve session ID from environment or .current-session-id file
+# Resolve session ID from .current-session-id file or environment variable.
+# .current-session-id is preferred because it is written at session-start with
+# the exact ID used to create the session directory. CLAUDE_SESSION_ID (Claude's
+# UUID) is only used as a fallback when the file is absent.
 # Usage: resolve_session_id "$STATE_DIR"
 resolve_session_id() {
   local state_dir="$1"
-  local sid="${CLAUDE_SESSION_ID:-}"
+  local sid=""
+  local sid_file="${state_dir}/.current-session-id"
+  if [ -f "$sid_file" ]; then
+    sid=$(cat "$sid_file")
+  fi
   if [ -z "$sid" ]; then
-    local sid_file="${state_dir}/.current-session-id"
-    if [ -f "$sid_file" ]; then
-      sid=$(cat "$sid_file")
-    fi
+    sid="${CLAUDE_SESSION_ID:-}"
   fi
   echo "$sid"
 }

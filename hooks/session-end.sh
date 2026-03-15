@@ -128,7 +128,8 @@ for harness_name in all_harness_names:
         break
 
 pool["last_updated"] = timestamp
-pool["last_merged_session"] = session_id
+if session_id and session_id != "unknown":
+    pool["last_merged_session"] = session_id
 
 # Write atomically (last-writer-wins for concurrent sessions — known v1 limitation)
 with open(tmp_file, 'w') as f:

@@ -86,7 +86,8 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
             dst_harness = os.path.join(os.path.dirname(harnesses_dir), exp_path)
 
         if os.path.isdir(src_harness) and not os.path.exists(dst_harness):
-            shutil.copytree(src_harness, dst_harness)
+            os.makedirs(os.path.dirname(dst_harness.rstrip("/")), exist_ok=True)
+            shutil.copytree(src_harness, dst_harness.rstrip("/"))
 
         change = proposal.get("proposed_change", {})
         target = change.get("file_path", "")
@@ -102,9 +103,11 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
             if ctype == "add_section" and os.path.isfile(exp_target) and content:
                 with open(exp_target, 'r') as f:
                     original = f.read()
-                # Append the new section at the end (safest default)
-                with open(exp_target, 'w') as f:
-                    f.write(original.rstrip() + "\n\n" + content + "\n")
+                # Idempotency guard: skip if content already present
+                if content.strip() not in original:
+                    # Append the new section at the end (safest default)
+                    with open(exp_target, 'w') as f:
+                        f.write(original.rstrip() + "\n\n" + content + "\n")
             elif ctype == "modify_trigger" and os.path.isfile(exp_target):
                 old_val = change.get("current_value", "")
                 new_val = change.get("new_value", "")
