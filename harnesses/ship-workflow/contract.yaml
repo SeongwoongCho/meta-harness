@@ -1,0 +1,89 @@
+name: ship-workflow
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - ship
+    - release
+    - deploy
+  uncertainty:
+    - low
+    - medium
+  verifiability:
+    - easy
+    - moderate
+  blast_radius:
+    - cross-module
+    - repo-wide
+  latency_sensitivity: low
+  domains:
+    - "*"
+
+workflow:
+  - "Check current branch — abort if on main"
+  - "Run git status and git diff main...HEAD --stat to understand scope"
+  - "Fetch origin/main and merge into feature branch (no-edit)"
+  - "Run the full test suite — stop on any failure"
+  - "Run pre-landing review: read diff and apply review checklist in two passes (CRITICAL then INFORMATIONAL)"
+  - "Report all review findings; for each CRITICAL issue ask user: Fix now / Acknowledge / False positive"
+  - "If user chose Fix on any critical issue: apply fixes, commit fixed files, stop and ask user to re-run"
+  - "Auto-decide version bump: MICRO (<50 lines), PATCH (50+ lines), ask user for MINOR/MAJOR"
+  - "Read VERSION file, compute new version, write it"
+  - "Auto-generate CHANGELOG entry from all branch commits and full diff; insert after header"
+  - "Group staged changes into bisectable logical commits; commit each group"
+  - "Push branch to remote with upstream tracking"
+  - "Create PR with summary, review findings, and test results; output PR URL"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Never force push — use regular git push only"
+    - "Never skip tests — stop and report on any failure"
+    - "Never ask for confirmation except for MINOR/MAJOR version bumps and CRITICAL review issues"
+    - "Bash is used to run git commands, tests, and gh CLI"
+    - "Edit is used for VERSION, CHANGELOG, and code fixes one file at a time"
+
+stopping_criteria:
+  - condition: pr_created
+    description: "Pull request created and PR URL output to user"
+  - condition: tests_pass
+    description: "All tests pass on the merged (feature + main) state"
+  - condition: review_complete
+    description: "Pre-landing review completed and all critical issues resolved or acknowledged"
+
+verification_steps:
+  - "Confirm tests passed on the post-merge branch state"
+  - "Confirm pre-landing review was run and findings reported"
+  - "Confirm VERSION file was updated"
+  - "Confirm CHANGELOG entry was inserted"
+  - "Confirm commits are bisectable (each logical unit is separate)"
+  - "Confirm PR URL is present in output"
+
+cost_budget:
+  max_tokens: 300000
+  max_time_minutes: 30
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "on_main_branch"
+    description: "Current branch is main — shipping from main is not allowed"
+    action: escalate_to_user
+  - condition: "tests_failing"
+    description: "One or more tests fail after merging origin/main — must fix before shipping"
+    action: escalate_to_user
+  - condition: "merge_conflict"
+    description: "Merge conflict with origin/main cannot be auto-resolved"
+    action: escalate_to_user
+  - condition: "critical_review_issue_unresolved"
+    description: "User chose to fix a critical pre-landing issue — workflow stopped for re-run"
+    action: report_partial
