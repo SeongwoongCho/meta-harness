@@ -1,6 +1,6 @@
-# Contributing to meta-harness
+# Contributing to adaptive-harness
 
-Thank you for contributing. meta-harness grows through three independent layers — you can
+Thank you for contributing. adaptive-harness grows through three independent layers — you can
 contribute to any one of them without touching the others.
 
 ---
@@ -168,7 +168,7 @@ Before submitting, validate your harness against at least one fixture:
 1. Create a fixture under `fixtures/your-scenario/` (see Layer 2 below)
 2. Run the router manually against your fixture's `task.md`:
    ```
-   /meta-harness:run --harness=your-harness-name "$(cat fixtures/your-scenario/task.md)"
+   /adaptive-harness:run --harness=your-harness-name "$(cat fixtures/your-scenario/task.md)"
    ```
 3. Verify: the harness completes without errors and the evaluation score falls within the
    range specified in `expected.json`

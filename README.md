@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">meta-harness</h1>
+  <h1 align="center">adaptive-harness</h1>
   <p align="center">
     <strong>A self-improving harness router for Claude Code.</strong><br/>
     It watches every task, picks the best workflow, scores the result, and evolves — automatically.
@@ -14,12 +14,12 @@
 
 ---
 
-> **Unlike static skill packs, meta-harness gets smarter the more you use it.**
+> **Unlike static skill packs, adaptive-harness gets smarter the more you use it.**
 
 ```
 You: Fix the login bug where empty email crashes the server
 
-[meta-harness]
+[adaptive-harness]
   Classified:  bugfix | low uncertainty | local | backend
   Selected:    tdd-driven (score 0.92)  >  systematic-debugging (0.81)
 
@@ -68,8 +68,8 @@ Hard tasks (`uncertainty=high` **and** `verifiability=hard` or `blast_radius=rep
 ## Installation
 
 ```bash
-claude plugin marketplace add https://github.com/SeongwoongCho/meta-harness
-claude plugin install meta-harness@meta-harness
+claude plugin marketplace add https://github.com/SeongwoongCho/adaptive-harness
+claude plugin install adaptive-harness@adaptive-harness
 ```
 
 Then start a new Claude Code session.
@@ -84,17 +84,17 @@ claude                              # new session — hooks load automatically
 ```
 
 ```
-/meta-harness:init --general        # one-command setup with sensible defaults
+/adaptive-harness:init --general        # one-command setup with sensible defaults
 ```
 
-That's it. Every task is now routed through the meta-harness pipeline automatically.
+That's it. Every task is now routed through the adaptive-harness pipeline automatically.
 
 ```
 # Or run explicitly with options
-/meta-harness:run "Refactor the payment module"
-/meta-harness:run "Build a new feature"              # interview runs by default
-/meta-harness:run --skip-interview "Build a new feature"  # skip interview
-/meta-harness:run --harness=tdd-driven "Fix the login bug"
+/adaptive-harness:run "Refactor the payment module"
+/adaptive-harness:run "Build a new feature"              # interview runs by default
+/adaptive-harness:run --skip-interview "Build a new feature"  # skip interview
+/adaptive-harness:run --harness=tdd-driven "Fix the login bug"
 ```
 
 ---
@@ -160,7 +160,7 @@ These dimensions apply universally to all task types — code, research, plannin
 
 ## Evolution System
 
-The evolution manager triggers automatically every 2 evaluations per harness (or manually via `/meta-harness:evolve`). It runs three analysis phases:
+The evolution manager triggers automatically every 2 evaluations per harness (or manually via `/adaptive-harness:evolve`). It runs three analysis phases:
 
 ### Phase 1-2: Performance Trend Analysis and Pattern Recognition
 
@@ -222,7 +222,7 @@ All proposals go to the experimental pool first. Promotion to stable requires 5 
 
 ### Evolution in Action
 
-Here's what `/meta-harness:evolve` actually produces after a few sessions:
+Here's what `/adaptive-harness:evolve` actually produces after a few sessions:
 
 ```
 tdd-driven — verifiability: 0.725 avg (2 runs, both low)
@@ -248,15 +248,15 @@ Each fix is applied as an experimental variant that competes with the original. 
 
 ---
 
-## Why meta-harness?
+## Why adaptive-harness?
 
-| | Static skills | Manual orchestration | **meta-harness** |
+| | Static skills | Manual orchestration | **adaptive-harness** |
 |---|---|---|---|
 | Workflow selection | Fixed | You decide | **Auto-routed** |
 | Quality measurement | None | Ad-hoc | **6-dimension scoring** |
 | Improvement over time | None | None | **Self-evolving** |
 
-meta-harness doesn't replace your existing tools — it's a **meta-layer** that orchestrates them and learns which workflows work best in *your* codebase.
+adaptive-harness doesn't replace your existing tools — it's a **meta-layer** that orchestrates them and learns which workflows work best in *your* codebase.
 
 ---
 
@@ -292,7 +292,7 @@ Agent personas live in `agents/` (registered in the Claude Code agent registry).
 
 ## Contributing
 
-meta-harness grows through community contributions — all in pure markdown, no code required:
+adaptive-harness grows through community contributions — all in pure markdown, no code required:
 
 - **Harnesses** — new execution workflows: agent in `agents/your-name.md`, workflow in `harnesses/your-name/`
 - **Patterns** — workflow design patterns for evolution genesis (`patterns/your-name.yaml`)
@@ -304,7 +304,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Acknowledgments
 
-Built on ideas from **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** (multi-agent orchestration) and **[superpowers](https://github.com/nicobailon/superpowers)** (skills-as-harness). The concept of harness engineering was formalized by [Martin Fowler](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html) — meta-harness makes it self-improving.
+Built on ideas from **[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)** (multi-agent orchestration) and **[superpowers](https://github.com/nicobailon/superpowers)** (skills-as-harness). The concept of harness engineering was formalized by [Martin Fowler](https://martinfowler.com/articles/exploring-gen-ai/harness-engineering.html) — adaptive-harness makes it self-improving.
 
 ## License
 

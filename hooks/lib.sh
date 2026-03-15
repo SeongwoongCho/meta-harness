@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lib.sh — Shared initialization functions for meta-harness hooks.
+# lib.sh — Shared initialization functions for adaptive-harness hooks.
 # Source this at the top of each hook: source "$(dirname "$0")/lib.sh"
 
 # Resolve plugin root directory
@@ -7,15 +7,15 @@ resolve_plugin_root() {
   echo "${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[1]:-$0}")/.." && pwd)}"
 }
 
-# Resolve project root (git root, or walk up looking for .meta-harness/, never plugin cache)
+# Resolve project root (git root, or walk up looking for .adaptive-harness/, never plugin cache)
 resolve_project_root() {
   local root
   root="$(git rev-parse --show-toplevel 2>/dev/null)" && { echo "$root"; return 0; }
 
-  # Walk up from CWD looking for .meta-harness/ directory marker
+  # Walk up from CWD looking for .adaptive-harness/ directory marker
   local dir="$PWD"
   while [ "$dir" != "/" ]; do
-    if [ -d "${dir}/.meta-harness" ]; then
+    if [ -d "${dir}/.adaptive-harness" ]; then
       echo "$dir"
       return 0
     fi
@@ -55,10 +55,10 @@ timestamp_utc() {
 state_dir() {
   local project_root
   project_root="$(resolve_project_root)"
-  local sd="${project_root}/.meta-harness"
+  local sd="${project_root}/.adaptive-harness"
   local plugin_root="${CLAUDE_PLUGIN_ROOT:-}"
   if [ -n "$plugin_root" ] && [[ "$sd" == "$plugin_root"* ]]; then
-    echo "[meta-harness] ERROR: state_dir resolved inside plugin cache: ${sd}" >&2
+    echo "[adaptive-harness] ERROR: state_dir resolved inside plugin cache: ${sd}" >&2
     return 1
   fi
   echo "$sd"

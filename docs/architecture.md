@@ -1,8 +1,8 @@
-# meta-harness Architecture
+# adaptive-harness Architecture
 
 ## Overview
 
-meta-harness is a Claude Code plugin implementing a five-stage self-improving orchestration
+adaptive-harness is a Claude Code plugin implementing a five-stage self-improving orchestration
 pipeline. It intercepts every task, routes it to the optimal execution workflow (harness),
 evaluates the result, and evolves its harness pool over time.
 
@@ -15,10 +15,10 @@ evaluates the result, and evolves its harness pool over time.
 │  Stage 1: INITIALIZATION                                        │
 │                                                                 │
 │  SessionStart hook fires                                        │
-│    → session-start.sh injects using-meta-harness       │
+│    → session-start.sh injects using-adaptive-harness       │
 │       SKILL.md as additionalContext                             │
 │    → Harness pool state loaded on-demand (not at session start) │
-│    → .meta-harness/config.yaml read if present                  │
+│    → .adaptive-harness/config.yaml read if present                  │
 └──────────────────────────────┬──────────────────────────────────┘
                                │ User submits task
                                ▼
@@ -66,7 +66,7 @@ evaluates the result, and evolves its harness pool over time.
 │    - Overall weighted score                                     │
 │    - Quality gate pass/fail                                     │
 │    - Improvement suggestions                                    │
-│  Result written: .meta-harness/sessions/{id}/eval-{timestamp}.json     │
+│  Result written: .adaptive-harness/sessions/{id}/eval-{timestamp}.json     │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
                            ▼
@@ -81,7 +81,7 @@ evaluates the result, and evolves its harness pool over time.
 │  NEXT-SESSION (on Stop hook):                                   │
 │    - session-end.sh merges in-memory weights → harness-pool.json│
 │    - Evolution Manager (if triggered) proposes content changes  │
-│    - Proposals written to .meta-harness/evolution-proposals/           │
+│    - Proposals written to .adaptive-harness/evolution-proposals/           │
 │    - Applied to experimental pool; stable pool unchanged        │
 │                                                                 │
 │  PROMOTION:                                                     │
@@ -103,7 +103,7 @@ Claude Code Session
 ├─ SessionStart
 │   └─ hooks/session-start.sh
 │       Action: Output additionalContext containing SKILL.md content
-│       Injects: using-meta-harness/SKILL.md
+│       Injects: using-adaptive-harness/SKILL.md
 │       Size target: < 3 KB (context window efficiency)
 │
 ├─ UserPromptSubmit (fires on EVERY user message)
@@ -115,9 +115,9 @@ Claude Code Session
 ├─ PostToolUse (matcher: "Bash")
 │   └─ hooks/collect-evidence.sh
 │       Action: Capture Bash stdout/stderr → evidence JSON
-│       Output path: .meta-harness/sessions/{session-id}/evidence/{timestamp}.json
+│       Output path: .adaptive-harness/sessions/{session-id}/evidence/{timestamp}.json
 │       Captures: build output, test results, lint results, exit codes
-│       Session ID: $CLAUDE_SESSION_ID or from .meta-harness/.current-session-id
+│       Session ID: $CLAUDE_SESSION_ID or from .adaptive-harness/.current-session-id
 │
 ├─ SubagentStop (matcher: "*")
 │   └─ hooks/subagent-complete.sh
@@ -156,12 +156,12 @@ These dimensions are hardcoded in the evaluator agent and apply universally to a
 
 ### Concurrency Strategy
 
-meta-harness sessions can run concurrently (multiple Claude Code windows). The state design
+adaptive-harness sessions can run concurrently (multiple Claude Code windows). The state design
 prevents corruption:
 
 ```
-Session A writes to:  .meta-harness/sessions/session-A/
-Session B writes to:  .meta-harness/sessions/session-B/
+Session A writes to:  .adaptive-harness/sessions/session-A/
+Session B writes to:  .adaptive-harness/sessions/session-B/
 
 On Stop hook:
   Session A runs session-end.sh:
@@ -182,7 +182,7 @@ other's, not corruption.
 
 ### State File Schema
 
-**`.meta-harness/harness-pool.json`:**
+**`.adaptive-harness/harness-pool.json`:**
 ```json
 {
   "version": "1.0.0",
@@ -201,7 +201,7 @@ other's, not corruption.
 }
 ```
 
-**`.meta-harness/sessions/{id}/eval-{timestamp}.json`:**
+**`.adaptive-harness/sessions/{id}/eval-{timestamp}.json`:**
 ```json
 {
   "session_id": "string",
@@ -233,7 +233,7 @@ On every read of `harness-pool.json`:
 3. If `.bak` also corrupt, re-initialize from built-in defaults (weights reset to 1.0)
 
 Weight loss from re-initialization is acceptable for v1. Evaluation logs in
-`.meta-harness/evaluation-logs/` are the authoritative history and can be used to reconstruct
+`.adaptive-harness/evaluation-logs/` are the authoritative history and can be used to reconstruct
 weights if needed.
 
 ---
@@ -243,14 +243,14 @@ weights if needed.
 ```
 Evaluation logs accumulate
          │
-         ▼ (triggered by /meta-harness:evolve or automatic threshold)
+         ▼ (triggered by /adaptive-harness:evolve or automatic threshold)
 evolution-manager agent analyzes:
   - Last N evaluation results per harness
   - Performance trends (improving / stable / declining)
   - Comparison: this harness vs. alternatives on same task shapes
          │
          ▼
-Proposals written to: .meta-harness/evolution-proposals/{id}.json
+Proposals written to: .adaptive-harness/evolution-proposals/{id}.json
   Each proposal contains:
   - Target harness name
   - Change type: modify_skill | modify_agent | modify_contract

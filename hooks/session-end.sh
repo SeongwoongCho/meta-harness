@@ -21,7 +21,7 @@ TIMESTAMP="$(timestamp_utc)"
 if [ -f "$POOL_FILE" ]; then
   # Validate pool JSON is parseable BEFORE backing up (don't backup corrupt files)
   if ! python3 -c "import json; json.load(open('$POOL_FILE'))" 2>/dev/null; then
-    echo "[meta-harness session-end] Pool file corrupt. Attempting restore from backup." >&2
+    echo "[adaptive-harness session-end] Pool file corrupt. Attempting restore from backup." >&2
     if [ -f "$POOL_BAK" ]; then
       cp "$POOL_BAK" "$POOL_FILE"
     fi
@@ -45,7 +45,7 @@ try:
     with open(pool_file, 'r') as f:
         pool = json.load(f)
 except Exception as e:
-    print(f"[meta-harness session-end] Failed to parse pool JSON: {e}", file=sys.stderr)
+    print(f"[adaptive-harness session-end] Failed to parse pool JSON: {e}", file=sys.stderr)
     sys.exit(0)
 
 if os.path.isfile(weights_file):
@@ -134,7 +134,7 @@ pool["last_merged_session"] = session_id
 with open(tmp_file, 'w') as f:
     json.dump(pool, f, indent=2)
 os.rename(tmp_file, pool_file)
-print(f"[meta-harness session-end] Merged session {session_id} weights into pool.")
+print(f"[adaptive-harness session-end] Merged session {session_id} weights into pool.")
 PYEOF
 
 fi

@@ -1,17 +1,17 @@
 ---
 name: harness-registry
-description: "Manage the meta-harness pool: list, inspect, promote, demote harnesses. Use when user asks about harness status or wants to manage the pool."
+description: "Manage the adaptive-harness pool: list, inspect, promote, demote harnesses. Use when user asks about harness status or wants to manage the pool."
 ---
 
 # Harness Registry
 
 ## Purpose
 
-You manage the meta-harness harness pool. Use this skill when the user asks about harness status, wants to inspect a specific harness, or wants to promote/demote harnesses between stable and experimental pools.
+You manage the adaptive-harness harness pool. Use this skill when the user asks about harness status, wants to inspect a specific harness, or wants to promote/demote harnesses between stable and experimental pools.
 
 ## Plugin Root
 
-First, read the plugin root path: `Read(".meta-harness/.plugin-root")`. Store this as `{plugin_root}`. All plugin-internal file paths below use this prefix. Project state paths (`.meta-harness/`) are relative to the user's project directory.
+First, read the plugin root path: `Read(".adaptive-harness/.plugin-root")`. Store this as `{plugin_root}`. All plugin-internal file paths below use this prefix. Project state paths (`.adaptive-harness/`) are relative to the user's project directory.
 
 ---
 
@@ -19,10 +19,10 @@ First, read the plugin root path: `Read(".meta-harness/.plugin-root")`. Store th
 
 ### List All Harnesses
 
-Read `.meta-harness/harness-pool.json` and display all harnesses with their pool status and performance stats:
+Read `.adaptive-harness/harness-pool.json` and display all harnesses with their pool status and performance stats:
 
 ```
-Read(".meta-harness/harness-pool.json")
+Read(".adaptive-harness/harness-pool.json")
 ```
 
 Display format:
@@ -40,7 +40,7 @@ EXPERIMENTAL POOL
   (none)
 ```
 
-If `.meta-harness/harness-pool.json` does not exist, report that no state has been initialized and suggest running `/meta-harness:init`.
+If `.adaptive-harness/harness-pool.json` does not exist, report that no state has been initialized and suggest running `/adaptive-harness:init`.
 
 ### Inspect a Specific Harness
 
@@ -58,32 +58,32 @@ Present in a structured format showing trigger conditions, tool policy, stopping
 
 When user says "promote {harness-name}" or when queried about a harness meeting promotion criteria:
 
-1. Read `.meta-harness/harness-pool.json`
-2. Check the harness's `consecutive_successes` count (requires ≥5 by default, configurable in `.meta-harness/config.yaml` under `evolution_settings.promotion_threshold`)
+1. Read `.adaptive-harness/harness-pool.json`
+2. Check the harness's `consecutive_successes` count (requires ≥5 by default, configurable in `.adaptive-harness/config.yaml` under `evolution_settings.promotion_threshold`)
 3. If criteria met:
    - Update `{plugin_root}/harnesses/{name}/metadata.json`: set `"pool": "stable"`
-   - Update `.meta-harness/harness-pool.json`: move entry from `experimental` to `stable`
-   - Write atomically: write to `.meta-harness/harness-pool.json.tmp` then rename to `.meta-harness/harness-pool.json`
-   - Create backup `.meta-harness/harness-pool.json.bak` before writing
+   - Update `.adaptive-harness/harness-pool.json`: move entry from `experimental` to `stable`
+   - Write atomically: write to `.adaptive-harness/harness-pool.json.tmp` then rename to `.adaptive-harness/harness-pool.json`
+   - Create backup `.adaptive-harness/harness-pool.json.bak` before writing
 4. Report: "Promoted {name} from experimental to stable pool. Consecutive successes: N."
 
 ### Demote Stable → Experimental
 
 When user says "demote {harness-name}" or when a harness performance drops below threshold:
 
-1. Check the harness's recent performance (last 10 runs from evaluation logs in `.meta-harness/evaluation-logs/{harness-name}/`)
+1. Check the harness's recent performance (last 10 runs from evaluation logs in `.adaptive-harness/evaluation-logs/{harness-name}/`)
 2. If performance below threshold (default: score < 0.5 for 3+ consecutive runs):
    - Update `{plugin_root}/harnesses/{name}/metadata.json`: set `"pool": "experimental"`
-   - Update `.meta-harness/harness-pool.json`: move entry from `stable` to `experimental`
+   - Update `.adaptive-harness/harness-pool.json`: move entry from `stable` to `experimental`
    - Write atomically (same pattern as promote)
-   - Record demotion event in `.meta-harness/evaluation-logs/{name}/demotion-{timestamp}.json`
+   - Record demotion event in `.adaptive-harness/evaluation-logs/{name}/demotion-{timestamp}.json`
 3. Report: "Demoted {name} to experimental pool. Recent scores: [0.42, 0.38, 0.41]."
 
 ### Check Promotion Eligibility
 
 When user asks "which harnesses are ready for promotion":
 
-1. Read `.meta-harness/harness-pool.json`
+1. Read `.adaptive-harness/harness-pool.json`
 2. For each experimental harness, check `consecutive_successes` against threshold
 3. List eligible harnesses and their stats
 4. Suggest running promotion for eligible ones
@@ -92,7 +92,7 @@ When user asks "which harnesses are ready for promotion":
 
 ## Pool State Schema
 
-`.meta-harness/harness-pool.json` structure:
+`.adaptive-harness/harness-pool.json` structure:
 ```json
 {
   "stable": {
@@ -123,13 +123,13 @@ When user asks "which harnesses are ready for promotion":
 
 ## Atomic Write Pattern
 
-Always use atomic writes when modifying `.meta-harness/harness-pool.json`:
+Always use atomic writes when modifying `.adaptive-harness/harness-pool.json`:
 
 ```bash
 # Write to temp, then atomically rename
-cp .meta-harness/harness-pool.json .meta-harness/harness-pool.json.bak
-# Write new content to .meta-harness/harness-pool.json.tmp
-# Then: mv .meta-harness/harness-pool.json.tmp .meta-harness/harness-pool.json
+cp .adaptive-harness/harness-pool.json .adaptive-harness/harness-pool.json.bak
+# Write new content to .adaptive-harness/harness-pool.json.tmp
+# Then: mv .adaptive-harness/harness-pool.json.tmp .adaptive-harness/harness-pool.json
 ```
 
 Use a Bash tool call for the atomic rename step.

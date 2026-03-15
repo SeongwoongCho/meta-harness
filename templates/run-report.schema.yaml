@@ -1,4 +1,4 @@
-# Run Report Schema — captures the full lifecycle of a meta-harness execution
+# Run Report Schema — captures the full lifecycle of a adaptive-harness execution
 # Written after evaluation completes. Source of truth for evolution decisions.
 
 run_report:

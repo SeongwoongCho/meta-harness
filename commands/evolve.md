@@ -3,7 +3,7 @@ description: "Trigger harness evolution: analyze evaluation logs, propose change
 argument-hint: "[--skip-interview]"
 ---
 
-# meta-harness-evolve
+# adaptive-harness-evolve
 
 Trigger the harness evolution cycle. Reads evaluation history, spawns the evolution-manager agent to analyze performance patterns, and applies proposed modifications to the experimental harness pool. Promoted harnesses take effect next session.
 
@@ -14,7 +14,7 @@ Parse `$ARGUMENTS` for flags:
 
 ## Plugin Root
 
-Read the plugin root path: `Read(".meta-harness/.plugin-root")`. Store as `{plugin_root}`. All plugin-internal paths use this prefix.
+Read the plugin root path: `Read(".adaptive-harness/.plugin-root")`. Store as `{plugin_root}`. All plugin-internal paths use this prefix.
 
 ## Execution Steps
 
@@ -22,7 +22,7 @@ Read the plugin root path: `Read(".meta-harness/.plugin-root")`. Store as `{plug
 
 Read the evolution state file to determine which sessions have already been processed:
 ```
-Read(".meta-harness/evolution-state.json")
+Read(".adaptive-harness/evolution-state.json")
 ```
 
 If the file does not exist, initialize with:
@@ -40,8 +40,8 @@ If the file does not exist, initialize with:
 
 Read evaluation history:
 ```
-Glob(".meta-harness/sessions/*/eval-*.json")
-Glob(".meta-harness/evaluation-logs/**/*.json")
+Glob(".adaptive-harness/sessions/*/eval-*.json")
+Glob(".adaptive-harness/evaluation-logs/**/*.json")
 ```
 
 **Filter out already-processed sessions**: Remove any eval files whose session ID (or filename) appears in `evolved_sessions` from the evolution state. Only pass NEW (unprocessed) evaluation data to the evolution manager.
@@ -51,7 +51,7 @@ If fewer than 2 NEW evaluation files found:
 Not enough evaluation data to run evolution.
 Current evaluations: {N} (minimum: 2)
 
-Run more tasks via /meta-harness:run or auto-mode to collect evaluation data.
+Run more tasks via /adaptive-harness:run or auto-mode to collect evaluation data.
 ```
 
 ### Step 2: Aggregate Evaluation History
@@ -91,8 +91,8 @@ Pass only NEW evaluation data (filtered in Step 1) and the `evolution_memory` fr
 
 ```
 Task(
-  subagent_type="meta-harness:evolution-manager",
-  prompt="Analyze harness performance and propose improvements.\n\nEvaluation summary (NEW sessions only):\n{aggregated_summary}\n\nEvolution memory (summaries from previous analyses):\n{evolution_memory}\n\nCurrent harness files:\n{harness_file_contents}\n\nFor each underperforming harness, propose concrete modifications to agent.md, skill.md, or contract.yaml.\nWrite proposals to .meta-harness/evolution-proposals/{proposal-id}.json.\nAlso recommend promotion/demotion actions based on consecutive_successes/failures.\n\nRead .meta-harness/config.yaml for evolution thresholds."
+  subagent_type="adaptive-harness:evolution-manager",
+  prompt="Analyze harness performance and propose improvements.\n\nEvaluation summary (NEW sessions only):\n{aggregated_summary}\n\nEvolution memory (summaries from previous analyses):\n{evolution_memory}\n\nCurrent harness files:\n{harness_file_contents}\n\nFor each underperforming harness, propose concrete modifications to agent.md, skill.md, or contract.yaml.\nWrite proposals to .adaptive-harness/evolution-proposals/{proposal-id}.json.\nAlso recommend promotion/demotion actions based on consecutive_successes/failures.\n\nRead .adaptive-harness/config.yaml for evolution thresholds."
 )
 ```
 
@@ -100,7 +100,7 @@ Task(
 
 After the evolution manager completes, read all new proposals:
 ```
-Glob(".meta-harness/evolution-proposals/*.json")
+Glob(".adaptive-harness/evolution-proposals/*.json")
 ```
 
 Display each proposal to the user:
@@ -124,7 +124,7 @@ AskUserQuestion(
   options=[
     "Apply all to experimental pool",
     "Review each individually",
-    "Skip — I'll review the proposals manually in .meta-harness/evolution-proposals/"
+    "Skip — I'll review the proposals manually in .adaptive-harness/evolution-proposals/"
   ]
 )
 ```
@@ -140,9 +140,9 @@ For approved proposals:
    {plugin_root}/harnesses/experimental/{variant-name}/contract.yaml
    {plugin_root}/harnesses/experimental/{variant-name}/metadata.json  ← set pool: "experimental"
    ```
-   Register in `.meta-harness/harness-pool.json` under `experimental`.
+   Register in `.adaptive-harness/harness-pool.json` under `experimental`.
 
-2. **Promotions** — Update `{plugin_root}/harnesses/{name}/metadata.json` pool field to `"stable"`. Update `.meta-harness/harness-pool.json` atomically (write to `.tmp`, rename).
+2. **Promotions** — Update `{plugin_root}/harnesses/{name}/metadata.json` pool field to `"stable"`. Update `.adaptive-harness/harness-pool.json` atomically (write to `.tmp`, rename).
 
 3. **Demotions** — Update `{plugin_root}/harnesses/{name}/metadata.json` pool field to `"experimental"`. Log demotion event.
 
@@ -162,19 +162,19 @@ Applied {N} proposals:
 Experimental pool additions take effect next session (loaded by session-start.sh).
 Promotions/demotions are effective immediately.
 
-To monitor results: /meta-harness:status
+To monitor results: /adaptive-harness:status
 To manually promote experimental harnesses: /harness-registry promote {name}
 ```
 
 ### Step 8: Update Evolution State
 
-After the evolution cycle completes (whether proposals were applied or not), update `.meta-harness/evolution-state.json`:
+After the evolution cycle completes (whether proposals were applied or not), update `.adaptive-harness/evolution-state.json`:
 
 1. Append all newly-processed session IDs (or eval filenames) to `evolved_sessions`
 2. Update `evolution_memory` with per-harness summaries from this evolution run (the evolution manager's `performance_summary` and `no_action_harnesses` fields). This allows future runs to build on accumulated insights.
 
 ```
-Write(".meta-harness/evolution-state.json", {
+Write(".adaptive-harness/evolution-state.json", {
   "evolved_sessions": [...previous_evolved_sessions, ...newly_processed_sessions],
   "evolution_memory": {
     ...previous_evolution_memory,
@@ -193,6 +193,6 @@ Write(".meta-harness/evolution-state.json", {
 ### Notes on Safety
 
 - All content modifications go to the **experimental** pool first. They never directly overwrite stable harnesses.
-- Promotion to stable requires `consecutive_successes ≥ threshold` (configurable in `.meta-harness/config.yaml`).
+- Promotion to stable requires `consecutive_successes ≥ threshold` (configurable in `.adaptive-harness/config.yaml`).
 - Previous harness versions are preserved in git history. To roll back a harness: `git checkout HEAD~1 -- harnesses/{name}/`.
-- Evolution proposals in `.meta-harness/evolution-proposals/` are never auto-deleted. Review them with a text editor anytime.
+- Evolution proposals in `.adaptive-harness/evolution-proposals/` are never auto-deleted. Review them with a text editor anytime.

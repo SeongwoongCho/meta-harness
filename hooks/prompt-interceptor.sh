@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# prompt-interceptor.sh — Reinforce meta-harness routing. Detect pending evaluations.
+# prompt-interceptor.sh — Reinforce adaptive-harness routing. Detect pending evaluations.
 # Only injects routing reminders when pipeline mode is active (auto or run).
 
 # Consume stdin
@@ -33,7 +33,7 @@ if [ "$EVAL_PENDING" = "true" ]; then
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "[meta-harness] WARNING: A harness execution completed but evaluation was NOT run. You MUST spawn the evaluator agent NOW (Step 5 of the pipeline) before handling this new user message. Read .meta-harness/sessions/ for evidence. After evaluation completes, remove .eval-pending and then handle the user's message."
+    "additionalContext": "[adaptive-harness] WARNING: A harness execution completed but evaluation was NOT run. You MUST spawn the evaluator agent NOW (Step 5 of the pipeline) before handling this new user message. Read .adaptive-harness/sessions/ for evidence. After evaluation completes, remove .eval-pending and then handle the user's message."
   }
 }
 EOF
@@ -44,7 +44,7 @@ elif [ "$PIPELINE_MODE" = "auto" ]; then
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "[meta-harness] Route this task through the meta-harness pipeline (using-meta-harness skill) before responding directly."
+    "additionalContext": "[adaptive-harness] Route this task through the adaptive-harness pipeline (using-adaptive-harness skill) before responding directly."
   }
 }
 EOF
@@ -55,7 +55,7 @@ elif [ "$PIPELINE_MODE" = "run" ]; then
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "[meta-harness] One-shot /meta-harness:run is active. Route this task through the pipeline. Pipeline mode will be cleared after completion."
+    "additionalContext": "[adaptive-harness] One-shot /adaptive-harness:run is active. Route this task through the pipeline. Pipeline mode will be cleared after completion."
   }
 }
 EOF

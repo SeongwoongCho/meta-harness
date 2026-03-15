@@ -1,13 +1,13 @@
 ---
 name: task-taxonomy
-description: "Reference for the 6-axis task taxonomy used by meta-harness routing. Use when user asks how tasks are classified."
+description: "Reference for the 6-axis task taxonomy used by adaptive-harness routing. Use when user asks how tasks are classified."
 ---
 
 # Task Taxonomy Reference
 
 ## Purpose
 
-Meta-harness classifies every incoming task on 6 independent axes before routing to a harness. This taxonomy drives the routing decision and ensemble trigger logic. The router agent (LLM-based) reasons over the task description and codebase context to assign values — it does not use keyword heuristics.
+Adaptive-harness classifies every incoming task on 6 independent axes before routing to a harness. This taxonomy drives the routing decision and ensemble trigger logic. The router agent (LLM-based) reasons over the task description and codebase context to assign values — it does not use keyword heuristics.
 
 ---
 
@@ -102,7 +102,7 @@ trigger:
   blast_radius: [repo-wide]
 ```
 
-When multiple harnesses match, the router uses historical weights from `.meta-harness/harness-pool.json` to break ties, preferring higher-weight harnesses.
+When multiple harnesses match, the router uses historical weights from `.adaptive-harness/harness-pool.json` to break ties, preferring higher-weight harnesses.
 
 ---
 
@@ -144,4 +144,4 @@ The following are NOT fast-path (they require actual work):
 
 - The router agent assigns taxonomy values using LLM reasoning — it reads the task description, considers codebase context, and classifies holistically.
 - Classification is logged in every `eval-{timestamp}.json` for retrospective analysis and router accuracy improvement.
-- If you believe the router misclassified your task, use `/meta-harness:run --harness=name` to override the selection.
+- If you believe the router misclassified your task, use `/adaptive-harness:run --harness=name` to override the selection.

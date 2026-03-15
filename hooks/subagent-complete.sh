@@ -23,7 +23,7 @@ cat <<'EOF'
 {
   "hookSpecificOutput": {
     "hookEventName": "SubagentStop",
-    "additionalContext": "[meta-harness] Subagent completed. Pipeline state: EVALUATION PENDING. Continue to Step 5 (evaluate) immediately — do not respond to the user first."
+    "additionalContext": "[adaptive-harness] Subagent completed. Pipeline state: EVALUATION PENDING. Continue to Step 5 (evaluate) immediately — do not respond to the user first."
   }
 }
 EOF

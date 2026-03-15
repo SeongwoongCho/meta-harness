@@ -1,12 +1,12 @@
 {
-  "name": "meta-harness",
+  "name": "adaptive-harness",
   "description": "A self-improving harness router and evaluator for Claude Code — automatically selects, evaluates, and evolves the right harness for your repo",
   "version": "1.0.0",
   "author": {
-    "name": "meta-harness contributors"
+    "name": "adaptive-harness contributors"
   },
-  "repository": "https://github.com/meta-harness/meta-harness",
-  "homepage": "https://github.com/meta-harness/meta-harness",
+  "repository": "https://github.com/adaptive-harness/adaptive-harness",
+  "homepage": "https://github.com/adaptive-harness/adaptive-harness",
   "license": "MIT",
   "keywords": [
     "harness",

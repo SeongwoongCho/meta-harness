@@ -1,9 +1,9 @@
-# Config Schema — defines the structure of .meta-harness/config.yaml
-# Created by meta-harness-init command via interactive Q&A.
+# Config Schema — defines the structure of .adaptive-harness/config.yaml
+# Created by adaptive-harness-init command via interactive Q&A.
 
 config:
   type: object
-  description: "Project-specific meta-harness configuration"
+  description: "Project-specific adaptive-harness configuration"
   properties:
     domain:
       type: string

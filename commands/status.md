@@ -1,39 +1,39 @@
 ---
-description: "Show meta-harness pool state, performance stats, and evolution history"
+description: "Show adaptive-harness pool state, performance stats, and evolution history"
 ---
 
-# meta-harness-status
+# adaptive-harness-status
 
-Display the current state of the meta-harness pool including harness performance statistics, pool membership, recent evaluation history, and pending evolution proposals.
+Display the current state of the adaptive-harness pool including harness performance statistics, pool membership, recent evaluation history, and pending evolution proposals.
 
 ## Execution Steps
 
 ### Step 1: Read Pool State and Pipeline Mode
 
 ```
-Read(".meta-harness/harness-pool.json")
-Read(".meta-harness/config.yaml")
-Bash("cat .meta-harness/.pipeline-mode 2>/dev/null || echo 'off'")
+Read(".adaptive-harness/harness-pool.json")
+Read(".adaptive-harness/config.yaml")
+Bash("cat .adaptive-harness/.pipeline-mode 2>/dev/null || echo 'off'")
 ```
 
-If `.meta-harness/harness-pool.json` does not exist:
+If `.adaptive-harness/harness-pool.json` does not exist:
 ```
-meta-harness has not been initialized for this project.
-Run /meta-harness:init to set up the harness pool.
+adaptive-harness has not been initialized for this project.
+Run /adaptive-harness:init to set up the harness pool.
 ```
 
 ### Step 2: Read Recent Evaluation Logs
 
-Scan `.meta-harness/sessions/` for the most recent 10 evaluation files across all sessions:
+Scan `.adaptive-harness/sessions/` for the most recent 10 evaluation files across all sessions:
 ```
-Glob(".meta-harness/sessions/*/eval-*.json")
+Glob(".adaptive-harness/sessions/*/eval-*.json")
 ```
 
 Read each and extract: harness name, overall score, timestamp, quality gate pass/fail.
 
 Also check for pending evolution proposals:
 ```
-Glob(".meta-harness/evolution-proposals/*.json")
+Glob(".adaptive-harness/evolution-proposals/*.json")
 ```
 
 ### Step 3: Display Status
@@ -42,7 +42,7 @@ Format and display the full status report:
 
 ```
 ═══════════════════════════════════════════════
-  META-HARNESS STATUS
+  ADAPTIVE-HARNESS STATUS
   Project: {domain}
   Pipeline mode: {auto|run|off}
   Pool initialized: {initialized_at}
@@ -71,7 +71,7 @@ RECENT EVALUATIONS (last 10)
   ...
 
 EVOLUTION PROPOSALS
-  {N pending proposals — run /meta-harness:evolve to review}
+  {N pending proposals — run /adaptive-harness:evolve to review}
   OR
   No pending proposals.
 
@@ -80,15 +80,15 @@ CONFIGURATION
   Pipeline mode:       {auto|run|off}
   Ensemble mode:       {auto|always|never}
   Evolution:           {enabled (threshold: N successes) | disabled}
-  Config file:         .meta-harness/config.yaml
+  Config file:         .adaptive-harness/config.yaml
 
 PIPELINE MODE INFO
-  auto  — All tasks auto-routed (using-meta-harness active)
-  run   — One-shot /meta-harness:run in progress
-  off   — No auto-routing (use /meta-harness:run for explicit runs)
+  auto  — All tasks auto-routed (using-adaptive-harness active)
+  run   — One-shot /adaptive-harness:run in progress
+  off   — No auto-routing (use /adaptive-harness:run for explicit runs)
 
-  Toggle: printf 'auto' > .meta-harness/.pipeline-mode   (enable)
-          rm -f .meta-harness/.pipeline-mode              (disable)
+  Toggle: printf 'auto' > .adaptive-harness/.pipeline-mode   (enable)
+          rm -f .adaptive-harness/.pipeline-mode              (disable)
 ```
 
 ### Step 4: Highlight Actionable Items
@@ -109,5 +109,5 @@ After the main display, show any alerts:
 
 **No evaluations yet:**
 ```
-  No evaluation data yet. Run /meta-harness:run <task> to start collecting data.
+  No evaluation data yet. Run /adaptive-harness:run <task> to start collecting data.
 ```

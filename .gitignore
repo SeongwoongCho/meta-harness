@@ -2,7 +2,7 @@
 state/
 
 # Project-specific config
-.meta-harness/
+.adaptive-harness/
 
 # OS
 .DS_Store

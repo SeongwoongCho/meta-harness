@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# session-start.sh — Inject using-meta-harness/SKILL.md as additionalContext.
+# session-start.sh — Inject using-adaptive-harness/SKILL.md as additionalContext.
 
 set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
 PLUGIN_ROOT="$(resolve_plugin_root)"
-SKILL_FILE="${PLUGIN_ROOT}/skills/using-meta-harness/SKILL.md"
+SKILL_FILE="${PLUGIN_ROOT}/skills/using-adaptive-harness/SKILL.md"
 PROJECT_ROOT="$(resolve_project_root)"
 STATE_DIR="$(state_dir)"
 
@@ -41,7 +41,7 @@ for name in sorted(os.listdir(harnesses_dir)):
         }
 with open(pool_file, 'w') as f:
     json.dump(pool, f, indent=2)
-print(f"[meta-harness session-start] Bootstrapped harness-pool.json with {len(pool['stable'])} stable harnesses.", file=sys.stderr)
+print(f"[adaptive-harness session-start] Bootstrapped harness-pool.json with {len(pool['stable'])} stable harnesses.", file=sys.stderr)
 BOOTSTRAP_POOL
   fi
 fi
@@ -251,13 +251,13 @@ if applied:
     with open(pool_file, 'w') as f:
         json.dump(pool, f, indent=2)
     names = [os.path.basename(p) for p in applied]
-    print(f"[meta-harness session-start] Applied {len(applied)} proposals: {', '.join(names)}", file=sys.stderr)
+    print(f"[adaptive-harness session-start] Applied {len(applied)} proposals: {', '.join(names)}", file=sys.stderr)
 APPLY_PROPOSALS
 fi
 
 # --- Pipeline mode check ---
 # Only inject full SKILL.md (auto-mode) if .pipeline-mode is "auto".
-# Otherwise, inject a lightweight message indicating meta-harness is available but not auto-routing.
+# Otherwise, inject a lightweight message indicating adaptive-harness is available but not auto-routing.
 PIPELINE_MODE=""
 MODE_FILE="${STATE_DIR}/.pipeline-mode"
 [ -f "$MODE_FILE" ] && PIPELINE_MODE=$(cat "$MODE_FILE" 2>/dev/null)
@@ -286,7 +286,7 @@ if [ "$PIPELINE_MODE" = "auto" ]; then
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
-    "additionalContext": "[meta-harness] Auto-mode enabled but SKILL.md not found."
+    "additionalContext": "[adaptive-harness] Auto-mode enabled but SKILL.md not found."
   }
 }
 FALLBACK
@@ -305,12 +305,12 @@ FALLBACK
 }
 EOF
 else
-  # No auto-mode: lightweight message, meta-harness available on demand
+  # No auto-mode: lightweight message, adaptive-harness available on demand
   cat <<'EOF'
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
-    "additionalContext": "[meta-harness] Plugin loaded. Auto-mode is OFF. Use /meta-harness:run <task> for one-shot pipeline execution, or enable auto-mode with: printf 'auto' > .meta-harness/.pipeline-mode"
+    "additionalContext": "[adaptive-harness] Plugin loaded. Auto-mode is OFF. Use /adaptive-harness:run <task> for one-shot pipeline execution, or enable auto-mode with: printf 'auto' > .adaptive-harness/.pipeline-mode"
   }
 }
 EOF

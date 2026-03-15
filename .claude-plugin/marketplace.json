@@ -1,21 +1,21 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "meta-harness",
+  "name": "adaptive-harness",
   "description": "Self-improving harness router and evaluator for Claude Code",
   "owner": {
-    "name": "meta-harness contributors"
+    "name": "adaptive-harness contributors"
   },
   "plugins": [
     {
-      "name": "meta-harness",
+      "name": "adaptive-harness",
       "description": "A self-improving harness router and evaluator for Claude Code — automatically selects, evaluates, and evolves the right harness for your repo",
       "version": "1.0.0",
       "author": {
-        "name": "meta-harness contributors"
+        "name": "adaptive-harness contributors"
       },
       "source": "./",
       "category": "productivity",
-      "homepage": "https://github.com/SeongwoongCho/meta-harness",
+      "homepage": "https://github.com/SeongwoongCho/adaptive-harness",
       "tags": [
         "harness",
         "routing",
