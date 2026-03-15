@@ -351,10 +351,14 @@ Task(
 4. Spawn the synthesizer agent with worktree paths so it can read and compare both implementations:
 
 ```
+# Read synthesizer skill BEFORE spawning
+Read("{plugin_root}/agents/synthesizer.md")
+Read("{plugin_root}/harnesses/synthesizer/skill.md")
+
 Task(
   subagent_type="adaptive-harness:synthesizer",
   mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
-  prompt="Merge these parallel harness results into an optimal combined result.\n\nHarness 1 ({harness_1}):\n- Worktree: {worktree_path_1}\n- Branch: {branch_1}\n- Result summary: {result_1}\n\nHarness 2 ({harness_2}):\n- Worktree: {worktree_path_2}\n- Branch: {branch_2}\n- Result summary: {result_2}\n\nRead files from BOTH worktrees to compare implementations. Cherry-pick the best files from each into the main workspace."
+  prompt="{synthesizer_agent.md}\n\n## Workflow\n{synthesizer_skill.md}\n\n## Task\n{task_description}\n\n## Main Workspace\n{main_workspace_path}\n\n## Worktree A: {harness_1}\n- Path: {worktree_path_1}\n- Branch: {branch_1}\n- Summary: {result_1}\n\n## Worktree B: {harness_2}\n- Path: {worktree_path_2}\n- Branch: {branch_2}\n- Summary: {result_2}\n\nFollow the skill.md workflow: Inventory → Merge Plan → Execute → Reconcile → Verify → Report."
 )
 ```
 
@@ -430,33 +434,14 @@ Each worktree agent returns:
 **Spawn the synthesizer IMMEDIATELY after collecting both results:**
 
 ```
+# Read synthesizer skill BEFORE spawning
+Read("{plugin_root}/agents/synthesizer.md")
+Read("{plugin_root}/harnesses/synthesizer/skill.md")
+
 Task(
   subagent_type="adaptive-harness:synthesizer",
   mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
-  prompt="Merge these parallel chain execution results into an optimal combined result.
-
-## Shared Planning Context
-{planning_result}
-
-## Chain A: {execution_harness_1}
-- Worktree path: {worktree_path_1}
-- Branch: {branch_1}
-- Result summary: {result_1}
-
-## Chain B: {execution_harness_2}
-- Worktree path: {worktree_path_2}
-- Branch: {branch_2}
-- Result summary: {result_2}
-
-## Instructions
-1. Read the file trees from BOTH worktrees to understand what each chain produced.
-2. Compare implementations file-by-file: which chain produced better code for each file?
-3. Apply best-of-breed merge: cherry-pick the best files from each worktree into the main workspace.
-   - For files that exist in both: compare quality and pick the better one.
-   - For files that exist in only one: include them (they represent that chain's unique contribution).
-   - For conflicting architectural decisions: prefer the more production-ready approach.
-4. After merging, run the test suite to verify the combined result works.
-5. The final merged code must live in the MAIN workspace (not in either worktree)."
+  prompt="{synthesizer_agent.md}\n\n## Workflow\n{synthesizer_skill.md}\n\n## Task\n{task_description}\n\n## Main Workspace\n{main_workspace_path}\n\n## Shared Planning Context\n{planning_result}\n\n## Worktree A: {execution_harness_1}\n- Path: {worktree_path_1}\n- Branch: {branch_1}\n- Summary: {result_1}\n\n## Worktree B: {execution_harness_2}\n- Path: {worktree_path_2}\n- Branch: {branch_2}\n- Summary: {result_2}\n\nFollow the skill.md workflow: Inventory → Merge Plan → Execute → Reconcile → Verify → Report."
 )
 ```
 
