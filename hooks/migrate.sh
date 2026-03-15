@@ -39,7 +39,7 @@ PLUGIN_JSON="${PLUGIN_ROOT}/.claude-plugin/plugin.json"
 if [ -n "${ADAPTIVE_HARNESS_PLUGIN_VERSION:-}" ]; then
   PLUGIN_VERSION="${ADAPTIVE_HARNESS_PLUGIN_VERSION}"
 elif [ -f "$PLUGIN_JSON" ]; then
-  PLUGIN_VERSION=$(python3 -c "import json,sys; d=json.load(open('${PLUGIN_JSON}')); print(d.get('version','1.0.0'))" 2>/dev/null || echo "1.0.0")
+  PLUGIN_VERSION=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('version','1.0.0'))" "$PLUGIN_JSON" 2>/dev/null || echo "1.0.0")
 else
   PLUGIN_VERSION="1.0.0"
 fi

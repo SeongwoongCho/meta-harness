@@ -52,12 +52,23 @@ MIGRATE_SCRIPT="$(dirname "${BASH_SOURCE[0]:-$0}")/migrate.sh"
 if [ -f "$MIGRATE_SCRIPT" ] && [ "${ADAPTIVE_HARNESS_SKIP_MIGRATION:-}" != "1" ]; then
   MIGRATE_OUT=$(bash "$MIGRATE_SCRIPT" 2>/dev/null || echo "")
   if [ -n "$MIGRATE_OUT" ]; then
-    MIGRATE_STATUS=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('status',''))" "$MIGRATE_OUT" 2>/dev/null || echo "")
-    if [ "$MIGRATE_STATUS" = "migrated" ]; then
-      HARNESSES_ADDED=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); h=d.get('harnesses_added',[]); print(', '.join(h) if h else 'none')" "$MIGRATE_OUT" 2>/dev/null || echo "")
-      FROM_VER=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('from_version','?'))" "$MIGRATE_OUT" 2>/dev/null || echo "?")
-      TO_VER=$(python3 -c "import json,sys; d=json.loads(sys.argv[1]); print(d.get('to_version','?'))" "$MIGRATE_OUT" 2>/dev/null || echo "?")
-      MIGRATE_NOTICE="[adaptive-harness] Auto-migration complete: ${FROM_VER} → ${TO_VER}. New harnesses added: ${HARNESSES_ADDED}. "
+    PARSED=$(python3 -c "
+import json,sys
+d=json.loads(sys.argv[1])
+print(d.get('status',''))
+print(d.get('from_version','?'))
+print(d.get('to_version','?'))
+h=d.get('harnesses_added',[])
+print(', '.join(h) if h else 'none')
+" "$MIGRATE_OUT" 2>/dev/null || echo "")
+    if [ -n "$PARSED" ]; then
+      MIGRATE_STATUS=$(echo "$PARSED" | sed -n '1p')
+      if [ "$MIGRATE_STATUS" = "migrated" ]; then
+        FROM_VER=$(echo "$PARSED" | sed -n '2p')
+        TO_VER=$(echo "$PARSED" | sed -n '3p')
+        HARNESSES_ADDED=$(echo "$PARSED" | sed -n '4p')
+        MIGRATE_NOTICE="[adaptive-harness] Auto-migration complete: ${FROM_VER} → ${TO_VER}. New harnesses added: ${HARNESSES_ADDED}. "
+      fi
     fi
   fi
 fi
