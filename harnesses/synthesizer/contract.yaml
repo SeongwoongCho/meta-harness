@@ -1,0 +1,61 @@
+name: synthesizer
+version: "1.0.0"
+pool: stable
+
+trigger:
+  notes: "Not triggered by the router. Spawned by the orchestrator during ensemble execution (Step 4c) after all execution harnesses complete."
+
+workflow:
+  - "Phase 1: Inventory — list and categorize all files from each worktree into layers"
+  - "Phase 1: Build comparison matrix — read both versions of shared files, assign winner per file"
+  - "Phase 2: Create explicit merge plan table before writing anything"
+  - "Phase 3: Write infrastructure files (Dockerfile, compose, Grafana) from winning worktree"
+  - "Phase 3: Write merged configuration files (union of dependencies)"
+  - "Phase 3: Write source code files (winner or merged per-file)"
+  - "Phase 3: Write test files (prefer higher coverage worktree)"
+  - "Phase 4: Fix import conflicts across merged codebase"
+  - "Phase 4: Resolve architectural conflicts (framework choices, patterns)"
+  - "Phase 5: Install dependencies and run test suite"
+  - "Phase 5: Run coverage check and verify infrastructure files"
+  - "Phase 6: Output synthesis report with provenance tracking"
+
+tool_policy:
+  allowed:
+    - Read
+    - Write
+    - Edit
+    - Bash
+    - Grep
+    - Glob
+  denied:
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "Read is used extensively — must read files from BOTH worktrees before making merge decisions"
+    - "Write is used to create merged files in the main workspace"
+    - "Bash is used for running tests, installing dependencies, and listing worktree contents"
+    - "Never modify files inside worktrees — they are read-only references"
+
+stopping_criteria:
+  - condition: all_files_merged
+    description: "All files from the merge plan have been written to the main workspace"
+  - condition: tests_pass
+    description: "Test suite passes in the main workspace (or failures documented after 3 fix attempts)"
+  - condition: report_written
+    description: "Synthesis report output with provenance, test results, and merge plan"
+
+cost_budget:
+  max_tokens: 600000
+  max_time_minutes: 30
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "worktree_not_found"
+    description: "One or more worktree paths do not exist or are empty"
+    action: report_partial
+  - condition: "tests_fail_after_3_attempts"
+    description: "Merged codebase fails tests after 3 fix-and-retry cycles"
+    action: report_partial
+  - condition: "irreconcilable_conflict"
+    description: "Architectural conflict that cannot be resolved without user input"
+    action: escalate_to_user
