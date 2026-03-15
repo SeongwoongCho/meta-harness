@@ -221,7 +221,7 @@ Follow this process:
 </selection_algorithm>
 
 <output_format>
-Output ONLY valid JSON. No preamble, no explanation outside the JSON.
+Output the routing JSON, then ALWAYS append the `## NEXT_ACTION` section below it. The orchestrator depends on this section to know what to do immediately after routing.
 
 For a standard routing decision:
 ```json
@@ -334,6 +334,56 @@ For trivial follow-up (fast-path):
 ```json
 {"skip_routing": true}
 ```
+
+**After the JSON, ALWAYS append a `## NEXT_ACTION` section.** This tells the orchestrator exactly what to do next. The orchestrator will read this and execute it immediately.
+
+For single harness:
+```
+## NEXT_ACTION
+ACTION: SINGLE_HARNESS
+HARNESS: tdd-driven
+STEPS:
+1. Read({plugin_root}/agents/tdd-driven.md)
+2. Read({plugin_root}/harnesses/tdd-driven/skill.md)
+3. Agent(subagent_type="adaptive-harness:tdd-driven", mode=agent_mode, prompt=agent.md + skill.md + task)
+4. Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt=score result)
+```
+
+For chain (no ensemble):
+```
+## NEXT_ACTION
+ACTION: CHAIN
+CHAIN: ["ralplan-consensus", "tdd-driven"]
+STEPS:
+1. Read + spawn ralplan-consensus → get planning_result
+2. Read + spawn tdd-driven with planning_result as context
+3. Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt=score result)
+```
+
+For chain ensemble:
+```
+## NEXT_ACTION
+ACTION: CHAIN_ENSEMBLE
+SHARED_PLANNING: ralplan-consensus
+EXECUTION_HARNESSES: ["system-design", "tdd-driven"]
+STEPS:
+1. Bash(git init if needed)
+2. Read + spawn ralplan-consensus → get planning_result
+3. Bash(git add -A && git commit -m 'planning artifacts')
+4. Read + spawn system-design with isolation="worktree" AND tdd-driven with isolation="worktree" (PARALLEL)
+5. Read({plugin_root}/agents/synthesizer.md) + Read({plugin_root}/harnesses/synthesizer/skill.md)
+6. Agent(subagent_type="adaptive-harness:synthesizer", mode=agent_mode, prompt=synthesizer.md + skill.md + worktree paths)
+7. Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt=score result)
+```
+
+For skip_routing:
+```
+## NEXT_ACTION
+ACTION: FAST_PATH
+STEPS:
+1. Execute the task directly (no harness subagent needed)
+2. Write lightweight eval JSON to .adaptive-harness/sessions/
+```
 </output_format>
 
 <instructions>
@@ -343,5 +393,5 @@ For trivial follow-up (fast-path):
 - `reasoning` must explain WHY this harness was chosen, not just what it does.
 - `candidate_scores` must include all harnesses seriously considered (score range 0.0-1.0).
 - If the task description is ambiguous, classify conservatively: prefer lower uncertainty, choose tdd-driven for general code tasks.
-- Output ONLY the JSON object. No markdown code fences, no surrounding text.
+- **ALWAYS include the `## NEXT_ACTION` section after the JSON.** This is mandatory. The orchestrator depends on it to proceed without stalling.
 </instructions>

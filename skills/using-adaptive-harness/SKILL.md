@@ -50,7 +50,7 @@ Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt="Score
 # 5. REPORT to user
 ```
 
-**⚠ After the router returns, your VERY NEXT tool call must be one of: Bash (git init), Read (harness files), or Agent (harness/synthesizer/evaluator). If your next action is text output to the user, you are violating the protocol.**
+**⚠ After the router returns, look for the `## NEXT_ACTION` section in the router's output. It contains the exact steps to execute next. Follow those steps IMMEDIATELY — your VERY NEXT tool call must be one of: Bash (git init), Read (harness files), or Agent (harness/synthesizer/evaluator). If your next action is text output to the user, you are violating the protocol.**
 
 ---
 
