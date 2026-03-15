@@ -9,6 +9,10 @@ trigger:
     - high
   blast_radius:
     - "*"
+  verifiability:
+    - easy
+    - moderate
+    - hard
   latency_sensitivity: any
   domains:
     - "*"

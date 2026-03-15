@@ -12,6 +12,9 @@ trigger:
   blast_radius:
     - local
     - cross-module
+  verifiability:
+    - easy
+    - moderate
   latency_sensitivity: any
   domains:
     - docs

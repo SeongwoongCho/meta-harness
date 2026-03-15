@@ -13,6 +13,9 @@ trigger:
     - local
     - cross-module
     - repo-wide
+  verifiability:
+    - moderate
+    - hard
   latency_sensitivity: any
   domains:
     - backend
