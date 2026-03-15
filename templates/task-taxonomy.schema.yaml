@@ -8,7 +8,7 @@ task_taxonomy:
   properties:
     task_type:
       type: string
-      enum: [bugfix, feature, refactor, research, migration, incident, benchmark]
+      enum: [bugfix, feature, refactor, research, migration, incident, benchmark, greenfield]
       description: "Primary work category"
 
     uncertainty:

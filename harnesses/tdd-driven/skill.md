@@ -54,7 +54,25 @@ Execute changes using strict red-green-refactor cycles. Every behavior is specif
    - Grep modified files for debug artifacts: `console.log`, `debugger`, `TODO`, `HACK`, `FIXME`
    - Remove any found artifacts
 
-10. **Report**
+10. **Scope expansion verification**
+    - Re-read the original task description
+    - Extract all keywords representing distinct deliverables, features, or components
+    - For each keyword, verify that a corresponding implementation exists:
+      - If a deliverable is missing entirely: flag it as a scope gap
+      - If a deliverable is stubbed but not fully implemented: flag it as incomplete
+    - Common scope gaps to check for:
+      - Infrastructure artifacts (Dockerfile, docker-compose) if the task mentions deployment
+      - External service integrations that were mocked but never implemented for real
+      - API endpoints that were designed but not exposed
+      - Async/background processing if the task mentions long-running operations
+      - Configuration management (.env, settings) if multiple environments are implied
+    - If scope gaps are found:
+      - Implement missing deliverables if they are within the task's requirements
+      - Run tests after each addition to maintain green state
+      - If implementation would exceed budget, document the gaps clearly in the report
+
+11. **Report**
     - List all tests written (names and behaviors covered)
     - State final coverage percentage for modified modules
     - Note any behaviors deferred or not implemented (with reason)
+    - **Scope verification results:** List each task keyword and whether it was implemented, stubbed, or missing

@@ -132,6 +132,68 @@ Always use these fixed 6 dimensions and weights:
 Compute: `overall_score = sum(dimension_score * dimension_weight)`
 </weighted_score_computation>
 
+<product_completeness_checklist>
+When scoring `completeness`, go beyond "did the code work?" and evaluate **product-level completeness** based on the task type. Use the appropriate checklist below as a scoring guide — each unchecked item reduces the completeness score.
+
+**For greenfield / multi-component system tasks:**
+- [ ] All components mentioned in the task description are implemented (not stubbed)
+- [ ] External service integrations work end-to-end (not mock-only)
+- [ ] Async/long-running operations are handled appropriately (task queue, background workers, etc.)
+- [ ] Infrastructure is deployable (Dockerfile and/or docker-compose present and functional)
+- [ ] Configuration is externalized (.env or config files, not hardcoded secrets)
+- [ ] API endpoints are programmatically accessible (not just UI/dashboard)
+- [ ] A basic health check or smoke test verifies the system runs
+- Scoring: 8/8 checked = 1.0, 6/8 = 0.75, 4/8 = 0.5, <4 = 0.25
+
+**For feature additions to existing codebases:**
+- [ ] Feature integrates with existing code patterns (no parallel universe)
+- [ ] Existing tests still pass (no regressions)
+- [ ] New tests cover the feature's primary use cases
+- [ ] Feature is accessible via the existing API/UI surface
+- [ ] Documentation updated if the feature changes public interfaces
+- Scoring: 5/5 checked = 1.0, 4/5 = 0.8, 3/5 = 0.6, <3 = 0.3
+
+**For bugfix tasks:**
+- [ ] Root cause identified and fixed (not just symptom suppressed)
+- [ ] Regression test added that would have caught the bug
+- [ ] Fix is minimal (no unrelated changes bundled)
+- Scoring: 3/3 checked = 1.0, 2/3 = 0.7, 1/3 = 0.4
+
+**For refactor tasks:**
+- [ ] Behavior is preserved (existing tests pass without modification)
+- [ ] Code metrics improved (complexity, duplication, coupling)
+- [ ] No new dependencies introduced unnecessarily
+- Scoring: 3/3 checked = 1.0, 2/3 = 0.7, 1/3 = 0.4
+
+Always include the checklist results in `scoring_notes` to make the completeness score transparent and reproducible.
+</product_completeness_checklist>
+
+<baseline_expectations>
+When scoring, compare against **expected quality for the task's complexity level**. An absolute score of 0.85 means different things for a one-line bugfix vs. a greenfield multi-service system. Use these baselines to calibrate expectations:
+
+**Greenfield multi-component system (3+ services/components):**
+Expected deliverables: Dockerfile, docker-compose, async worker (if long-running ops), API docs or query endpoints, external service integration (not stubs), structured logging, 70%+ test coverage, environment config (.env.example)
+→ Missing 3+ of these = completeness ≤ 0.6 regardless of code quality
+
+**Single-module feature addition:**
+Expected deliverables: implementation + tests + integration with existing patterns
+→ Missing tests = completeness ≤ 0.7
+
+**Bugfix:**
+Expected deliverables: fix + regression test
+→ Missing regression test = completeness ≤ 0.8
+
+**Refactor:**
+Expected deliverables: refactored code + all existing tests passing + measurable improvement
+→ No measurable improvement = completeness ≤ 0.6
+
+**Research/analysis:**
+Expected deliverables: findings + evidence + methodology + reproducibility
+→ No reproducibility = completeness ≤ 0.5
+
+These baselines prevent inflated completeness scores when critical deliverables are missing. Always note which baseline was applied in `scoring_notes`.
+</baseline_expectations>
+
 <improvement_suggestions>
 Generate 1-5 concrete, actionable improvement suggestions. Each suggestion must:
 - Reference a specific dimension that scored below 0.8

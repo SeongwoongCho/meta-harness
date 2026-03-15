@@ -1,0 +1,55 @@
+name: system-architecture
+category: deliberative
+description: >
+  Design and implement multi-component systems from scratch. Combines
+  architectural decision-making (ADRs), infrastructure setup (Docker,
+  compose), component-by-component implementation in dependency order,
+  and integration verification across the full system pipeline.
+
+structure:
+  phases:
+    - name: architecture-decisions
+      description: "Technology choices, service decomposition, communication patterns"
+    - name: skeleton
+      description: "Project structure, dependencies, Docker, config — runnable empty shell"
+    - name: models-and-interfaces
+      description: "Data schemas, API contracts, message formats with validation tests"
+    - name: component-implementation
+      description: "Build each component in dependency order with unit tests"
+    - name: infrastructure
+      description: "Finalize Dockerfiles, compose, provisioning, health checks"
+    - name: integration-verification
+      description: "End-to-end smoke test across all components"
+    - name: resilience
+      description: "Async patterns, retry logic, graceful degradation"
+    - name: security-ops
+      description: "Secrets management, logging, input validation"
+  control_flow: "architecture-decisions → skeleton → models-and-interfaces → component-implementation → infrastructure → integration-verification → resilience → security-ops"
+
+strengths:
+  - Produces deployable, production-ready multi-component systems
+  - Architecture decisions are explicit and documented (ADRs)
+  - Components built in dependency order prevents integration surprises
+  - Infrastructure (Docker) is first-class, not an afterthought
+  - Integration verification catches cross-component issues early
+  - Async patterns and security are built in, not bolted on
+
+weaknesses:
+  - Overkill for single-module tasks or simple features
+  - Higher token cost due to comprehensive coverage
+  - Requires the agent to make technology choices (may not match user preferences)
+  - Infrastructure focus may be unnecessary for prototypes
+  - Longer execution time than rapid-prototype or tdd-driven
+
+failure_signatures:
+  - "System works in unit tests but fails in integration — components make incompatible assumptions"
+  - "Docker setup fails — ports conflict, env vars missing, service dependencies not ready"
+  - "Async worker not properly configured — tasks queued but never processed"
+  - "External service integration breaks in production — only tested with mocks"
+
+best_for:
+  uncertainty: [high]
+  task_types: [feature, greenfield]
+  blast_radius: [repo-wide]
+
+existing_harness: system-design
