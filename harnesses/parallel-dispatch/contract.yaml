@@ -1,0 +1,83 @@
+name: parallel-dispatch
+version: "1.0.0"
+pool: stable
+
+trigger:
+  task_types:
+    - feature
+    - refactor
+  uncertainty:
+    - low
+    - medium
+  blast_radius:
+    - cross-module
+    - repo-wide
+  verifiability:
+    - easy
+    - moderate
+  latency_sensitivity: any
+  domains:
+    - "*"
+  decomposable: true
+  notes: >
+    Use when a feature or refactor touches multiple independent modules and
+    can be split into 2–5 non-overlapping sub-tasks. This harness only
+    decomposes — it does NOT implement anything. The orchestrator fans out the
+    resulting sub-tasks in parallel worktrees.
+    Distinct from ensemble: ensemble runs the same task through different
+    harnesses; parallel-dispatch runs different sub-tasks (potentially
+    through the same harness).
+
+workflow:
+  - "Analyze full scope: read all relevant files, map dependencies"
+  - "Decompose into 2–5 independent sub-tasks with explicit interface contracts and non-overlapping scope_files"
+  - "Identify integration requirements: merge order, conflict zones, integration test plan"
+  - "Emit structured decomposition JSON for orchestrator fan-out"
+
+tool_policy:
+  allowed:
+    - Read
+    - Grep
+    - Glob
+    - Bash
+  denied:
+    - Write
+    - Edit
+    - WebFetch
+    - WebSearch
+  restrictions:
+    - "This harness is READ-ONLY. It may not write or edit source files."
+    - "Bash is restricted to read-only commands: ls, find, git log, git diff, wc, etc."
+    - "No implementation work — decompose only."
+
+stopping_criteria:
+  - condition: decomposition_json_emitted
+    description: "A valid parallel_dispatch JSON with 2–5 sub-tasks is output"
+  - condition: fallback_emitted
+    description: "If task cannot be split, fallback_to_single=true is set in the JSON"
+
+verification_steps:
+  - "Verify scope_files do not overlap between sub-tasks"
+  - "Verify each sub-task has a valid harness name that exists in the pool"
+  - "Verify sub-task count is between 1 and 5"
+  - "Verify integration.integration_order lists all sub-task IDs"
+
+cost_budget:
+  max_tokens: 100000
+  max_time_minutes: 10
+  max_parallel_agents: 1
+
+failure_modes:
+  - condition: "task_not_decomposable"
+    description: "All changes are tightly coupled — no independent sub-tasks can be defined"
+    action: fallback
+    fallback_harness: tdd-driven
+  - condition: "scope_overlap_detected"
+    description: "Sub-tasks share files and cannot be safely parallelized"
+    action: escalate_to_user
+  - condition: "subtask_count_exceeded"
+    description: "Task requires more than 5 sub-tasks to decompose correctly"
+    action: escalate_to_user
+  - condition: "budget_reached"
+    description: "Token budget consumed before decomposition is complete"
+    action: escalate_to_user

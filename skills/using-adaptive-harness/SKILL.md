@@ -197,6 +197,16 @@ The router returns structured JSON. Parse it and **immediately branch** to the c
 ```
 response = parse_router_json(router_result)
 
+# EARLY EVALUATOR MODEL SELECTION — determine now, reuse in Step 5.
+# Computing this immediately after the router returns means the taxonomy is fresh
+# and the decision is available without re-examining the response later.
+if (response.taxonomy.task_type in ["bugfix", "feature"]
+        and response.taxonomy.uncertainty in ["low", "medium"]
+        and response.taxonomy.blast_radius == "local"):
+    evaluator_model = "sonnet"
+else:
+    evaluator_model = "opus"
+
 if response.skip_routing:
     → Step 4a (Fast-Path)
 elif response.ensemble_chains:
@@ -205,6 +215,8 @@ elif response.ensemble_chains:
 elif response.ensemble_required and response.ensemble_harnesses:
     → Step 4c Mode 1 (Simple Ensemble with WORKTREE ISOLATION)
     # ⚠ MANDATORY: each harness MUST use isolation="worktree"
+elif response.selected_harness == "parallel-dispatch":
+    → Step 4d (Parallel-Dispatch Fan-Out)
 elif response.harness_chain and len(response.harness_chain) > 1:
     → Step 3.5 (Sequential Chain)
 else:
@@ -261,8 +273,10 @@ chain_context = ""
 for index, harness in enumerate(harness_chain):
   chain_position = f"step {index+1} of {len(harness_chain)}"
 
+  # PARALLEL READ — read agent.md AND skill.md in the same tool-call batch (they are independent).
   Read("{{PLUGIN_ROOT}}/agents/{harness}.md")
   Read("{{PLUGIN_ROOT}}/harnesses/{harness}/skill.md")
+  # Both reads execute concurrently; wait for both before spawning the Task().
 
   result = Task(
     subagent_type="adaptive-harness:{harness}",
@@ -271,6 +285,15 @@ for index, harness in enumerate(harness_chain):
   )
 
   chain_context += f"\n\n### Result from {harness} ({chain_position}):\n{result}"
+
+  # PREFETCH — after spawning step N's Task(), immediately read files for step N+1
+  # in the same response turn (while step N is executing). This hides file-read latency.
+  next_index = index + 1
+  if next_index < len(harness_chain):
+    next_harness = harness_chain[next_index]
+    Read("{{PLUGIN_ROOT}}/agents/{next_harness}.md")
+    Read("{{PLUGIN_ROOT}}/harnesses/{next_harness}/skill.md")
+  # When the current Task() returns, files for the next step are already available.
 ```
 
 Key rules for chaining:
@@ -350,10 +373,17 @@ This ensures every task leaves an audit trail. Fast-path evals do NOT update har
        agent_path = f"{plugin_root}/agents/{selected_harness}.md"
    ```
 
-2. Read the harness files:
+2. Read the harness files **in a single parallel tool-call batch** (issue both Read() calls in the same response turn — do NOT read one, wait, then read the other):
    - `{agent_path}` — agent persona + instructions (from `agents/` for stable, from experimental dir for experimental)
    - `{harness_dir}/skill.md` — workflow steps
    - `{harness_dir}/contract.yaml` — execution contract (from stable dir as fallback if missing in experimental)
+
+   ```
+   # PARALLEL READ — issue both in the same tool-call batch
+   Read("{agent_path}")          # agent persona
+   Read("{harness_dir}/skill.md")  # workflow steps
+   # Both reads execute concurrently; wait for both before spawning the subagent
+   ```
 
 3. **MANDATORY: Spawn a subagent.** Do NOT read the harness instructions and follow them yourself in the main context. You MUST use the Task() tool to spawn a subagent. This is required because:
    - The SubagentStop hook fires only when a subagent completes (triggers evidence collection)
@@ -399,12 +429,23 @@ For tasks that don't need a planning step — just run 2+ harnesses in parallel 
 
 1. Identify 2-3 candidate harnesses from the pool (router provides them as `ensemble_harnesses: [...]`).
 
-2. Spawn all harness subagents in **parallel with worktree isolation**:
+2. Read ALL harness file pairs in parallel, then spawn all harness subagents in **a single tool-call batch with worktree isolation**:
 
 ```
 # Mark ensemble as in progress — prevents premature .eval-pending and turn-breaking hook messages
 Bash("printf 'ensemble' > .adaptive-harness/.chain-in-progress")
 
+# STEP A — PARALLEL READ: Issue ALL Read() calls in ONE tool-call batch.
+# Read every harness file pair concurrently before spawning any Task().
+Read("{plugin_root}/agents/{harness_1}.md")
+Read("{plugin_root}/harnesses/{harness_1}/skill.md")
+Read("{plugin_root}/agents/{harness_2}.md")
+Read("{plugin_root}/harnesses/{harness_2}/skill.md")
+# Wait for ALL reads to complete before proceeding.
+
+# STEP B — PARALLEL SPAWN: Issue ALL Task() calls in ONE tool-call batch.
+# Claude Code executes tool calls within the same batch concurrently.
+# Do NOT issue them in separate response turns — that would serialize execution.
 # Each harness gets its own isolated worktree copy of the repository.
 # This prevents harnesses from overwriting each other's files.
 Task(
@@ -419,6 +460,7 @@ Task(
   isolation="worktree",
   prompt="..."
 )
+# Both Task() calls are in the SAME batch — they run concurrently, not sequentially.
 ```
 
 3. Collect all results. Each result includes the worktree path and branch where the harness wrote its code.
@@ -431,7 +473,8 @@ Task(
 4. Spawn the synthesizer agent with worktree paths so it can read and compare both implementations:
 
 ```
-# Read synthesizer skill BEFORE spawning
+# PARALLEL READ — read ALL harness file pairs in a single tool-call batch BEFORE spawning any subagent.
+# Issue both Read() calls in the same response turn so they execute concurrently.
 Read("{plugin_root}/agents/synthesizer.md")
 Read("{plugin_root}/harnesses/synthesizer/skill.md")
 
@@ -472,8 +515,10 @@ The router provides:
 # Mark ensemble chain as in progress — prevents premature .eval-pending and turn-breaking hook messages
 Bash("printf 'ensemble' > .adaptive-harness/.chain-in-progress")
 
+# PARALLEL READ — read planning harness files in a single tool-call batch.
 Read("{plugin_root}/agents/{shared_planning_harness}.md")
 Read("{plugin_root}/harnesses/{shared_planning_harness}/skill.md")
+# Both reads in the SAME response turn — execute concurrently.
 
 planning_result = Task(
   subagent_type="adaptive-harness:{shared_planning_harness}",
@@ -509,16 +554,24 @@ if not sub_chains:
     Bash("rm -f .adaptive-harness/.chain-in-progress")
     → proceed to Step 5 (evaluation) with planning_result as the result
 
-# Spawn ALL worktree branches in parallel — EACH SUB-CHAIN IN ITS OWN WORKTREE.
-# This is critical: without isolation, the second branch overwrites the first's files,
-# and the synthesizer cannot compare independent implementations.
+# PARALLEL SPAWN — Issue ALL harness Task() calls in ONE tool-call batch.
+# Claude Code executes tool calls within the same batch concurrently.
+# Do NOT issue Task() calls for sub_chains[0] and sub_chains[1] in separate response turns —
+# that would serialize what must be parallel fan-out.
 # Within each worktree, execute the sub-chain steps SEQUENTIALLY (not in parallel).
+#
+# PARALLEL READ BEFORE SPAWN — Read ALL harness file pairs in one batch before spawning.
+# For each sub-chain, read agent.md + skill.md for ALL harnesses up front.
+for sub_chain in sub_chains:
+  for harness in sub_chain:
+    Read("{plugin_root}/agents/{harness}.md")
+    Read("{plugin_root}/harnesses/{harness}/skill.md")
+# All reads above are issued in the SAME tool-call batch — they execute concurrently.
+
+# Now fan out all sub-chains in parallel — ALL Task() calls in ONE tool-call batch:
 for sub_chain in sub_chains:
   worktree_chain_context = planning_result
   for index, harness in enumerate(sub_chain):
-    Read("{plugin_root}/agents/{harness}.md")
-    Read("{plugin_root}/harnesses/{harness}/skill.md")
-
     Task(
       subagent_type="adaptive-harness:{harness}",
       mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
@@ -540,9 +593,10 @@ Each worktree agent returns:
 **Spawn the synthesizer IMMEDIATELY after collecting both results:**
 
 ```
-# Read synthesizer skill BEFORE spawning
+# PARALLEL READ — read synthesizer files in a single tool-call batch BEFORE spawning.
 Read("{plugin_root}/agents/synthesizer.md")
 Read("{plugin_root}/harnesses/synthesizer/skill.md")
+# Both reads in the SAME response turn — they execute concurrently.
 
 Task(
   subagent_type="adaptive-harness:synthesizer",
@@ -568,19 +622,112 @@ Bash("rm -f .adaptive-harness/.chain-in-progress")
 
 **⚠ PIPELINE CONTINUITY: The full ensemble flow (plan → fan-out → synthesize → evaluate) must execute as ONE unbroken sequence. After execution harnesses return, IMMEDIATELY spawn the synthesizer. After the synthesizer returns, remove `.chain-in-progress`, then IMMEDIATELY spawn the evaluator. Never pause, never respond to the user, never output intermediate text between these steps.**
 
+### Step 4d: Parallel-Dispatch Fan-Out (selected_harness = "parallel-dispatch")
+
+Triggered when the router sets `selected_harness: "parallel-dispatch"`. This path:
+1. Spawns the parallel-dispatch agent to decompose the task
+2. Fans out each sub-task in a separate worktree (capped at 5)
+3. Merges results via the synthesizer
+
+#### Ensemble Pre-Check
+
+Before starting, verify the working directory is a git repository (same check as Step 4c). Initialize git if not already present.
+
+#### Sub-step 1: Spawn the decomposition agent
+
+```
+# PARALLEL READ: load agent.md and skill.md in one batch
+Read("{plugin_root}/agents/parallel-dispatch.md")
+Read("{plugin_root}/harnesses/parallel-dispatch/skill.md")
+
+decomposition_result = Task(
+  subagent_type="adaptive-harness:parallel-dispatch",
+  mode=agent_mode,
+  prompt="{parallel-dispatch agent.md}\n\n## Workflow\n{parallel-dispatch skill.md}\n\n## Task\n{task_description}\n\n## Session ID\n{session_id}"
+)
+
+decomposition = parse_json(decomposition_result)
+```
+
+Parse the `parallel_dispatch` JSON from the agent's output.
+
+If `decomposition.fallback_to_single == true`, abort this path and route to Step 4b using the next best harness from the router's `candidate_scores`.
+
+#### Sub-step 2: Validate and cap sub-tasks
+
+```
+subtasks = decomposition.subtasks
+if len(subtasks) > 5:
+    # Hard cap: take the 5 with highest estimated_complexity (most valuable to parallelize)
+    subtasks = sort_by_complexity_desc(subtasks)[:5]
+if len(subtasks) < 2:
+    # Cannot parallelize — fall back to single harness
+    → Step 4b using first subtask's harness
+```
+
+#### Sub-step 3: Prefetch all sub-task harness files in parallel, then fan out
+
+```
+# PARALLEL READ: issue ALL Read() calls for ALL sub-task harnesses in a SINGLE
+# tool-call batch before spawning any Task().
+for subtask in subtasks:
+  Read("{plugin_root}/agents/{subtask.harness}.md")          # ← ALL in one batch
+  Read("{plugin_root}/harnesses/{subtask.harness}/skill.md") # ← ALL in one batch
+
+# PARALLEL DISPATCH: Issue ALL Task() calls in a SINGLE tool-call batch.
+# Each sub-task runs in its own worktree.
+subtask_results = []
+for subtask in subtasks:
+  result = Task(
+    subagent_type="adaptive-harness:{subtask.harness}",
+    mode=agent_mode,
+    isolation="worktree",  # MANDATORY — each sub-task gets its own worktree
+    prompt="{subtask.harness agent.md}\n\n## Workflow\n{subtask.harness skill.md}\n\n## Task\n{subtask.description}\n\n## Scope\n{subtask.scope_files}\n\n## Interface Contract (inputs)\n{subtask.inputs}\n\n## Interface Contract (outputs)\n{subtask.outputs}\n\n## Original Task Context\n{task_description}\n\n## Session ID\n{session_id}"
+  )
+  subtask_results.append({subtask.id: result})
+```
+
+#### Sub-step 4: Synthesize
+
+After all sub-task worktrees complete, read synthesizer files and spawn the synthesizer with the integration plan:
+
+```
+Read("{plugin_root}/agents/synthesizer.md")
+Read("{plugin_root}/harnesses/synthesizer/skill.md")
+
+Task(
+  subagent_type="adaptive-harness:synthesizer",
+  mode=agent_mode,
+  prompt="{synthesizer agent.md}\n\n## Workflow\n{synthesizer skill.md}\n\n## Task\n{task_description}\n\n## Main Workspace\n{main_workspace_path}\n\n## Integration Plan\n{decomposition.integration}\n\n## Sub-Task Results\n{subtask_results_with_worktree_paths}\n\nFollow the skill.md workflow: Inventory → Merge Plan → Execute → Reconcile → Verify → Report."
+)
+```
+
+Then proceed immediately to Step 5 (evaluation).
+
+---
+
 ### Step 5: Collect Evidence and Evaluate (MANDATORY — do not skip)
 
 After subagent completion (detected when the subagent's Task() call returns):
 
 **⚠ IMPORTANT**: Execute this step IMMEDIATELY when the harness subagent Task() returns. Do NOT respond to the user first. Do NOT follow other plugin hooks first. The evaluation is a mandatory part of the pipeline, not an optional follow-up.
 
-1. Read evidence files from `.adaptive-harness/sessions/{session_id}/evidence/` — these are populated by the `collect-evidence.sh` PostToolUse hook during subagent execution.
+1. Read ALL evidence files from `.adaptive-harness/sessions/{session_id}/evidence/` in a **single parallel tool-call batch** — issue all Read() calls in the same response turn so they execute concurrently. These files are populated by the `collect-evidence.sh` PostToolUse hook during subagent execution.
 
-2. Determine evaluator model based on task complexity:
-   - **Sonnet**: task_type in [bugfix, feature] AND uncertainty in [low, medium] AND blast_radius = local
-   - **Opus**: everything else
+   ```
+   # PARALLEL READ — list evidence dir, then read all files in one batch
+   evidence_files = Glob(".adaptive-harness/sessions/{session_id}/evidence/*")
+   # Issue all Read() calls in ONE tool-call batch:
+   for f in evidence_files:
+       Read(f)
+   # All reads execute concurrently; wait for all before spawning the evaluator.
+   ```
 
-3. Spawn the evaluator agent with the appropriate model:
+2. Use the `evaluator_model` already determined in Step 3 (no re-computation needed):
+   - **Sonnet**: pre-selected if task_type in [bugfix, feature] AND uncertainty in [low, medium] AND blast_radius = local
+   - **Opus**: pre-selected for everything else
+
+3. Spawn the evaluator agent with the pre-determined model:
 
 ```
 Task(
@@ -646,6 +793,120 @@ If a subagent fails or quality gate does not pass:
    - `fallback: {other_harness}` — re-route to the fallback harness
    - `action: escalate_to_user` — surface the issue to the user for guidance
    - `action: rollback` — execute the rollback command specified in the contract
+
+---
+
+## Parallelism Rules
+
+These rules govern when parallel dispatch is required, allowed, or forbidden in the orchestration pipeline. The LLM orchestrator defaults to sequential execution; explicit annotations override that default.
+
+### When parallel dispatch is REQUIRED
+
+| Situation | Rule |
+|-----------|------|
+| Reading `agent.md` + `skill.md` for any single harness | Always issue both Read() calls in the same tool-call batch |
+| Reading ALL harness file pairs before an ensemble spawn | Issue every Read() call in one batch before any Task() call |
+| Spawning 2+ harnesses in Mode 1 Simple Ensemble | Issue ALL Task() calls in ONE tool-call batch — never across response turns |
+| Spawning sub-chains in Mode 2 Chain Ensemble fan-out | Issue ALL top-level Task() calls in ONE tool-call batch |
+| Reading evidence files before spawning the evaluator | Issue all Read() calls in one batch |
+| Prefetching files for chain step N+1 | Issue both Read() calls immediately after spawning step N's Task(), in the same response turn |
+
+### When sequential execution is REQUIRED
+
+| Situation | Rule |
+|-----------|------|
+| Steps within a single harness chain (Step 3.5) | Each Task() depends on the prior result — strictly sequential |
+| Steps within a single worktree sub-chain (Mode 2) | Execute sequentially inside the worktree — do NOT parallelize within a sub-chain |
+| Planning harness → fan-out execution harnesses (Mode 2) | Planning must complete and artifacts must be committed before fan-out begins |
+| Synthesis → evaluation | Synthesizer must complete before the evaluator runs |
+| Evaluation → weight update | Evaluator must complete before weights are written |
+
+### General principles
+
+- **Same response turn = concurrent**: Claude Code executes all tool calls issued within a single response turn concurrently. Use this to batch independent reads and spawns.
+- **Separate response turns = sequential**: Issuing a tool call in turn N+1 means waiting for turn N to complete. Avoid this for independent operations.
+- **Reads are always safe to parallelize**: File reads have no side effects and no ordering dependency. Always batch them.
+- **Task() calls for the same logical step are safe to parallelize**: Ensemble harnesses and sub-chain fan-outs are explicitly independent — batch them.
+- **Task() calls across sequential pipeline stages are NOT parallelizable**: Router → harness → evaluator is an ordered dependency chain.
+
+---
+
+## Parallelism Anti-Patterns
+
+The following patterns MUST be avoided. They silently serialize what should be concurrent execution, adding unnecessary latency without producing any correctness benefit.
+
+### Anti-pattern 1: Sequential fan-out in ensemble mode
+
+```
+# WRONG — two separate response turns, serialized execution
+Task(subagent_type="adaptive-harness:{harness_1}", isolation="worktree", ...)
+# ... wait for response turn boundary ...
+Task(subagent_type="adaptive-harness:{harness_2}", isolation="worktree", ...)
+
+# CORRECT — single tool-call batch, concurrent execution
+Task(subagent_type="adaptive-harness:{harness_1}", isolation="worktree", ...)
+Task(subagent_type="adaptive-harness:{harness_2}", isolation="worktree", ...)
+# Both in the SAME response turn
+```
+
+### Anti-pattern 2: Sequential reads before spawning
+
+```
+# WRONG — reads issued one at a time across multiple response turns
+Read("{plugin_root}/agents/{harness}.md")
+# wait...
+Read("{plugin_root}/harnesses/{harness}/skill.md")
+# wait...
+
+# CORRECT — both reads in the same tool-call batch
+Read("{plugin_root}/agents/{harness}.md")
+Read("{plugin_root}/harnesses/{harness}/skill.md")
+# Same response turn — execute concurrently
+```
+
+### Anti-pattern 3: Forgetting to prefetch for the next chain step
+
+```
+# WRONG — orchestrator idles while waiting for reads after a Task() returns
+result = Task(subagent_type="adaptive-harness:{harness_N}", ...)
+# harness_N completes, then orchestrator reads files for harness_N+1 — wasted time
+
+# CORRECT — prefetch files for step N+1 in the same turn as spawning step N
+Task(subagent_type="adaptive-harness:{harness_N}", ...)
+Read("{plugin_root}/agents/{harness_N+1}.md")      # prefetch
+Read("{plugin_root}/harnesses/{harness_N+1}/skill.md")  # prefetch
+# When harness_N completes, files for step N+1 are already in context
+```
+
+### Anti-pattern 4: Sequential evidence reads before evaluation
+
+```
+# WRONG — reading evidence files one at a time
+for f in evidence_files:
+    Read(f)
+    # response turn boundary between each — fully serialized
+
+# CORRECT — all evidence reads in one batch
+# Issue ALL Read() calls in the same response turn
+Read(evidence_files[0])
+Read(evidence_files[1])
+Read(evidence_files[2])
+# ...all in the same tool-call batch
+```
+
+### Anti-pattern 5: Parallelizing steps that have ordering dependencies
+
+```
+# WRONG — attempting to parallelize sequential chain steps
+Task(subagent_type="adaptive-harness:ralplan-consensus", ...)
+Task(subagent_type="adaptive-harness:careful-refactor", ...)
+# careful-refactor depends on ralplan-consensus output — this produces garbage
+
+# CORRECT — sequential chain execution is required when steps have data dependencies
+planning_result = Task(subagent_type="adaptive-harness:ralplan-consensus", ...)
+# wait for planning to complete, then pass its result to the next step
+Task(subagent_type="adaptive-harness:careful-refactor", prompt="...{planning_result}...")
+```
 
 ---
 
@@ -732,6 +993,7 @@ Default stable pool (canonical trigger conditions in `agents/router.md`):
 - `ralplan-consensus` — Upfront planning with self-review (first step in chains for medium/high uncertainty)
 - `ralph-loop` — Persistent execution loop (iterates until acceptance criteria pass, max 10 iterations)
 - `system-design` — Multi-component system architecture + implementation (greenfield projects, high uncertainty, repo-wide blast)
+- `parallel-dispatch` — Task decomposition + parallel fan-out (feature/refactor with cross-module or repo-wide blast, low/medium uncertainty, decomposable=true). Decomposes task into 2-5 independent sub-tasks, fans each out in a separate worktree, then synthesizes. Distinct from ensemble: runs *different* sub-tasks (potentially same harness) vs. ensemble which runs the *same* task through *different* harnesses.
 - `plan-review` — Review plans, designs, and proposals (task_type=review)
 - `pre-landing-review` — Pre-merge code and design review before landing (task_type=review)
 - `engineering-retro` — Engineering retrospective and process improvement (task_type=ops primary, review secondary)
