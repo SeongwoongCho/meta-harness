@@ -28,7 +28,7 @@ elif response.ensemble_chains:
     a. Ensure git repo: Bash("git rev-parse --is-inside-work-tree 2>/dev/null || (git init && git add -A && git commit --allow-empty -m init)")
     b. Run shared planning harness ONCE (no worktree)
     c. Bash("git add -A && git diff --cached --quiet || git commit -m 'planning artifacts'")
-    d. Fan out execution harnesses IN PARALLEL, each with isolation="worktree"
+    d. Fan out sub-chains IN PARALLEL (sub_chains = [chain[1:] for chain in ensemble_chains]), each sub-chain runs sequentially in its own worktree with isolation="worktree"
     e. Read synthesizer skill: Read("{plugin_root}/harnesses/synthesizer/skill.md")
     f. Spawn synthesizer with BOTH worktree paths + skill.md → merges files into main workspace
 
@@ -216,7 +216,7 @@ Router response JSON structure:
 ```json
 {
   "taxonomy": {
-    "task_type": "bugfix|feature|refactor|research|migration|benchmark|incident|greenfield",
+    "task_type": "bugfix|feature|refactor|research|migration|benchmark|incident|greenfield|review|ops|release",
     "uncertainty": "low|medium|high",
     "blast_radius": "local|cross-module|repo-wide",
     "verifiability": "easy|moderate|hard",
@@ -478,23 +478,35 @@ Bash("git add -A && git diff --cached --quiet || git commit -m 'planning phase a
 2. **Fan out execution harnesses in parallel, each in its own worktree**:
 
 ```
-# Extract execution harness from each chain (skip the shared planning harness)
-execution_harnesses = [chain[-1] for chain in ensemble_chains]
-# e.g., ["system-design", "tdd-driven"]
+# Extract sub-chains after the shared planning prefix.
+# For each chain, skip the first element (shared planning harness) to get the
+# sequence of harnesses to execute sequentially within each worktree.
+# chain[1:] preserves all intermediate steps — for 2-step chains this is
+# equivalent to [chain[-1]]; for 3+ step chains it avoids dropping intermediate
+# harnesses (the previous `chain[-1]` pattern was broken for 3+ step chains).
+sub_chains = [chain[1:] for chain in ensemble_chains]
+# e.g., for [["ralplan-consensus","system-design"],["ralplan-consensus","tdd-driven"]]:
+#   sub_chains = [["system-design"], ["tdd-driven"]]
+# e.g., for [["ralplan-consensus","careful-refactor","code-review"],["ralplan-consensus","tdd-driven","code-review"]]:
+#   sub_chains = [["careful-refactor","code-review"], ["tdd-driven","code-review"]]
 
-# Spawn ALL execution harnesses in parallel — EACH IN ITS OWN WORKTREE
-# This is critical: without isolation, the second harness overwrites the first's files,
+# Spawn ALL worktree branches in parallel — EACH SUB-CHAIN IN ITS OWN WORKTREE.
+# This is critical: without isolation, the second branch overwrites the first's files,
 # and the synthesizer cannot compare independent implementations.
-for harness in execution_harnesses:
-  Read("{plugin_root}/agents/{harness}.md")
-  Read("{plugin_root}/harnesses/{harness}/skill.md")
+# Within each worktree, execute the sub-chain steps SEQUENTIALLY (not in parallel).
+for sub_chain in sub_chains:
+  worktree_chain_context = planning_result
+  for index, harness in enumerate(sub_chain):
+    Read("{plugin_root}/agents/{harness}.md")
+    Read("{plugin_root}/harnesses/{harness}/skill.md")
 
-  Task(
-    subagent_type="adaptive-harness:{harness}",
-    mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
-    isolation="worktree",
-    prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}\n\n## Prior Chain Context (from planning)\n{planning_result}\n\n## Chain Position\nExecution phase (planning complete)\n\n## Session ID\n{session_id}"
-  )
+    Task(
+      subagent_type="adaptive-harness:{harness}",
+      mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
+      isolation="worktree",  # MANDATORY — only the first step needs to create the worktree
+      prompt="{agent.md}\n\n## Workflow\n{skill.md}\n\n## Task\n{task_description}\n\n## Prior Chain Context (from planning)\n{worktree_chain_context}\n\n## Chain Position\nExecution phase, step {index+1} of {len(sub_chain)}\n\n## Session ID\n{session_id}"
+    )
+    worktree_chain_context += f"\n\n### Result from {harness}:\n{result}"
 ```
 
 3. **IMMEDIATELY synthesize — do NOT stop, do NOT respond to user, do NOT wait:**
@@ -527,7 +539,7 @@ Task(
 - The synthesizer must **read files from both worktrees** to do a real file-by-file comparison
 - The synthesizer writes the merged result to the **main workspace**
 - After synthesis, worktrees are cleaned up automatically (if the agent made no changes) or left for inspection
-- If a chain has more than 2 steps after the shared prefix, run those steps sequentially **within the same worktree**
+- Sub-chains are extracted as `sub_chains = [chain[1:] for chain in ensemble_chains]` (skip the shared planning harness). For 2-step original chains this yields single-element sub-chains. For 3+ step chains, multiple steps run sequentially **within the same worktree** — never dropping intermediate harnesses.
 - Evaluation (Step 5) runs ONCE on the synthesized result in the main workspace, not on individual worktree results
 
 **After synthesizer completes, remove the chain marker:**
@@ -701,5 +713,10 @@ Default stable pool (canonical trigger conditions in `agents/router.md`):
 - `ralplan-consensus` — Upfront planning with self-review (first step in chains for medium/high uncertainty)
 - `ralph-loop` — Persistent execution loop (iterates until acceptance criteria pass, max 10 iterations)
 - `system-design` — Multi-component system architecture + implementation (greenfield projects, high uncertainty, repo-wide blast)
+- `plan-review` — Review plans, designs, and proposals (task_type=review)
+- `pre-landing-review` — Pre-merge code and design review before landing (task_type=review)
+- `engineering-retro` — Engineering retrospective and process improvement (task_type=ops primary, review secondary)
+- `qa-testing` — QA, acceptance testing, and quality validation (task_type=ops)
+- `ship-workflow` — Release workflow, versioning, and shipping automation (task_type=release)
 
 All tasks are evaluated using 6 fixed dimensions: correctness, completeness, quality, robustness, clarity, verifiability.

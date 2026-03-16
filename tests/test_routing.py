@@ -54,7 +54,8 @@ def compute_weight_delta(overall_score: float) -> float:
 # Taxonomy classification tests (rule-based encoding)
 # ---------------------------------------------------------------------------
 
-VALID_TASK_TYPES = {"bugfix", "feature", "refactor", "research", "migration", "incident", "benchmark", "greenfield"}
+VALID_TASK_TYPES = {"bugfix", "feature", "refactor", "research", "migration", "incident", "benchmark", "greenfield",
+                    "review", "ops", "release"}
 VALID_UNCERTAINTY = {"low", "medium", "high"}
 VALID_BLAST_RADIUS = {"local", "cross-module", "repo-wide"}
 VALID_VERIFIABILITY = {"easy", "moderate", "hard"}
@@ -538,3 +539,240 @@ class TestFixtureDomainCoverage:
         assert VALID_DOMAINS.issubset(found), (
             f"Missing domains in fixtures: {VALID_DOMAINS - found}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Extended task_type taxonomy: review, ops, release
+# ---------------------------------------------------------------------------
+
+class TestExtendedTaskTypes:
+    """Tests for the 3 new task_type values: review, ops, release."""
+
+    def test_review_is_valid_task_type(self):
+        assert "review" in VALID_TASK_TYPES
+
+    def test_ops_is_valid_task_type(self):
+        assert "ops" in VALID_TASK_TYPES
+
+    def test_release_is_valid_task_type(self):
+        assert "release" in VALID_TASK_TYPES
+
+    def test_all_original_task_types_still_valid(self):
+        original = {"bugfix", "feature", "refactor", "research", "migration", "incident", "benchmark", "greenfield"}
+        assert original.issubset(VALID_TASK_TYPES)
+
+    def test_total_task_type_count_is_eleven(self):
+        assert len(VALID_TASK_TYPES) == 11
+
+    def test_review_taxonomy_dict_is_valid(self):
+        taxonomy = {
+            "task_type": "review",
+            "uncertainty": "medium",
+            "blast_radius": "cross-module",
+            "verifiability": "moderate",
+            "latency_sensitivity": "low",
+            "domain": "backend",
+        }
+        assert taxonomy["task_type"] in VALID_TASK_TYPES
+
+    def test_ops_taxonomy_dict_is_valid(self):
+        taxonomy = {
+            "task_type": "ops",
+            "uncertainty": "medium",
+            "blast_radius": "local",
+            "verifiability": "moderate",
+            "latency_sensitivity": "high",
+            "domain": "devops",
+        }
+        assert taxonomy["task_type"] in VALID_TASK_TYPES
+
+    def test_release_taxonomy_dict_is_valid(self):
+        taxonomy = {
+            "task_type": "release",
+            "uncertainty": "low",
+            "blast_radius": "repo-wide",
+            "verifiability": "moderate",
+            "latency_sensitivity": "high",
+            "domain": "devops",
+        }
+        assert taxonomy["task_type"] in VALID_TASK_TYPES
+
+    def test_validate_taxonomy_accepts_review_type(self):
+        taxonomy = {
+            "task_type": "review",
+            "uncertainty": "medium",
+            "blast_radius": "local",
+            "verifiability": "moderate",
+            "latency_sensitivity": "low",
+            "domain": "backend",
+        }
+        assert validate_taxonomy_with_hint(taxonomy) is True
+
+    def test_validate_taxonomy_accepts_ops_type(self):
+        taxonomy = {
+            "task_type": "ops",
+            "uncertainty": "low",
+            "blast_radius": "local",
+            "verifiability": "easy",
+            "latency_sensitivity": "high",
+            "domain": "devops",
+        }
+        assert validate_taxonomy_with_hint(taxonomy) is True
+
+    def test_validate_taxonomy_accepts_release_type(self):
+        taxonomy = {
+            "task_type": "release",
+            "uncertainty": "low",
+            "blast_radius": "repo-wide",
+            "verifiability": "moderate",
+            "latency_sensitivity": "high",
+            "domain": "devops",
+        }
+        assert validate_taxonomy_with_hint(taxonomy) is True
+
+
+# ---------------------------------------------------------------------------
+# Harness routing for new task types
+# ---------------------------------------------------------------------------
+
+# Harness → primary task types mapping (encodes the router harness_pool table)
+HARNESS_TASK_TYPE_MAP = {
+    "plan-review":        {"review"},
+    "pre-landing-review": {"review"},
+    "engineering-retro":  {"ops", "review"},
+    "qa-testing":         {"ops"},
+    "ship-workflow":      {"release"},
+}
+
+
+class TestNewHarnessRouting:
+    """Tests encoding router harness_pool trigger rules for new task types."""
+
+    def test_plan_review_covers_review_task_type(self):
+        assert "review" in HARNESS_TASK_TYPE_MAP["plan-review"]
+
+    def test_pre_landing_review_covers_review_task_type(self):
+        assert "review" in HARNESS_TASK_TYPE_MAP["pre-landing-review"]
+
+    def test_engineering_retro_covers_ops_task_type(self):
+        assert "ops" in HARNESS_TASK_TYPE_MAP["engineering-retro"]
+
+    def test_engineering_retro_covers_review_as_secondary(self):
+        assert "review" in HARNESS_TASK_TYPE_MAP["engineering-retro"]
+
+    def test_qa_testing_covers_ops_task_type(self):
+        assert "ops" in HARNESS_TASK_TYPE_MAP["qa-testing"]
+
+    def test_ship_workflow_covers_release_task_type(self):
+        assert "release" in HARNESS_TASK_TYPE_MAP["ship-workflow"]
+
+    def test_review_task_type_has_at_least_two_harnesses(self):
+        review_harnesses = [h for h, types in HARNESS_TASK_TYPE_MAP.items() if "review" in types]
+        assert len(review_harnesses) >= 2
+
+    def test_ops_task_type_has_at_least_two_harnesses(self):
+        ops_harnesses = [h for h, types in HARNESS_TASK_TYPE_MAP.items() if "ops" in types]
+        assert len(ops_harnesses) >= 2
+
+    def test_release_task_type_has_at_least_one_harness(self):
+        release_harnesses = [h for h, types in HARNESS_TASK_TYPE_MAP.items() if "release" in types]
+        assert len(release_harnesses) >= 1
+
+    def test_five_new_harness_entries_exist(self):
+        assert len(HARNESS_TASK_TYPE_MAP) == 5
+
+
+# ---------------------------------------------------------------------------
+# Chain ensemble sub-chain extraction (bug fix: chain truncation)
+# ---------------------------------------------------------------------------
+
+def extract_sub_chains(ensemble_chains: list) -> list:
+    """
+    Extract sub-chains after the shared planning prefix.
+    For each chain, skip the first element (shared planning harness).
+    Returns list of sub-chains (each sub-chain is a list of harnesses to run
+    sequentially within a worktree).
+
+    This replaces the broken `[chain[-1] for chain in ensemble_chains]` pattern
+    which only took the LAST harness, dropping intermediate steps.
+    """
+    return [chain[1:] for chain in ensemble_chains]
+
+
+class TestSubChainExtraction:
+    """Tests for the fix to chain ensemble truncation."""
+
+    def test_two_step_chain_sub_chain_is_single_element_list(self):
+        # 2-step chain: [planning, execution] → sub_chain = [execution]
+        chains = [["ralplan-consensus", "system-design"],
+                  ["ralplan-consensus", "tdd-driven"]]
+        sub_chains = extract_sub_chains(chains)
+        assert sub_chains[0] == ["system-design"]
+        assert sub_chains[1] == ["tdd-driven"]
+
+    def test_two_step_sub_chain_is_equivalent_to_last_element(self):
+        # For 2-step chains, chain[1:] == [chain[-1]] — no regression
+        chains = [["ralplan-consensus", "system-design"],
+                  ["ralplan-consensus", "tdd-driven"]]
+        sub_chains = extract_sub_chains(chains)
+        # Verify equivalence with old behavior
+        old_execution_harnesses = [chain[-1] for chain in chains]
+        for sub_chain, old_harness in zip(sub_chains, old_execution_harnesses):
+            assert sub_chain == [old_harness], (
+                f"2-step chain: sub_chain {sub_chain} must equal [{old_harness}]"
+            )
+
+    def test_three_step_chain_sub_chain_preserves_intermediate_harness(self):
+        # 3-step chain: [planning, intermediate, final] → sub_chain = [intermediate, final]
+        chains = [["ralplan-consensus", "careful-refactor", "code-review"],
+                  ["ralplan-consensus", "tdd-driven", "code-review"]]
+        sub_chains = extract_sub_chains(chains)
+        assert sub_chains[0] == ["careful-refactor", "code-review"]
+        assert sub_chains[1] == ["tdd-driven", "code-review"]
+
+    def test_three_step_chain_sub_chain_differs_from_last_only(self):
+        # Demonstrates the old bug: chain[-1] would drop the intermediate step
+        chains = [["ralplan-consensus", "careful-refactor", "code-review"]]
+        old_result = [chain[-1] for chain in chains]  # broken: ["code-review"]
+        new_result = extract_sub_chains(chains)        # fixed:  [["careful-refactor", "code-review"]]
+        assert old_result == ["code-review"]
+        assert new_result == [["careful-refactor", "code-review"]]
+        assert old_result != [new_result[0]]  # they are NOT equal for 3-step chains
+
+    def test_four_step_chain_preserves_all_intermediate_steps(self):
+        chains = [["ralplan-consensus", "deep-interview", "careful-refactor", "code-review"]]
+        sub_chains = extract_sub_chains(chains)
+        assert sub_chains[0] == ["deep-interview", "careful-refactor", "code-review"]
+
+    def test_single_element_sub_chain_has_length_one(self):
+        chains = [["ralplan-consensus", "tdd-driven"]]
+        sub_chains = extract_sub_chains(chains)
+        assert len(sub_chains[0]) == 1
+
+    def test_multi_element_sub_chain_has_correct_length(self):
+        chains = [["ralplan-consensus", "careful-refactor", "code-review"]]
+        sub_chains = extract_sub_chains(chains)
+        assert len(sub_chains[0]) == 2
+
+    def test_sub_chain_count_equals_input_chain_count(self):
+        chains = [["ralplan-consensus", "system-design"],
+                  ["ralplan-consensus", "tdd-driven"],
+                  ["ralplan-consensus", "careful-refactor"]]
+        sub_chains = extract_sub_chains(chains)
+        assert len(sub_chains) == 3
+
+    def test_greenfield_standard_chains_produce_correct_sub_chains(self):
+        # The standard greenfield ensemble: system-design + tdd-driven branches
+        chains = [["ralplan-consensus", "system-design"],
+                  ["ralplan-consensus", "tdd-driven"]]
+        sub_chains = extract_sub_chains(chains)
+        assert sub_chains[0] == ["system-design"]
+        assert sub_chains[1] == ["tdd-driven"]
+
+    def test_complex_migration_chains_preserve_both_steps(self):
+        # Complex migration chain with 3 steps per branch
+        chains = [["ralplan-consensus", "migration-safe", "code-review"],
+                  ["ralplan-consensus", "careful-refactor", "code-review"]]
+        sub_chains = extract_sub_chains(chains)
+        assert sub_chains[0] == ["migration-safe", "code-review"]
+        assert sub_chains[1] == ["careful-refactor", "code-review"]

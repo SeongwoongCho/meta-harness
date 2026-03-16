@@ -43,7 +43,7 @@ See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 
 | Axis | Values |
 |------|--------|
-| `task_type` | `bugfix` / `feature` / `refactor` / `research` / `migration` / `incident` / `benchmark` / `greenfield` |
+| `task_type` | `bugfix` / `feature` / `refactor` / `research` / `migration` / `incident` / `benchmark` / `greenfield` / `review` / `ops` / `release` |
 | `uncertainty` | `low` / `medium` / `high` |
 | `blast_radius` | `local` / `cross-module` / `repo-wide` |
 | `verifiability` | `easy` / `moderate` / `hard` |
@@ -152,6 +152,11 @@ Read `.adaptive-harness/harness-pool.json` if it exists for current weights. Ful
 | `security-audit` | OWASP scan, secrets scan, threat modeling | domain=[backend,infra], security-focused |
 | `performance-optimization` | profiling, benchmarking, latency reduction | task_type=benchmark, latency_sensitivity=high |
 | `system-design` | multi-component system architecture + implementation | task_type=greenfield, uncertainty=high, blast_radius=repo-wide |
+| `plan-review` | review plans, designs, and proposals | task_type=review |
+| `pre-landing-review` | pre-merge code and design review | task_type=review |
+| `engineering-retro` | engineering retrospective and process improvement | task_type=[ops,review] (primary: ops, secondary: review) |
+| `qa-testing` | QA, acceptance testing, and quality validation | task_type=ops |
+| `ship-workflow` | release workflow, versioning, and shipping | task_type=release |
 </harness_pool>
 
 
