@@ -153,15 +153,14 @@ if [ -f "${STATE_DIR}/.current-session-id" ]; then
 fi
 
 # --- Clean up stale .chain-in-progress marker ---
-# If a chain was running when the session ended (normal or abnormal), clear it.
-# Without this, a stale marker permanently corrupts future sessions by injecting
-# "CHAIN IN PROGRESS" messages into every UserPromptSubmit hook.
+# If a session ends while a chain marker exists (e.g., abnormal termination),
+# remove it so the next session starts clean.
 rm -f "${STATE_DIR}/.chain-in-progress" 2>/dev/null || true
 
-# --- Clean up stale .eval-pending if evaluator failed ---
-# If the evaluator subagent crashed or timed out, .eval-pending persists and
-# causes every subsequent UserPromptSubmit to demand evaluation re-run.
-if [ -n "$SESSION_ID" ] && [ -d "${STATE_DIR}/sessions/${SESSION_ID}" ]; then
+# --- Clean up .eval-pending for this session ---
+# SESSION_ID was resolved at the top of the script (before any cleanup),
+# so it's safe to use here even after .current-session-id was removed.
+if [ -n "$SESSION_ID" ] && [ "$SESSION_ID" != "unknown" ]; then
   rm -f "${STATE_DIR}/sessions/${SESSION_ID}/.eval-pending" 2>/dev/null || true
 fi
 

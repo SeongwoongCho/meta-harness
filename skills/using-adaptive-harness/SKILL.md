@@ -253,6 +253,10 @@ Bash("rm -f .adaptive-harness/.chain-in-progress")
 **Chain execution:**
 
 ```
+# BEFORE the chain loop — mark chain as in progress
+# This tells SubagentStop hooks that evaluation should be deferred until the entire chain finishes.
+Bash("printf 'chain' > .adaptive-harness/.chain-in-progress")
+
 chain_context = ""
 for index, harness in enumerate(harness_chain):
   chain_position = f"step {index+1} of {len(harness_chain)}"
@@ -275,6 +279,7 @@ Key rules for chaining:
 - If a harness in the chain fails, apply its `failure_modes` from its `contract.yaml` before continuing or aborting the chain
 - After the full chain completes, treat the final `chain_context` as the execution result for Steps 5 and 6
 - Evaluation runs ONCE at the end of the full chain (Step 5), not after each individual step
+- After the full chain completes, remove the chain marker: `Bash("rm -f .adaptive-harness/.chain-in-progress")`
 
 **Dynamic chain adaptation via `next_harness_hint`:**
 
@@ -397,6 +402,9 @@ For tasks that don't need a planning step — just run 2+ harnesses in parallel 
 2. Spawn all harness subagents in **parallel with worktree isolation**:
 
 ```
+# Mark ensemble as in progress — prevents premature .eval-pending and turn-breaking hook messages
+Bash("printf 'ensemble' > .adaptive-harness/.chain-in-progress")
+
 # Each harness gets its own isolated worktree copy of the repository.
 # This prevents harnesses from overwriting each other's files.
 Task(
@@ -432,6 +440,9 @@ Task(
   mode=agent_mode,  # "dontAsk" if --skip-interview, else "default"
   prompt="{synthesizer_agent.md}\n\n## Workflow\n{synthesizer_skill.md}\n\n## Task\n{task_description}\n\n## Main Workspace\n{main_workspace_path}\n\n## Worktree A: {harness_1}\n- Path: {worktree_path_1}\n- Branch: {branch_1}\n- Summary: {result_1}\n\n## Worktree B: {harness_2}\n- Path: {worktree_path_2}\n- Branch: {branch_2}\n- Summary: {result_2}\n\nFollow the skill.md workflow: Inventory → Merge Plan → Execute → Reconcile → Verify → Report."
 )
+
+# After synthesizer completes, remove the chain marker so evaluation can proceed
+Bash("rm -f .adaptive-harness/.chain-in-progress")
 ```
 
 #### Mode 2: Chain Ensemble (`ensemble_chains` present)
