@@ -5,8 +5,18 @@
 HOOK_INPUT=$(cat 2>/dev/null || echo "")
 
 source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
+PLUGIN_ROOT="$(resolve_plugin_root)"
 STATE_DIR="$(state_dir)"
+
+# Auto-initialize if state dir is missing or broken; abort silently on failure
+if [ -z "$STATE_DIR" ] || [ ! -d "$STATE_DIR" ]; then
+  ensure_state_dir "$STATE_DIR" "$PLUGIN_ROOT" 2>/dev/null || exit 0
+fi
+
 SESSION_ID="$(resolve_session_id "$STATE_DIR")"
+
+# Initialize CHAIN_MSG to avoid uninitialized variable issues (M1 fix)
+CHAIN_MSG=""
 
 # Check if a chain is in progress — must happen OUTSIDE the session dir block
 # so it fires even when SESSION_DIR doesn't exist (C2 fix).

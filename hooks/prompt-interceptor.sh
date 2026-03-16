@@ -7,8 +7,14 @@ cat > /dev/null 2>&1 || true
 
 # Check pipeline mode and pending evaluations
 source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
+PLUGIN_ROOT="$(resolve_plugin_root)"
 PROJECT_ROOT="$(resolve_project_root)"
 STATE_DIR="$(state_dir)"
+
+# Auto-initialize if state dir is missing or broken; abort silently on failure
+if [ -z "$STATE_DIR" ] || [ ! -d "$STATE_DIR" ]; then
+  ensure_state_dir "$STATE_DIR" "$PLUGIN_ROOT" 2>/dev/null || exit 0
+fi
 SESSION_ID="${CLAUDE_SESSION_ID:-}"
 if [ -z "$SESSION_ID" ]; then
   SID_FILE="${STATE_DIR}/.current-session-id"

@@ -80,11 +80,7 @@ Then start a new Claude Code session.
 
 ```bash
 cd your-project
-claude                              # new session — hooks load automatically
-```
-
-```
-/adaptive-harness:init --general        # one-command setup with sensible defaults
+claude                              # new session — hooks auto-initialize with --general defaults
 ```
 
 That's it. Every task is now routed through the adaptive-harness pipeline automatically.
@@ -293,7 +289,7 @@ harnesses/              # Harness workflows and contracts
 patterns/               # Workflow design patterns for genesis
 hooks/                  # Session lifecycle hooks
 skills/                 # Orchestration skills (SKILL.md files)
-commands/               # Slash commands (/run, /evolve, /status, /init, /eval)
+commands/               # Slash commands (/run, /evolve, /status, /eval)
 docs/                   # Architecture and design documentation
 ```
 

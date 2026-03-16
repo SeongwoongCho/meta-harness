@@ -40,7 +40,7 @@ EXPERIMENTAL POOL
   (none)
 ```
 
-If `.adaptive-harness/harness-pool.json` does not exist, report that no state has been initialized and suggest running `/adaptive-harness:init`.
+If `.adaptive-harness/harness-pool.json` does not exist, report that the state directory is missing or broken. It will be auto-initialized with --general defaults on next session start. The user can trigger initialization immediately by running `/adaptive-harness:run <task>`.
 
 ### Inspect a Specific Harness
 
