@@ -215,6 +215,8 @@ elif response.ensemble_chains:
 elif response.ensemble_required and response.ensemble_harnesses:
     → Step 4c Mode 1 (Simple Ensemble with WORKTREE ISOLATION)
     # ⚠ MANDATORY: each harness MUST use isolation="worktree"
+elif response.selected_harness == "parallel-dispatch":
+    → Step 4d (Parallel-Dispatch Fan-Out)
 elif response.harness_chain and len(response.harness_chain) > 1:
     → Step 3.5 (Sequential Chain)
 else:
@@ -620,6 +622,90 @@ Bash("rm -f .adaptive-harness/.chain-in-progress")
 
 **⚠ PIPELINE CONTINUITY: The full ensemble flow (plan → fan-out → synthesize → evaluate) must execute as ONE unbroken sequence. After execution harnesses return, IMMEDIATELY spawn the synthesizer. After the synthesizer returns, remove `.chain-in-progress`, then IMMEDIATELY spawn the evaluator. Never pause, never respond to the user, never output intermediate text between these steps.**
 
+### Step 4d: Parallel-Dispatch Fan-Out (selected_harness = "parallel-dispatch")
+
+Triggered when the router sets `selected_harness: "parallel-dispatch"`. This path:
+1. Spawns the parallel-dispatch agent to decompose the task
+2. Fans out each sub-task in a separate worktree (capped at 5)
+3. Merges results via the synthesizer
+
+#### Ensemble Pre-Check
+
+Before starting, verify the working directory is a git repository (same check as Step 4c). Initialize git if not already present.
+
+#### Sub-step 1: Spawn the decomposition agent
+
+```
+# PARALLEL READ: load agent.md and skill.md in one batch
+Read("{plugin_root}/agents/parallel-dispatch.md")
+Read("{plugin_root}/harnesses/parallel-dispatch/skill.md")
+
+decomposition_result = Task(
+  subagent_type="adaptive-harness:parallel-dispatch",
+  mode=agent_mode,
+  prompt="{parallel-dispatch agent.md}\n\n## Workflow\n{parallel-dispatch skill.md}\n\n## Task\n{task_description}\n\n## Session ID\n{session_id}"
+)
+
+decomposition = parse_json(decomposition_result)
+```
+
+Parse the `parallel_dispatch` JSON from the agent's output.
+
+If `decomposition.fallback_to_single == true`, abort this path and route to Step 4b using the next best harness from the router's `candidate_scores`.
+
+#### Sub-step 2: Validate and cap sub-tasks
+
+```
+subtasks = decomposition.subtasks
+if len(subtasks) > 5:
+    # Hard cap: take the 5 with highest estimated_complexity (most valuable to parallelize)
+    subtasks = sort_by_complexity_desc(subtasks)[:5]
+if len(subtasks) < 2:
+    # Cannot parallelize — fall back to single harness
+    → Step 4b using first subtask's harness
+```
+
+#### Sub-step 3: Prefetch all sub-task harness files in parallel, then fan out
+
+```
+# PARALLEL READ: issue ALL Read() calls for ALL sub-task harnesses in a SINGLE
+# tool-call batch before spawning any Task().
+for subtask in subtasks:
+  Read("{plugin_root}/agents/{subtask.harness}.md")          # ← ALL in one batch
+  Read("{plugin_root}/harnesses/{subtask.harness}/skill.md") # ← ALL in one batch
+
+# PARALLEL DISPATCH: Issue ALL Task() calls in a SINGLE tool-call batch.
+# Each sub-task runs in its own worktree.
+subtask_results = []
+for subtask in subtasks:
+  result = Task(
+    subagent_type="adaptive-harness:{subtask.harness}",
+    mode=agent_mode,
+    isolation="worktree",  # MANDATORY — each sub-task gets its own worktree
+    prompt="{subtask.harness agent.md}\n\n## Workflow\n{subtask.harness skill.md}\n\n## Task\n{subtask.description}\n\n## Scope\n{subtask.scope_files}\n\n## Interface Contract (inputs)\n{subtask.inputs}\n\n## Interface Contract (outputs)\n{subtask.outputs}\n\n## Original Task Context\n{task_description}\n\n## Session ID\n{session_id}"
+  )
+  subtask_results.append({subtask.id: result})
+```
+
+#### Sub-step 4: Synthesize
+
+After all sub-task worktrees complete, read synthesizer files and spawn the synthesizer with the integration plan:
+
+```
+Read("{plugin_root}/agents/synthesizer.md")
+Read("{plugin_root}/harnesses/synthesizer/skill.md")
+
+Task(
+  subagent_type="adaptive-harness:synthesizer",
+  mode=agent_mode,
+  prompt="{synthesizer agent.md}\n\n## Workflow\n{synthesizer skill.md}\n\n## Task\n{task_description}\n\n## Main Workspace\n{main_workspace_path}\n\n## Integration Plan\n{decomposition.integration}\n\n## Sub-Task Results\n{subtask_results_with_worktree_paths}\n\nFollow the skill.md workflow: Inventory → Merge Plan → Execute → Reconcile → Verify → Report."
+)
+```
+
+Then proceed immediately to Step 5 (evaluation).
+
+---
+
 ### Step 5: Collect Evidence and Evaluate (MANDATORY — do not skip)
 
 After subagent completion (detected when the subagent's Task() call returns):
@@ -907,6 +993,7 @@ Default stable pool (canonical trigger conditions in `agents/router.md`):
 - `ralplan-consensus` — Upfront planning with self-review (first step in chains for medium/high uncertainty)
 - `ralph-loop` — Persistent execution loop (iterates until acceptance criteria pass, max 10 iterations)
 - `system-design` — Multi-component system architecture + implementation (greenfield projects, high uncertainty, repo-wide blast)
+- `parallel-dispatch` — Task decomposition + parallel fan-out (feature/refactor with cross-module or repo-wide blast, low/medium uncertainty, decomposable=true). Decomposes task into 2-5 independent sub-tasks, fans each out in a separate worktree, then synthesizes. Distinct from ensemble: runs *different* sub-tasks (potentially same harness) vs. ensemble which runs the *same* task through *different* harnesses.
 - `plan-review` — Review plans, designs, and proposals (task_type=review)
 - `pre-landing-review` — Pre-merge code and design review before landing (task_type=review)
 - `engineering-retro` — Engineering retrospective and process improvement (task_type=ops primary, review secondary)
