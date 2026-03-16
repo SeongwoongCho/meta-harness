@@ -1,7 +1,7 @@
 {
   "name": "adaptive-harness",
   "description": "A self-improving harness router and evaluator for Claude Code \u2014 automatically selects, evaluates, and evolves the right harness for your repo",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": {
     "name": "adaptive-harness contributors"
   },
