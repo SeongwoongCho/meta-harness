@@ -415,6 +415,11 @@ Task(
 
 3. Collect all results. Each result includes the worktree path and branch where the harness wrote its code.
 
+**Partial failure handling**: If one worktree harness fails (returns error, empty result, or missing worktree_path), do NOT spawn the synthesizer. Instead, use the successful worktree's result directly:
+- If exactly one succeeded: copy its worktree changes to the main workspace via `git merge {branch}` or direct file copy. Skip synthesis.
+- If both failed: proceed to Step 5 (evaluation) with a failure result. The evaluator will score it accordingly.
+- If both succeeded: continue to step 4 (synthesizer).
+
 4. Spawn the synthesizer agent with worktree paths so it can read and compare both implementations:
 
 ```
@@ -590,8 +595,8 @@ On evaluator response:
    ```
    This accumulates evaluation history per harness, enabling the evolution-manager to analyze trends.
 
-6. **Auto-trigger evolution manager every 2 evaluations (Fix 3):**
-   After copying the eval, count files in `.adaptive-harness/evaluation-logs/{selected_harness}/`. If the count is a multiple of 2 (i.e., `count % 2 == 0` and `count >= 2`), spawn the evolution manager:
+6. **Auto-trigger evolution manager every evaluation (Fix 3):**
+   After copying the eval, count files in `.adaptive-harness/evaluation-logs/{selected_harness}/`. Spawn the evolution manager on every evaluation (`count >= 1`):
    ```
    Task(
      subagent_type="adaptive-harness:evolution-manager",
