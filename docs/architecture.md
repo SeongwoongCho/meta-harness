@@ -12,9 +12,11 @@ evaluates the result, and evolves its harness pool over time.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Stage 1: INITIALIZATION                                        │
+│  Stage 1: INITIALIZATION (auto-init)                             │
 │                                                                 │
 │  SessionStart hook fires                                        │
+│    → ensure_state_dir() auto-initializes .adaptive-harness  │
+│       with --general defaults if missing or broken              │
 │    → session-start.sh injects using-adaptive-harness       │
 │       SKILL.md as additionalContext                             │
 │    → Harness pool state loaded on-demand (not at session start) │

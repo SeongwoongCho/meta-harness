@@ -36,12 +36,12 @@ STABLE_HARNESS_NAMES = [
 # ---------------------------------------------------------------------------
 
 def _bootstrap_pool(harnesses_dir: str, pool_file: str) -> dict:
-    """Run the BOOTSTRAP_POOL heredoc from session-start.sh and return parsed pool."""
-    session_start_sh = os.path.join(HOOKS_DIR, "session-start.sh")
-    with open(session_start_sh) as fh:
+    """Run the POOL_EOF heredoc from hooks/lib.sh's ensure_state_dir() and return parsed pool."""
+    lib_sh = os.path.join(HOOKS_DIR, "lib.sh")
+    with open(lib_sh) as fh:
         content = fh.read()
-    start = content.find("<<'BOOTSTRAP_POOL'\n") + len("<<'BOOTSTRAP_POOL'\n")
-    end = content.find("\nBOOTSTRAP_POOL", start)
+    start = content.find("<<'POOL_EOF'\n") + len("<<'POOL_EOF'\n")
+    end = content.find("\nPOOL_EOF", start)
     code = content[start:end]
     proc = subprocess.run(
         ["python3", "-", harnesses_dir, pool_file],
@@ -49,7 +49,7 @@ def _bootstrap_pool(harnesses_dir: str, pool_file: str) -> dict:
         capture_output=True,
         text=True,
     )
-    assert proc.returncode == 0, f"BOOTSTRAP_POOL failed: {proc.stderr}"
+    assert proc.returncode == 0, f"POOL_EOF bootstrap failed: {proc.stderr}"
     with open(pool_file) as fh:
         return json.load(fh)
 

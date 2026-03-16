@@ -145,6 +145,17 @@ class TestSessionStartHook:
         ctx = parsed["hookSpecificOutput"]["additionalContext"]
         assert "adaptive-harness" in ctx.lower()
 
+    def test_clears_stale_chain_in_progress_on_start(self, tmp_path):
+        """session-start.sh must remove stale .chain-in-progress from prior sessions."""
+        _make_git_root(tmp_path)
+        state_dir = tmp_path / ".adaptive-harness"
+        state_dir.mkdir(exist_ok=True)
+        (state_dir / ".chain-in-progress").write_text("stale-from-prior-session")
+        env = _base_env()
+        _, _, rc = _run_hook("session-start.sh", env, str(tmp_path))
+        assert rc == 0
+        assert not (state_dir / ".chain-in-progress").exists()
+
 
 # ---------------------------------------------------------------------------
 # session-end.sh
@@ -232,6 +243,33 @@ class TestSessionEndHook:
         if mode_file.exists():
             assert mode_file.read_text().strip() != "run"
 
+    def test_clears_chain_in_progress_at_session_end(self, tmp_path):
+        """session-end.sh must remove stale .chain-in-progress marker."""
+        pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
+        self._create_state(tmp_path, "end-chain-test", pool)
+        state_dir = tmp_path / ".adaptive-harness"
+        (state_dir / ".chain-in-progress").write_text("stale-chain-data")
+
+        env = _base_env(session_id="end-chain-test")
+        _, _, rc = _run_hook("session-end.sh", env, str(tmp_path))
+        assert rc == 0
+        assert not (state_dir / ".chain-in-progress").exists()
+
+    def test_clears_eval_pending_at_session_end(self, tmp_path):
+        """session-end.sh must remove stale .eval-pending from current session."""
+        pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
+        session_id = "end-eval-pending-test"
+        self._create_state(tmp_path, session_id, pool)
+        state_dir = tmp_path / ".adaptive-harness"
+        session_dir = state_dir / "sessions" / session_id
+        session_dir.mkdir(parents=True)
+        (session_dir / ".eval-pending").write_text("stale-ts")
+
+        env = _base_env(session_id=session_id)
+        _, _, rc = _run_hook("session-end.sh", env, str(tmp_path))
+        assert rc == 0
+        assert not (session_dir / ".eval-pending").exists()
+
 
 # ---------------------------------------------------------------------------
 # prompt-interceptor.sh
@@ -289,6 +327,43 @@ class TestPromptInterceptorHook:
         parsed = json.loads(stdout)
         ctx = parsed["hookSpecificOutput"]["additionalContext"]
         assert "WARNING" in ctx
+
+    def test_chain_in_progress_overrides_auto_mode(self, tmp_path):
+        """When .chain-in-progress exists, prompt-interceptor should inject chain continuation,
+        not auto-mode routing or eval-pending warning."""
+        _make_git_root(tmp_path)
+        state_dir = tmp_path / ".adaptive-harness"
+        state_dir.mkdir()
+        (state_dir / ".pipeline-mode").write_text("auto")
+        (state_dir / ".chain-in-progress").write_text("chain-data")
+        env = _base_env()
+        stdout, _, rc = _run_hook("prompt-interceptor.sh", env, str(tmp_path))
+        assert rc == 0
+        parsed = json.loads(stdout)
+        ctx = parsed["hookSpecificOutput"]["additionalContext"]
+        assert "CHAIN IN PROGRESS" in ctx
+        assert "router" not in ctx.lower() or "Do NOT spawn the router" in ctx
+
+    def test_chain_in_progress_overrides_eval_pending(self, tmp_path):
+        """Chain in progress takes priority over eval-pending."""
+        _make_git_root(tmp_path)
+        state_dir = tmp_path / ".adaptive-harness"
+        state_dir.mkdir()
+        (state_dir / ".pipeline-mode").write_text("auto")
+        (state_dir / ".chain-in-progress").write_text("chain-data")
+        session_id = "chain-eval-test"
+        session_dir = state_dir / "sessions" / session_id
+        session_dir.mkdir(parents=True)
+        (session_dir / ".eval-pending").write_text("ts")
+        (state_dir / ".current-session-id").write_text(session_id)
+        env = _base_env(session_id=session_id)
+        stdout, _, rc = _run_hook("prompt-interceptor.sh", env, str(tmp_path))
+        assert rc == 0
+        parsed = json.loads(stdout)
+        ctx = parsed["hookSpecificOutput"]["additionalContext"]
+        # Chain should take priority over eval-pending
+        assert "CHAIN IN PROGRESS" in ctx
+        assert "WARNING" not in ctx
 
 
 # ---------------------------------------------------------------------------
@@ -352,3 +427,44 @@ class TestSubagentCompleteHook:
         assert len(lines) >= 1
         event = json.loads(lines[0])
         assert event["event"] == "subagent_stop"
+
+    def test_chain_in_progress_skips_eval_pending(self, tmp_path):
+        """When .chain-in-progress exists, subagent-complete should NOT write .eval-pending."""
+        _make_git_root(tmp_path)
+        session_id = "chain-test-001"
+        state_dir = tmp_path / ".adaptive-harness"
+        state_dir.mkdir()
+        session_dir = state_dir / "sessions" / session_id
+        session_dir.mkdir(parents=True)
+        (state_dir / ".current-session-id").write_text(session_id)
+        # Mark chain as in progress
+        (state_dir / ".chain-in-progress").write_text("ralplan-consensus,careful-refactor")
+
+        env = _base_env(session_id=session_id)
+        stdout, _, rc = _run_hook("subagent-complete.sh", env, str(tmp_path), stdin="{}")
+        assert rc == 0
+        # .eval-pending should NOT be created during chain
+        assert not (session_dir / ".eval-pending").exists()
+        # Output should mention chain continuation, not evaluation
+        parsed = json.loads(stdout)
+        ctx = parsed["hookSpecificOutput"]["additionalContext"]
+        assert "Chain step completed" in ctx
+        assert "EVALUATION PENDING" not in ctx
+
+    def test_no_chain_marker_creates_eval_pending(self, tmp_path):
+        """Without .chain-in-progress, subagent-complete creates .eval-pending as before."""
+        _make_git_root(tmp_path)
+        session_id = "no-chain-test-001"
+        state_dir = tmp_path / ".adaptive-harness"
+        state_dir.mkdir()
+        session_dir = state_dir / "sessions" / session_id
+        session_dir.mkdir(parents=True)
+        (state_dir / ".current-session-id").write_text(session_id)
+
+        env = _base_env(session_id=session_id)
+        stdout, _, rc = _run_hook("subagent-complete.sh", env, str(tmp_path), stdin="{}")
+        assert rc == 0
+        assert (session_dir / ".eval-pending").exists()
+        parsed = json.loads(stdout)
+        ctx = parsed["hookSpecificOutput"]["additionalContext"]
+        assert "EVALUATION PENDING" in ctx

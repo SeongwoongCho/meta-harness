@@ -18,8 +18,9 @@ Bash("cat .adaptive-harness/.pipeline-mode 2>/dev/null || echo 'off'")
 
 If `.adaptive-harness/harness-pool.json` does not exist:
 ```
-adaptive-harness has not been initialized for this project.
-Run /adaptive-harness:init to set up the harness pool.
+adaptive-harness state directory is missing or broken.
+It will be auto-initialized with --general defaults on the next session start.
+Run /adaptive-harness:run <task> to trigger auto-initialization and start a pipeline run.
 ```
 
 ### Step 2: Read Recent Evaluation Logs

@@ -27,6 +27,9 @@ What category of work does this task represent?
 | `benchmark` | Measure and analyze performance | "Profile the query execution and find bottlenecks" |
 | `incident` | Urgent production issue requiring fast response | "API returning 500s in production right now" |
 | `greenfield` | Build a multi-component system from scratch | "Build a FastAPI backend with webhooks, InfluxDB, and Grafana dashboard" |
+| `review` | Review code, designs, plans, or PRs | "Review this PR before merging", "Does this design look correct?" |
+| `ops` | QA testing, quality validation, or retrospective | "Run acceptance tests on the new feature", "Conduct a sprint retrospective" |
+| `release` | Release and ship a versioned artifact | "Cut the 2.0.0 release", "Run the ship workflow for this tag" |
 
 ### Axis 2: uncertainty
 

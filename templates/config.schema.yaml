@@ -1,5 +1,5 @@
 # Config Schema — defines the structure of .adaptive-harness/config.yaml
-# Created by adaptive-harness-init command via interactive Q&A.
+# Auto-initialized with --general defaults when .adaptive-harness is missing.
 
 config:
   type: object

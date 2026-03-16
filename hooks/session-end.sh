@@ -4,9 +4,15 @@
 # Consume stdin
 cat > /dev/null 2>&1 || true
 
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
+PLUGIN_ROOT="$(resolve_plugin_root)"
 PROJECT_ROOT="$(resolve_project_root)"
 STATE_DIR="$(state_dir)"
+
+# Auto-initialize if state dir is missing or broken; abort silently on failure
+if [ -z "$STATE_DIR" ] || [ ! -d "$STATE_DIR" ]; then
+  ensure_state_dir "$STATE_DIR" "$PLUGIN_ROOT" 2>/dev/null || exit 0
+fi
 POOL_FILE="${STATE_DIR}/harness-pool.json"
 POOL_BAK="${STATE_DIR}/harness-pool.json.bak"
 POOL_TMP="${STATE_DIR}/harness-pool.json.tmp"
@@ -20,7 +26,8 @@ TIMESTAMP="$(timestamp_utc)"
 # Proceed if pool file exists — weights.json is optional (eval stats still matter)
 if [ -f "$POOL_FILE" ]; then
   # Validate pool JSON is parseable BEFORE backing up (don't backup corrupt files)
-  if ! python3 -c "import json; json.load(open('$POOL_FILE'))" 2>/dev/null; then
+  # Pass path via sys.argv to avoid shell injection from apostrophes in paths
+  if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$POOL_FILE" 2>/dev/null; then
     echo "[adaptive-harness session-end] Pool file corrupt. Attempting restore from backup." >&2
     if [ -f "$POOL_BAK" ]; then
       cp "$POOL_BAK" "$POOL_FILE"
@@ -149,6 +156,18 @@ fi
 # --- Clean up current session ID file ---
 if [ -f "${STATE_DIR}/.current-session-id" ]; then
   rm -f "${STATE_DIR}/.current-session-id"
+fi
+
+# --- Clean up stale .chain-in-progress marker ---
+# If a session ends while a chain marker exists (e.g., abnormal termination),
+# remove it so the next session starts clean.
+rm -f "${STATE_DIR}/.chain-in-progress" 2>/dev/null || true
+
+# --- Clean up .eval-pending for this session ---
+# SESSION_ID was resolved at the top of the script (before any cleanup),
+# so it's safe to use here even after .current-session-id was removed.
+if [ -n "$SESSION_ID" ] && [ "$SESSION_ID" != "unknown" ]; then
+  rm -f "${STATE_DIR}/sessions/${SESSION_ID}/.eval-pending" 2>/dev/null || true
 fi
 
 # --- Clean up stale "run" mode (safety net) ---

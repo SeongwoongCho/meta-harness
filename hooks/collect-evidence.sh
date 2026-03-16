@@ -2,8 +2,14 @@
 # collect-evidence.sh — Capture Bash tool output as evidence for the evaluator agent.
 # Fires on PostToolUse for Bash tool calls.
 
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
+PLUGIN_ROOT="$(resolve_plugin_root)"
 STATE_DIR="$(state_dir)"
+
+# Auto-initialize if state dir is missing or broken; abort silently on failure
+if [ -z "$STATE_DIR" ] || [ ! -d "$STATE_DIR" ]; then
+  ensure_state_dir "$STATE_DIR" "$PLUGIN_ROOT" 2>/dev/null || exit 0
+fi
 
 # Read hook input from stdin
 HOOK_INPUT=$(cat 2>/dev/null || echo "")

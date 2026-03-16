@@ -43,7 +43,7 @@ See the canonical definitions in `skills/task-taxonomy/SKILL.md`. Summary:
 
 | Axis | Values |
 |------|--------|
-| `task_type` | `bugfix` / `feature` / `refactor` / `research` / `migration` / `incident` / `benchmark` / `greenfield` |
+| `task_type` | `bugfix` / `feature` / `refactor` / `research` / `migration` / `incident` / `benchmark` / `greenfield` / `review` / `ops` / `release` |
 | `uncertainty` | `low` / `medium` / `high` |
 | `blast_radius` | `local` / `cross-module` / `repo-wide` |
 | `verifiability` | `easy` / `moderate` / `hard` |
@@ -152,6 +152,12 @@ Read `.adaptive-harness/harness-pool.json` if it exists for current weights. Ful
 | `security-audit` | OWASP scan, secrets scan, threat modeling | domain=[backend,infra], security-focused |
 | `performance-optimization` | profiling, benchmarking, latency reduction | task_type=benchmark, latency_sensitivity=high |
 | `system-design` | multi-component system architecture + implementation | task_type=greenfield, uncertainty=high, blast_radius=repo-wide |
+| `parallel-dispatch` | decompose task into independent sub-tasks, fan out in parallel worktrees | task_type in [feature, refactor], blast_radius in [cross-module, repo-wide], uncertainty in [low, medium], decomposable=true |
+| `plan-review` | review plans, designs, and proposals | task_type=review |
+| `pre-landing-review` | pre-merge code and design review | task_type=review |
+| `engineering-retro` | engineering retrospective and process improvement | task_type=[ops,review] (primary: ops, secondary: review) |
+| `qa-testing` | QA, acceptance testing, and quality validation | task_type=ops |
+| `ship-workflow` | release workflow, versioning, and shipping | task_type=release |
 </harness_pool>
 
 
@@ -190,9 +196,37 @@ General-capable harnesses available for chaining:
 - `documentation-writer` — documentation specialist; use standalone or as final step after a feature implementation
 - `security-audit` — security auditor; use standalone or as a review step after implementation in security-sensitive domains
 - `performance-optimization` — performance optimizer; use standalone or after feature implementation when latency_sensitivity=high
+- `parallel-dispatch` — parallel fan-out dispatcher; use as a standalone single harness for feature/refactor tasks with cross-module or repo-wide blast radius, low/medium uncertainty, and clear sub-task independence (decomposable=true). The orchestrator detects this harness via `selected_harness == "parallel-dispatch"` and routes to Step 4d. Do NOT put parallel-dispatch inside a harness_chain — it manages its own fan-out internally.
 
 Always set `selected_harness` to the primary execution harness (first non-planning harness in the chain, for backward compatibility).
 </chaining_guidelines>
+
+<parallel_dispatch_rule>
+When ALL of the following are true, select `parallel-dispatch` as the primary harness:
+
+1. `task_type in ["feature", "refactor"]`
+2. `blast_radius in ["cross-module", "repo-wide"]`
+3. `uncertainty in ["low", "medium"]`
+4. The task description clearly implies independent sub-scopes that can be worked on simultaneously without shared file conflicts (decomposable=true signal)
+
+**Do NOT use parallel-dispatch when:**
+- `uncertainty == "high"` — high uncertainty means the decomposition itself is risky; use ensemble instead
+- `task_type == "greenfield"` — use system-design chain instead
+- The task has a hard ordering constraint (sub-task B requires sub-task A's committed output)
+- `blast_radius == "local"` — local tasks are simple enough for single-harness execution
+
+**Output format for parallel-dispatch:**
+```json
+{
+  "selected_harness": "parallel-dispatch",
+  "harness_chain": ["parallel-dispatch"],
+  "ensemble_required": false,
+  "reasoning": "Feature touches 3 independent modules (auth, payments, notifications) with no shared files — parallel-dispatch will decompose and fan out in parallel worktrees, cutting wall-clock time by ~3x."
+}
+```
+
+Note: `harness_chain` contains only `["parallel-dispatch"]`. The orchestrator's Step 4d handles the internal decomposition + fan-out; the router does not need to enumerate sub-tasks.
+</parallel_dispatch_rule>
 
 <experimental_exploration>
 After selecting the primary harness, check `.adaptive-harness/harness-pool.json` for experimental variants of the selected harness (entries in the `"experimental"` pool whose `"base_harness"` matches the selected stable harness).
@@ -317,6 +351,29 @@ For chain ensemble (planning + parallel execution + synthesis):
 }
 ```
 
+For parallel-dispatch (decompose + fan-out + synthesize):
+```json
+{
+  "taxonomy": {
+    "task_type": "feature",
+    "uncertainty": "medium",
+    "blast_radius": "cross-module",
+    "verifiability": "moderate",
+    "latency_sensitivity": "low",
+    "domain": "backend"
+  },
+  "selected_harness": "parallel-dispatch",
+  "harness_chain": ["parallel-dispatch"],
+  "ensemble_required": false,
+  "reasoning": "Feature adds auth, payments, and notification modules — three clearly independent scopes with no shared files and low coupling. parallel-dispatch decomposes into 3 sub-tasks and fans them out in parallel worktrees, then synthesizes.",
+  "candidate_scores": {
+    "parallel-dispatch": 0.88,
+    "tdd-driven": 0.65,
+    "careful-refactor": 0.60
+  }
+}
+```
+
 For experimental variant selection:
 ```json
 {
@@ -374,6 +431,23 @@ STEPS:
 5. Read({plugin_root}/agents/synthesizer.md) + Read({plugin_root}/harnesses/synthesizer/skill.md)
 6. Agent(subagent_type="adaptive-harness:synthesizer", mode=agent_mode, prompt=synthesizer.md + skill.md + worktree paths)
 7. Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt=score result)
+```
+
+For parallel-dispatch:
+```
+## NEXT_ACTION
+ACTION: PARALLEL_DISPATCH
+HARNESS: parallel-dispatch
+STEPS:
+1. Bash(git init if needed)
+2. Read({plugin_root}/agents/parallel-dispatch.md) + Read({plugin_root}/harnesses/parallel-dispatch/skill.md) [PARALLEL]
+3. Agent(subagent_type="adaptive-harness:parallel-dispatch", mode=agent_mode, prompt=...) → get decomposition JSON
+4. Validate sub-tasks (cap at 5); if fallback_to_single=true → go to SINGLE_HARNESS with best candidate
+5. Read all sub-task agent.md + skill.md files [ALL IN ONE PARALLEL BATCH]
+6. Agent(all sub-tasks) with isolation="worktree" [ALL IN ONE PARALLEL BATCH]
+7. Read({plugin_root}/agents/synthesizer.md) + Read({plugin_root}/harnesses/synthesizer/skill.md) [PARALLEL]
+8. Agent(subagent_type="adaptive-harness:synthesizer", mode=agent_mode, prompt=synthesizer.md + integration plan + subtask results)
+9. Agent(subagent_type="adaptive-harness:evaluator", mode=agent_mode, prompt=score result)
 ```
 
 For skip_routing:

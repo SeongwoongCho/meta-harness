@@ -1,6 +1,6 @@
 name: divide-and-conquer
 version: "1.0.0"
-pool: experimental
+pool: stable
 
 trigger:
   task_types:
