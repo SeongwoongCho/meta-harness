@@ -64,16 +64,18 @@ jobs:
           else
             CHANGELOG=$(python3 scripts/generate_changelog.py)
           fi
-          # Write to file so multiline is preserved
-          echo "${CHANGELOG}" > /tmp/changelog.md
-          cat /tmp/changelog.md
+          # M4 fix: Use mktemp to avoid predictable hardcoded path (security: temp file race)
+          CHANGELOG_FILE=$(mktemp --suffix=.md)
+          echo "${CHANGELOG}" > "${CHANGELOG_FILE}"
+          cat "${CHANGELOG_FILE}"
+          echo "changelog_file=${CHANGELOG_FILE}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag_version.outputs.tag }}
           name: "adaptive-harness ${{ steps.tag_version.outputs.tag }}"
-          body_path: /tmp/changelog.md
+          body_path: ${{ steps.changelog.outputs.changelog_file }}
           draft: false
           prerelease: false
         env:

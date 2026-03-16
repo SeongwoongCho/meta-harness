@@ -20,6 +20,14 @@ SESSION_ID="$(resolve_session_id "$STATE_DIR")"
 EVIDENCE_DIR="${STATE_DIR}/sessions/${SESSION_ID}/evidence"
 mkdir -p "$EVIDENCE_DIR" 2>/dev/null || exit 0
 
+# L1 fix: Rate-limit evidence file creation to prevent unbounded disk usage.
+# Default limit is 100 files per session; override with MAX_EVIDENCE_FILES env var.
+MAX_EVIDENCE_FILES="${MAX_EVIDENCE_FILES:-100}"
+CURRENT_COUNT=$(find "$EVIDENCE_DIR" -maxdepth 1 -name "*.json" 2>/dev/null | wc -l)
+if [ "$CURRENT_COUNT" -ge "$MAX_EVIDENCE_FILES" ]; then
+  exit 0
+fi
+
 TIMESTAMP="$(timestamp_utc)"
 # Append random suffix to prevent collisions when multiple Bash calls
 # complete within the same second (timestamp_utc has 1-second resolution)

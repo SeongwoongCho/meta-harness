@@ -192,3 +192,16 @@ POOL_EOF
 
   return 0
 }
+
+# escape_for_json — Escape a string for safe embedding in a JSON string value.
+# Handles backslashes, double-quotes, newlines, carriage returns, and tabs.
+# Usage: escaped=$(escape_for_json "$variable")
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
