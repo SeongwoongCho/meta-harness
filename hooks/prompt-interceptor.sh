@@ -20,15 +20,30 @@ PIPELINE_MODE=""
 MODE_FILE="${STATE_DIR}/.pipeline-mode"
 [ -f "$MODE_FILE" ] && PIPELINE_MODE=$(cat "$MODE_FILE" 2>/dev/null)
 
-# Check for pending evaluation
+# Check for chain-in-progress and pending evaluation
+CHAIN_IN_PROGRESS=""
+CHAIN_FILE="${STATE_DIR}/.chain-in-progress"
+[ -f "$CHAIN_FILE" ] && CHAIN_IN_PROGRESS="true"
+
 EVAL_PENDING=""
 if [ -n "$SESSION_ID" ]; then
   PENDING_FILE="${STATE_DIR}/sessions/${SESSION_ID}/.eval-pending"
   [ -f "$PENDING_FILE" ] && EVAL_PENDING="true"
 fi
 
+# Priority 0: Chain in progress — tell model to continue chain, NOT re-route or evaluate
+if [ "$CHAIN_IN_PROGRESS" = "true" ]; then
+  cat <<'EOF'
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "[adaptive-harness] CHAIN IN PROGRESS. Continue executing the next chain step IMMEDIATELY. Do NOT spawn the router again. Do NOT run evaluation yet. Do NOT respond to the user with status updates. Your next tool call must be Read (harness files) or Agent (next harness subagent). Evaluation runs ONCE after the entire chain finishes."
+  }
+}
+EOF
+
 # Priority 1: Pending evaluation warning (always fires if eval pending, regardless of mode)
-if [ "$EVAL_PENDING" = "true" ]; then
+elif [ "$EVAL_PENDING" = "true" ]; then
   cat <<'EOF'
 {
   "hookSpecificOutput": {

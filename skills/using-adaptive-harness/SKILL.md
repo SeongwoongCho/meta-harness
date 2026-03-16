@@ -38,7 +38,7 @@ elif response.ensemble_harnesses:
     b. Spawn synthesizer with worktree paths + skill.md
 
 elif response.harness_chain and len > 1:
-    → CHAIN: Execute sequentially, passing chain_context between steps
+    → CHAIN: Write .chain-in-progress marker, execute sequentially, remove marker when done
 
 else:
     → SINGLE: Read agent.md + skill.md, spawn one harness subagent
@@ -233,7 +233,24 @@ Router response JSON structure:
 
 ### Step 3.5: Execute Harness Chain (if harness_chain has more than 1 entry)
 
-If the router response includes `harness_chain` with more than 1 entry, execute them sequentially instead of jumping to Step 4b/4c:
+If the router response includes `harness_chain` with more than 1 entry, execute them sequentially instead of jumping to Step 4b/4c.
+
+**⚠ CRITICAL: Chain marker file management.**
+Before starting the chain loop, write the `.chain-in-progress` marker file. This tells hooks (SubagentStop, UserPromptSubmit) that evaluation should be deferred until the entire chain finishes:
+
+```
+# BEFORE the chain loop — mark chain as in progress
+Bash("printf '{harness_chain_json}' > .adaptive-harness/.chain-in-progress")
+```
+
+After the chain loop completes (ALL steps done), remove the marker:
+
+```
+# AFTER the chain loop — chain complete, evaluation can proceed
+Bash("rm -f .adaptive-harness/.chain-in-progress")
+```
+
+**Chain execution:**
 
 ```
 chain_context = ""
@@ -433,9 +450,12 @@ The router provides:
 
 0. **Ensure git repo exists** (see Ensemble Pre-Check above). For greenfield projects, also commit any files created by the planning step before fan-out — worktrees branch from the current HEAD, so planning artifacts must be committed to be visible in worktrees.
 
-1. **Run shared planning harness ONCE in the main workspace** (avoids redundant planning):
+1. **Mark chain in progress, then run shared planning harness ONCE in the main workspace** (avoids redundant planning):
 
 ```
+# Mark ensemble chain as in progress — prevents premature .eval-pending and turn-breaking hook messages
+Bash("printf 'ensemble' > .adaptive-harness/.chain-in-progress")
+
 Read("{plugin_root}/agents/{shared_planning_harness}.md")
 Read("{plugin_root}/harnesses/{shared_planning_harness}/skill.md")
 
@@ -505,7 +525,12 @@ Task(
 - If a chain has more than 2 steps after the shared prefix, run those steps sequentially **within the same worktree**
 - Evaluation (Step 5) runs ONCE on the synthesized result in the main workspace, not on individual worktree results
 
-**⚠ PIPELINE CONTINUITY: The full ensemble flow (plan → fan-out → synthesize → evaluate) must execute as ONE unbroken sequence. After execution harnesses return, IMMEDIATELY spawn the synthesizer. After the synthesizer returns, IMMEDIATELY spawn the evaluator. Never pause, never respond to the user, never output intermediate text between these steps.**
+**After synthesizer completes, remove the chain marker:**
+```
+Bash("rm -f .adaptive-harness/.chain-in-progress")
+```
+
+**⚠ PIPELINE CONTINUITY: The full ensemble flow (plan → fan-out → synthesize → evaluate) must execute as ONE unbroken sequence. After execution harnesses return, IMMEDIATELY spawn the synthesizer. After the synthesizer returns, remove `.chain-in-progress`, then IMMEDIATELY spawn the evaluator. Never pause, never respond to the user, never output intermediate text between these steps.**
 
 ### Step 5: Collect Evidence and Evaluate (MANDATORY — do not skip)
 
