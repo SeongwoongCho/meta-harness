@@ -6,8 +6,19 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
 PLUGIN_ROOT="$(resolve_plugin_root)"
 SKILL_FILE="${PLUGIN_ROOT}/skills/using-adaptive-harness/SKILL.md"
-PROJECT_ROOT="$(resolve_project_root)"
-STATE_DIR="$(state_dir)"
+PROJECT_ROOT="$(resolve_project_root)" || PROJECT_ROOT="$PWD"
+STATE_DIR="$(state_dir)" || {
+  # state_dir() can return 1 if CWD is inside plugin cache. Emit fallback JSON and exit.
+  cat <<'FALLBACK_SD'
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "[adaptive-harness] Plugin loaded but state directory could not be resolved. Use /adaptive-harness:init to set up."
+  }
+}
+FALLBACK_SD
+  exit 0
+}
 
 # Generate a stable session ID and create directories
 SESSION_ID="${CLAUDE_SESSION_ID:-session-$(date +%s)-$$}"
@@ -285,6 +296,11 @@ if applied:
 APPLY_PROPOSALS
 fi
 
+# --- Clean up stale .chain-in-progress from prior sessions ---
+# If a previous session ended abnormally mid-chain, the marker persists.
+# New sessions never inherit chain state, so always remove on startup.
+rm -f "${STATE_DIR}/.chain-in-progress" 2>/dev/null || true
+
 # --- Pipeline mode check ---
 # Only inject full SKILL.md (auto-mode) if .pipeline-mode is "auto".
 # Otherwise, inject a lightweight message indicating adaptive-harness is available but not auto-routing.
@@ -323,7 +339,13 @@ FALLBACK
     exit 0
   fi
 
-  SKILL_CONTENT=$(sed "s|{{PLUGIN_ROOT}}|${PLUGIN_ROOT}|g" "$SKILL_FILE")
+  # Use python3 for safe substitution — sed's replacement field expands & and
+  # breaks on | in the value, which can occur in PLUGIN_ROOT paths.
+  SKILL_CONTENT=$(python3 -c "
+import sys
+with open(sys.argv[1]) as f:
+    print(f.read().replace('{{PLUGIN_ROOT}}', sys.argv[2]), end='')
+" "$SKILL_FILE" "$PLUGIN_ROOT")
   MIGRATE_NOTICE_ESCAPED=$(escape_for_json "$MIGRATE_NOTICE")
   ESCAPED=$(escape_for_json "$SKILL_CONTENT")
 

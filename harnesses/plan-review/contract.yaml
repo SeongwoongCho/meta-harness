@@ -8,6 +8,7 @@ trigger:
     - planning
     - design
     - architecture
+    - review
   uncertainty:
     - medium
     - high

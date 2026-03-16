@@ -1,6 +1,6 @@
 name: spike-then-harden
 version: "1.0.0"
-pool: experimental
+pool: stable
 
 trigger:
   task_types:

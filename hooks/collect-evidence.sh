@@ -2,7 +2,7 @@
 # collect-evidence.sh — Capture Bash tool output as evidence for the evaluator agent.
 # Fires on PostToolUse for Bash tool calls.
 
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
 STATE_DIR="$(state_dir)"
 
 # Read hook input from stdin

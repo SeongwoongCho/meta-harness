@@ -115,6 +115,41 @@ if os.path.isdir(harnesses_dir):
 with open(pool_file, "w") as fh:
     json.dump(pool, fh, indent=2)
 
+# --- Step 2b: Reclassify harnesses whose pool tier has changed ---
+# If a harness is in experimental but its contract.yaml now says pool=stable
+# (or vice versa), move it to the correct tier while preserving its stats.
+reclassified = []
+if os.path.isdir(harnesses_dir):
+    for name in sorted(os.listdir(harnesses_dir)):
+        full = os.path.join(harnesses_dir, name)
+        if not os.path.isdir(full) or name in skip_dirs or name.startswith("."):
+            continue
+        contract_path = os.path.join(full, "contract.yaml")
+        if not os.path.isfile(contract_path):
+            continue
+        try:
+            import yaml
+            with open(contract_path) as fh:
+                contract = yaml.safe_load(fh)
+            desired_tier = contract.get("pool", "stable")
+        except Exception:
+            continue
+        # Check if harness is in the wrong tier
+        wrong_tier = "experimental" if desired_tier == "stable" else "stable"
+        if name in pool.get(wrong_tier, {}):
+            entry = pool[wrong_tier].pop(name)
+            pool.setdefault(desired_tier, {})[name] = entry
+            reclassified.append(name)
+            print(
+                f"[adaptive-harness migrate] Reclassified {name}: {wrong_tier} → {desired_tier}",
+                file=sys.stderr,
+            )
+
+if reclassified:
+    with open(pool_file, "w") as fh:
+        json.dump(pool, fh, indent=2)
+    changes["harnesses_reclassified"] = reclassified
+
 # --- Step 3: Add missing config fields to config.yaml ---
 if os.path.isfile(config_file):
     with open(config_file) as fh:
@@ -145,6 +180,7 @@ summary = {
     "to_version": plugin_version,
     "harnesses_added": changes["harnesses_added"],
     "config_fields_added": changes["config_fields_added"],
+    "harnesses_reclassified": changes.get("harnesses_reclassified", []),
 }
 print(json.dumps(summary))
 MIGRATE_PY
