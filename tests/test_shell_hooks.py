@@ -145,6 +145,17 @@ class TestSessionStartHook:
         ctx = parsed["hookSpecificOutput"]["additionalContext"]
         assert "adaptive-harness" in ctx.lower()
 
+    def test_clears_stale_chain_in_progress_on_start(self, tmp_path):
+        """session-start.sh must remove stale .chain-in-progress from prior sessions."""
+        _make_git_root(tmp_path)
+        state_dir = tmp_path / ".adaptive-harness"
+        state_dir.mkdir(exist_ok=True)
+        (state_dir / ".chain-in-progress").write_text("stale-from-prior-session")
+        env = _base_env()
+        _, _, rc = _run_hook("session-start.sh", env, str(tmp_path))
+        assert rc == 0
+        assert not (state_dir / ".chain-in-progress").exists()
+
 
 # ---------------------------------------------------------------------------
 # session-end.sh
@@ -231,6 +242,33 @@ class TestSessionEndHook:
         mode_file = state_dir / ".pipeline-mode"
         if mode_file.exists():
             assert mode_file.read_text().strip() != "run"
+
+    def test_clears_chain_in_progress_at_session_end(self, tmp_path):
+        """session-end.sh must remove stale .chain-in-progress marker."""
+        pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
+        self._create_state(tmp_path, "end-chain-test", pool)
+        state_dir = tmp_path / ".adaptive-harness"
+        (state_dir / ".chain-in-progress").write_text("stale-chain-data")
+
+        env = _base_env(session_id="end-chain-test")
+        _, _, rc = _run_hook("session-end.sh", env, str(tmp_path))
+        assert rc == 0
+        assert not (state_dir / ".chain-in-progress").exists()
+
+    def test_clears_eval_pending_at_session_end(self, tmp_path):
+        """session-end.sh must remove stale .eval-pending from current session."""
+        pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
+        session_id = "end-eval-pending-test"
+        self._create_state(tmp_path, session_id, pool)
+        state_dir = tmp_path / ".adaptive-harness"
+        session_dir = state_dir / "sessions" / session_id
+        session_dir.mkdir(parents=True)
+        (session_dir / ".eval-pending").write_text("stale-ts")
+
+        env = _base_env(session_id=session_id)
+        _, _, rc = _run_hook("session-end.sh", env, str(tmp_path))
+        assert rc == 0
+        assert not (session_dir / ".eval-pending").exists()
 
 
 # ---------------------------------------------------------------------------

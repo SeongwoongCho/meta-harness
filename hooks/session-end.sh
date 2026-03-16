@@ -4,7 +4,7 @@
 # Consume stdin
 cat > /dev/null 2>&1 || true
 
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
 PROJECT_ROOT="$(resolve_project_root)"
 STATE_DIR="$(state_dir)"
 POOL_FILE="${STATE_DIR}/harness-pool.json"
@@ -20,7 +20,8 @@ TIMESTAMP="$(timestamp_utc)"
 # Proceed if pool file exists — weights.json is optional (eval stats still matter)
 if [ -f "$POOL_FILE" ]; then
   # Validate pool JSON is parseable BEFORE backing up (don't backup corrupt files)
-  if ! python3 -c "import json; json.load(open('$POOL_FILE'))" 2>/dev/null; then
+  # Pass path via sys.argv to avoid shell injection from apostrophes in paths
+  if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$POOL_FILE" 2>/dev/null; then
     echo "[adaptive-harness session-end] Pool file corrupt. Attempting restore from backup." >&2
     if [ -f "$POOL_BAK" ]; then
       cp "$POOL_BAK" "$POOL_FILE"
@@ -149,6 +150,19 @@ fi
 # --- Clean up current session ID file ---
 if [ -f "${STATE_DIR}/.current-session-id" ]; then
   rm -f "${STATE_DIR}/.current-session-id"
+fi
+
+# --- Clean up stale .chain-in-progress marker ---
+# If a chain was running when the session ended (normal or abnormal), clear it.
+# Without this, a stale marker permanently corrupts future sessions by injecting
+# "CHAIN IN PROGRESS" messages into every UserPromptSubmit hook.
+rm -f "${STATE_DIR}/.chain-in-progress" 2>/dev/null || true
+
+# --- Clean up stale .eval-pending if evaluator failed ---
+# If the evaluator subagent crashed or timed out, .eval-pending persists and
+# causes every subsequent UserPromptSubmit to demand evaluation re-run.
+if [ -n "$SESSION_ID" ] && [ -d "${STATE_DIR}/sessions/${SESSION_ID}" ]; then
+  rm -f "${STATE_DIR}/sessions/${SESSION_ID}/.eval-pending" 2>/dev/null || true
 fi
 
 # --- Clean up stale "run" mode (safety net) ---

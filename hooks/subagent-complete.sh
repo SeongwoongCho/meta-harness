@@ -4,7 +4,7 @@
 # Consume stdin
 HOOK_INPUT=$(cat 2>/dev/null || echo "")
 
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
 STATE_DIR="$(state_dir)"
 SESSION_ID="$(resolve_session_id "$STATE_DIR")"
 
