@@ -240,7 +240,7 @@ Before starting the chain loop, write the `.chain-in-progress` marker file. This
 
 ```
 # BEFORE the chain loop — mark chain as in progress
-Bash("printf '{harness_chain_json}' > .adaptive-harness/.chain-in-progress")
+Bash("printf 'chain' > .adaptive-harness/.chain-in-progress")
 ```
 
 After the chain loop completes (ALL steps done), remove the marker:
@@ -501,6 +501,14 @@ sub_chains = [chain[1:] for chain in ensemble_chains]
 # e.g., for [["ralplan-consensus","careful-refactor","code-review"],["ralplan-consensus","tdd-driven","code-review"]]:
 #   sub_chains = [["careful-refactor","code-review"], ["tdd-driven","code-review"]]
 
+# Guard: skip empty sub-chains (from 1-element input chains missing execution steps)
+sub_chains = [sc for sc in sub_chains if len(sc) > 0]
+if not sub_chains:
+    # No execution steps after planning — fall back to planning result only
+    # Remove chain marker and proceed to evaluation
+    Bash("rm -f .adaptive-harness/.chain-in-progress")
+    → proceed to Step 5 (evaluation) with planning_result as the result
+
 # Spawn ALL worktree branches in parallel — EACH SUB-CHAIN IN ITS OWN WORKTREE.
 # This is critical: without isolation, the second branch overwrites the first's files,
 # and the synthesizer cannot compare independent implementations.
@@ -618,8 +626,8 @@ On evaluator response:
    ```
    This accumulates evaluation history per harness, enabling the evolution-manager to analyze trends.
 
-6. **Auto-trigger evolution manager every evaluation (Fix 3):**
-   After copying the eval, count files in `.adaptive-harness/evaluation-logs/{selected_harness}/`. Spawn the evolution manager on every evaluation (`count >= 1`):
+6. **Auto-trigger evolution manager every 3 evaluations (Fix 3):**
+   After copying the eval, count files in `.adaptive-harness/evaluation-logs/{selected_harness}/`. If the count is a multiple of 3 (i.e., `count % 3 == 0` and `count >= 3`), spawn the evolution manager:
    ```
    Task(
      subagent_type="adaptive-harness:evolution-manager",

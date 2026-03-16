@@ -314,14 +314,15 @@ if [ "$PIPELINE_MODE" = "run" ]; then
   PIPELINE_MODE=""
 fi
 
-# Escape for JSON: use python3 for RFC 8259 compliance (handles all control chars)
+# Escape for JSON using bash parameter substitution (same pattern as superpowers)
 escape_for_json() {
-    python3 -c "
-import json, sys
-s = sys.stdin.read()
-# json.dumps produces a quoted string; strip outer quotes for embedding in our heredoc
-print(json.dumps(s)[1:-1], end='')
-" <<< "$1"
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
 }
 
 if [ "$PIPELINE_MODE" = "auto" ]; then
