@@ -133,18 +133,19 @@ AskUserQuestion(
 
 For approved proposals:
 
-1. **Content modifications** — Write modified files to the experimental pool directory:
+1. **Content modifications** — Write modified files to the project-local experimental directory (never the global plugin cache):
    ```
-   {plugin_root}/harnesses/experimental/{variant-name}/agent.md  (experimental harnesses keep agent.md locally)
-   {plugin_root}/harnesses/experimental/{variant-name}/skill.md
-   {plugin_root}/harnesses/experimental/{variant-name}/contract.yaml
-   {plugin_root}/harnesses/experimental/{variant-name}/metadata.json  ← set pool: "experimental"
+   .adaptive-harness/harnesses/experimental/{variant-name}/agent.md  (experimental harnesses keep agent.md locally)
+   .adaptive-harness/harnesses/experimental/{variant-name}/skill.md
+   .adaptive-harness/harnesses/experimental/{variant-name}/contract.yaml
+   .adaptive-harness/harnesses/experimental/{variant-name}/metadata.json  ← set pool: "experimental"
    ```
+   The base harness source files are read from `{plugin_root}/harnesses/{base-harness-name}/` (global, read-only).
    Register in `.adaptive-harness/harness-pool.json` under `experimental`.
 
-2. **Promotions** — Update `{plugin_root}/harnesses/{name}/metadata.json` pool field to `"stable"`. Update `.adaptive-harness/harness-pool.json` atomically (write to `.tmp`, rename).
+2. **Promotions** — Copy the local experimental variant to `.adaptive-harness/harnesses/{name}/` (local stable override). Update `.adaptive-harness/harness-pool.json` atomically (write to `.tmp`, rename). The global plugin cache is never modified.
 
-3. **Demotions** — Update `{plugin_root}/harnesses/{name}/metadata.json` pool field to `"experimental"`. Log demotion event.
+3. **Demotions** — Copy the local stable override (if present) from `.adaptive-harness/harnesses/{name}/` to `.adaptive-harness/harnesses/experimental/{name}-demoted/`. Update `.adaptive-harness/harness-pool.json`. Log demotion event. If no local override exists, this is a pool-only operation.
 
 ### Step 7: Report
 

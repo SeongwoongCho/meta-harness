@@ -89,7 +89,8 @@ ensure_state_dir() {
   fi
 
   # Create subdirectories
-  mkdir -p "${sd}/sessions" "${sd}/evaluation-logs" "${sd}/evolution-proposals" 2>/dev/null || {
+  mkdir -p "${sd}/sessions" "${sd}/evaluation-logs" "${sd}/evolution-proposals" \
+    "${sd}/harnesses/experimental" "${sd}/harnesses/stable" 2>/dev/null || {
     echo "[adaptive-harness] ERROR: ensure_state_dir: cannot create directories under ${sd}" >&2
     return 1
   }

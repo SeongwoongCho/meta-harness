@@ -128,10 +128,12 @@ class TestM1PathTraversal:
     """Absolute paths and directory-traversal paths in proposals must be rejected."""
 
     def _run_proposal_python(self, proposals_dir: str, pool_file: str,
-                              harnesses_dir: str) -> tuple[str, str, int]:
+                              harnesses_dir: str,
+                              local_harnesses_dir: str | None = None) -> tuple[str, str, int]:
         """Run the embedded Python from session-start.sh's APPLY_PROPOSALS block."""
-        hook_path = os.path.join(HOOKS_DIR, "session-start.sh")
-        # Extract and run the Python block directly via the shell script
+        if local_harnesses_dir is None:
+            local_harnesses_dir = os.path.join(os.path.dirname(pool_file), "local-harnesses")
+        os.makedirs(local_harnesses_dir, exist_ok=True)
         env = os.environ.copy()
         env["CLAUDE_PLUGIN_ROOT"] = PLUGIN_ROOT
         proc = subprocess.run(
@@ -141,6 +143,7 @@ import json, sys, os, shutil, glob, re
 proposals_dir = sys.argv[1]
 pool_file = sys.argv[2]
 harnesses_dir = sys.argv[3]
+local_harnesses_dir = sys.argv[4]
 
 HARNESS_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
 
@@ -182,10 +185,14 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, '*.json'))):
             json.dump(proposal, f)
         continue
 
-    # Canonicalize and validate within allowed base directory
-    allowed_base = os.path.dirname(harnesses_dir)
+    # Backward compatibility: strip leading 'harnesses/' prefix if present (old format)
+    if exp_path.startswith('harnesses/'):
+        exp_path = exp_path[len('harnesses/'):]
+
+    # Canonicalize and validate within local_harnesses_dir
+    allowed_base = os.path.realpath(local_harnesses_dir)
     candidate = os.path.realpath(os.path.join(allowed_base, exp_path))
-    if not candidate.startswith(os.path.realpath(allowed_base) + os.sep):
+    if not candidate.startswith(allowed_base + os.sep):
         proposal['status'] = 'rejected'
         rejected.append(pf)
         with open(pf, 'w') as f:
@@ -195,7 +202,7 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, '*.json'))):
     applied.append(pf)
 
 print(json.dumps({'applied': applied, 'rejected': rejected}))
-""", proposals_dir, pool_file, harnesses_dir],
+""", proposals_dir, pool_file, harnesses_dir, local_harnesses_dir],
             capture_output=True, text=True
         )
         return proc.stdout, proc.stderr, proc.returncode

@@ -169,7 +169,8 @@ class TestSessionStartIdempotencyShell:
     """Tests that run the APPLY_PROPOSALS heredoc from session-start.sh."""
 
     def _extract_and_run_apply_proposals(self, proposals_dir: str, pool: dict,
-                                          harnesses_dir: str) -> dict:
+                                          harnesses_dir: str,
+                                          local_harnesses_dir: str | None = None) -> dict:
         """
         Extracts the APPLY_PROPOSALS block from session-start.sh and runs it.
         Returns the updated pool dict.
@@ -180,6 +181,10 @@ class TestSessionStartIdempotencyShell:
         with open(pool_file, "w") as fh:
             json.dump(pool, fh)
 
+        if local_harnesses_dir is None:
+            local_harnesses_dir = os.path.join(os.path.dirname(proposals_dir), "local-harnesses")
+        os.makedirs(local_harnesses_dir, exist_ok=True)
+
         session_start_sh = os.path.join(HOOKS_DIR, "session-start.sh")
         with open(session_start_sh) as fh:
             content = fh.read()
@@ -188,7 +193,7 @@ class TestSessionStartIdempotencyShell:
         end = content.find("\nAPPLY_PROPOSALS", start)
         apply_code = content[start:end]
 
-        env_args = [proposals_dir, pool_file, harnesses_dir]
+        env_args = [proposals_dir, pool_file, harnesses_dir, local_harnesses_dir]
         proc = subprocess.run(
             ["python3", "-", *env_args],
             input=apply_code,
@@ -205,6 +210,7 @@ class TestSessionStartIdempotencyShell:
         """A content_modification proposal must create an experimental harness dir."""
         harnesses_dir = str(tmp_path / "harnesses")
         proposals_dir = str(tmp_path / "proposals")
+        local_harnesses_dir = str(tmp_path / "local-harnesses")
         os.makedirs(harnesses_dir)
         os.makedirs(proposals_dir)
 
@@ -231,16 +237,18 @@ class TestSessionStartIdempotencyShell:
         with open(proposal_file, "w") as fh:
             json.dump(proposal, fh)
 
-        result_pool = self._extract_and_run_apply_proposals(proposals_dir, pool, harnesses_dir)
+        result_pool = self._extract_and_run_apply_proposals(proposals_dir, pool, harnesses_dir,
+                                                             local_harnesses_dir)
 
-        exp_dir = tmp_path / "harnesses" / "experimental" / "base-harness-v2"
-        assert exp_dir.exists(), "Experimental harness directory must be created"
+        exp_dir = tmp_path / "local-harnesses" / "experimental" / "base-harness-v2"
+        assert exp_dir.exists(), "Experimental harness directory must be created in local-harnesses"
         assert "base-harness-v2" in result_pool["experimental"]
 
     def test_apply_proposals_content_idempotent(self, tmp_path):
         """Running APPLY_PROPOSALS twice must not duplicate section content."""
         harnesses_dir = str(tmp_path / "harnesses")
         proposals_dir = str(tmp_path / "proposals")
+        local_harnesses_dir = str(tmp_path / "local-harnesses")
         os.makedirs(harnesses_dir)
         os.makedirs(proposals_dir)
 
@@ -266,7 +274,8 @@ class TestSessionStartIdempotencyShell:
             json.dump(proposal, fh)
 
         # First run
-        result_pool = self._extract_and_run_apply_proposals(proposals_dir, pool, harnesses_dir)
+        result_pool = self._extract_and_run_apply_proposals(proposals_dir, pool, harnesses_dir,
+                                                             local_harnesses_dir)
 
         # Reset proposal status to simulate re-running on pending
         with open(proposal_file, "w") as fh:
@@ -274,9 +283,10 @@ class TestSessionStartIdempotencyShell:
             json.dump(proposal, fh)
 
         # Second run
-        self._extract_and_run_apply_proposals(proposals_dir, result_pool, harnesses_dir)
+        self._extract_and_run_apply_proposals(proposals_dir, result_pool, harnesses_dir,
+                                               local_harnesses_dir)
 
-        skill_content = (tmp_path / "harnesses" / "experimental" / "base-harness-v2" / "skill.md").read_text()
+        skill_content = (tmp_path / "local-harnesses" / "experimental" / "base-harness-v2" / "skill.md").read_text()
         count = skill_content.count("## Idempotent Section")
         assert count == 1, (
             f"Section appeared {count} times after 2 runs; expected 1. "

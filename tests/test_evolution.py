@@ -49,8 +49,14 @@ VALID_STATUSES = {"pending", "applied", "rejected"}
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _apply_proposals(proposals_dir: str, pool: dict, harnesses_dir: str) -> dict:
-    """Extract and run APPLY_PROPOSALS from session-start.sh."""
+def _apply_proposals(proposals_dir: str, pool: dict, harnesses_dir: str,
+                     local_harnesses_dir: str | None = None) -> dict:
+    """Extract and run APPLY_PROPOSALS from session-start.sh.
+
+    harnesses_dir  — global plugin harnesses (read-only source)
+    local_harnesses_dir — project-local harnesses (write target); defaults to a
+                          sibling 'local-harnesses' directory of proposals_dir.
+    """
     session_start_sh = os.path.join(HOOKS_DIR, "session-start.sh")
     with open(session_start_sh) as fh:
         content = fh.read()
@@ -63,8 +69,12 @@ def _apply_proposals(proposals_dir: str, pool: dict, harnesses_dir: str) -> dict
     with open(pool_file, "w") as fh:
         json.dump(pool, fh)
 
+    if local_harnesses_dir is None:
+        local_harnesses_dir = os.path.join(pool_dir, "local-harnesses")
+    os.makedirs(local_harnesses_dir, exist_ok=True)
+
     proc = subprocess.run(
-        ["python3", "-", proposals_dir, pool_file, harnesses_dir],
+        ["python3", "-", proposals_dir, pool_file, harnesses_dir, local_harnesses_dir],
         input=code,
         capture_output=True,
         text=True,
@@ -179,6 +189,7 @@ class TestContentModificationProposal:
     def test_content_modification_creates_experimental_copy(self, tmp_path):
         harnesses_dir = str(tmp_path / "harnesses")
         proposals_dir = str(tmp_path / "proposals")
+        local_harnesses_dir = str(tmp_path / "local-harnesses")
         os.makedirs(proposals_dir)
         self._make_base_harness(harnesses_dir, "tdd-driven")
         pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
@@ -196,14 +207,15 @@ class TestContentModificationProposal:
         with open(os.path.join(proposals_dir, "001.json"), "w") as fh:
             json.dump(proposal, fh)
 
-        _apply_proposals(proposals_dir, pool, harnesses_dir)
+        _apply_proposals(proposals_dir, pool, harnesses_dir, local_harnesses_dir)
 
-        exp_dir = tmp_path / "harnesses" / "experimental" / "tdd-driven-v1.1"
+        exp_dir = tmp_path / "local-harnesses" / "experimental" / "tdd-driven-v1.1"
         assert exp_dir.exists()
 
     def test_content_modification_registers_in_experimental_pool(self, tmp_path):
         harnesses_dir = str(tmp_path / "harnesses")
         proposals_dir = str(tmp_path / "proposals")
+        local_harnesses_dir = str(tmp_path / "local-harnesses")
         os.makedirs(proposals_dir)
         self._make_base_harness(harnesses_dir, "tdd-driven")
         pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
@@ -221,12 +233,13 @@ class TestContentModificationProposal:
         with open(os.path.join(proposals_dir, "001.json"), "w") as fh:
             json.dump(proposal, fh)
 
-        result = _apply_proposals(proposals_dir, pool, harnesses_dir)
+        result = _apply_proposals(proposals_dir, pool, harnesses_dir, local_harnesses_dir)
         assert "tdd-driven-v1.1" in result["experimental"]
 
     def test_content_modification_appends_section(self, tmp_path):
         harnesses_dir = str(tmp_path / "harnesses")
         proposals_dir = str(tmp_path / "proposals")
+        local_harnesses_dir = str(tmp_path / "local-harnesses")
         os.makedirs(proposals_dir)
         self._make_base_harness(harnesses_dir, "tdd-driven", "# Base Skill\n")
         pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
@@ -245,15 +258,16 @@ class TestContentModificationProposal:
         with open(os.path.join(proposals_dir, "001.json"), "w") as fh:
             json.dump(proposal, fh)
 
-        _apply_proposals(proposals_dir, pool, harnesses_dir)
+        _apply_proposals(proposals_dir, pool, harnesses_dir, local_harnesses_dir)
 
-        exp_skill = tmp_path / "harnesses" / "experimental" / "tdd-driven-v1.1" / "skill.md"
+        exp_skill = tmp_path / "local-harnesses" / "experimental" / "tdd-driven-v1.1" / "skill.md"
         text = exp_skill.read_text()
         assert "## Error Handling Review" in text
 
     def test_content_modification_proposal_marked_applied(self, tmp_path):
         harnesses_dir = str(tmp_path / "harnesses")
         proposals_dir = str(tmp_path / "proposals")
+        local_harnesses_dir = str(tmp_path / "local-harnesses")
         os.makedirs(proposals_dir)
         self._make_base_harness(harnesses_dir, "tdd-driven")
         pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
@@ -272,7 +286,7 @@ class TestContentModificationProposal:
         with open(proposal_file, "w") as fh:
             json.dump(proposal, fh)
 
-        _apply_proposals(proposals_dir, pool, harnesses_dir)
+        _apply_proposals(proposals_dir, pool, harnesses_dir, local_harnesses_dir)
 
         with open(proposal_file) as fh:
             updated = json.load(fh)
@@ -281,6 +295,7 @@ class TestContentModificationProposal:
     def test_already_applied_proposal_not_re_applied(self, tmp_path):
         harnesses_dir = str(tmp_path / "harnesses")
         proposals_dir = str(tmp_path / "proposals")
+        local_harnesses_dir = str(tmp_path / "local-harnesses")
         os.makedirs(proposals_dir)
         self._make_base_harness(harnesses_dir, "tdd-driven", "# Base\n")
         pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
@@ -298,10 +313,10 @@ class TestContentModificationProposal:
         with open(os.path.join(proposals_dir, "001.json"), "w") as fh:
             json.dump(proposal, fh)
 
-        _apply_proposals(proposals_dir, pool, harnesses_dir)
+        _apply_proposals(proposals_dir, pool, harnesses_dir, local_harnesses_dir)
 
         # Experimental directory should NOT be created (proposal was already applied)
-        exp_dir = tmp_path / "harnesses" / "experimental" / "tdd-driven-v1.1"
+        exp_dir = tmp_path / "local-harnesses" / "experimental" / "tdd-driven-v1.1"
         assert not exp_dir.exists()
 
 
@@ -352,10 +367,11 @@ class TestPromotionLogic:
         """A promotion proposal moves harness from experimental to stable in pool."""
         harnesses_dir = str(tmp_path / "harnesses")
         proposals_dir = str(tmp_path / "proposals")
+        local_harnesses_dir = str(tmp_path / "local-harnesses")
         os.makedirs(proposals_dir)
 
-        # Create experimental harness dir
-        exp_harness_dir = os.path.join(harnesses_dir, "experimental", "tdd-driven-v1.1")
+        # Create experimental harness dir in local_harnesses_dir (new location)
+        exp_harness_dir = os.path.join(local_harnesses_dir, "experimental", "tdd-driven-v1.1")
         os.makedirs(exp_harness_dir)
         with open(os.path.join(exp_harness_dir, "skill.md"), "w") as fh:
             fh.write("# TDD Driven v1.1\n")
@@ -389,7 +405,7 @@ class TestPromotionLogic:
             json.dump(proposal, fh)
 
         # Promotion moves harness from experimental to stable in pool
-        result = _apply_proposals(proposals_dir, pool, harnesses_dir)
+        result = _apply_proposals(proposals_dir, pool, harnesses_dir, local_harnesses_dir)
         assert "tdd-driven" in result["stable"]
 
 
@@ -424,15 +440,16 @@ class TestDemotionLogic:
         assert proposal["applies_to_pool"] == "experimental"
 
     def test_demotion_via_apply_proposals(self, tmp_path):
-        """A demotion proposal copies harness from stable to experimental and removes from stable."""
+        """A demotion proposal copies harness from local stable override to experimental."""
         harnesses_dir = str(tmp_path / "harnesses")
         proposals_dir = str(tmp_path / "proposals")
+        local_harnesses_dir = str(tmp_path / "local-harnesses")
         os.makedirs(proposals_dir)
 
-        # Create stable harness dir
-        stable_harness_dir = os.path.join(harnesses_dir, "migration-safe")
-        os.makedirs(stable_harness_dir)
-        with open(os.path.join(stable_harness_dir, "skill.md"), "w") as fh:
+        # Create local stable harness override (represents a previously promoted harness)
+        local_stable_dir = os.path.join(local_harnesses_dir, "migration-safe")
+        os.makedirs(local_stable_dir)
+        with open(os.path.join(local_stable_dir, "skill.md"), "w") as fh:
             fh.write("# Migration Safe\n")
 
         pool = {
@@ -459,7 +476,7 @@ class TestDemotionLogic:
         with open(os.path.join(proposals_dir, "001-demote.json"), "w") as fh:
             json.dump(proposal, fh)
 
-        result = _apply_proposals(proposals_dir, pool, harnesses_dir)
+        result = _apply_proposals(proposals_dir, pool, harnesses_dir, local_harnesses_dir)
         # After demotion, migration-safe removed from stable, added to experimental
         assert "migration-safe" not in result["stable"]
         assert "migration-safe-demoted" in result["experimental"]

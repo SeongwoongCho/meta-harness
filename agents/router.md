@@ -234,8 +234,8 @@ After selecting the primary harness, check `.adaptive-harness/harness-pool.json`
 If an experimental variant exists:
 - With **20% probability** (exploration rate), select the experimental variant instead of the stable harness. This enables A/B testing of evolution-manager proposals.
 - To determine the 20% probability: if `total_runs` of the experimental variant is less than 5, always select it (forced exploration for new variants). Otherwise, select it if `total_runs % 5 == 0` (every 5th run).
-- When selecting an experimental variant, set `"experimental": true` and `"experimental_harness_path": "harnesses/experimental/{variant-name}/"` in the output JSON.
-- The orchestrator will read agent.md/skill.md from the experimental path instead of the stable path.
+- When selecting an experimental variant, set `"experimental": true` and `"experimental_harness_path": "experimental/{variant-name}/"` in the output JSON. This path is relative to `.adaptive-harness/harnesses/` (the project-local harness directory).
+- The orchestrator will read agent.md/skill.md from `.adaptive-harness/harnesses/{experimental_harness_path}` instead of the global plugin path.
 
 If no experimental variants exist, proceed normally with the stable harness.
 </experimental_exploration>
@@ -382,7 +382,7 @@ For experimental variant selection:
   "harness_chain": ["tdd-driven"],
   "ensemble_required": false,
   "experimental": true,
-  "experimental_harness_path": "harnesses/experimental/tdd-driven-v1.1/",
+  "experimental_harness_path": "experimental/tdd-driven-v1.1/",
   "reasoning": "Selecting experimental variant tdd-driven-v1.1 for A/B testing (forced exploration: only 2 prior runs)."
 }
 ```

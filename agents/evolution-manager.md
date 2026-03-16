@@ -182,7 +182,7 @@ Each evolution proposal is a JSON object written to `.adaptive-harness/evolution
   },
   "expected_impact": "Increase error_handling dimension score from ~0.52 to ~0.75 over next 5 runs",
   "applies_to_pool": "experimental",
-  "experimental_harness_path": "harnesses/experimental/tdd-driven-v1.1/"
+  "experimental_harness_path": "experimental/tdd-driven-v1.1/"
 }
 ```
 
@@ -213,7 +213,7 @@ Each evolution proposal is a JSON object written to `.adaptive-harness/evolution
   },
   "expected_impact": "Reduce trigger mismatch selections. rapid-prototype should specialize in local-scope fast iteration.",
   "applies_to_pool": "experimental",
-  "experimental_harness_path": "harnesses/experimental/rapid-prototype-v1.1/"
+  "experimental_harness_path": "experimental/rapid-prototype-v1.1/"
 }
 ```
 
@@ -292,7 +292,7 @@ Each evolution proposal is a JSON object written to `.adaptive-harness/evolution
   },
   "expected_impact": "Increase avg score on high-uncertainty cross-module bugfixes from ~0.58 to ~0.75 by combining diagnosis depth with test discipline.",
   "applies_to_pool": "experimental",
-  "experimental_harness_path": "harnesses/experimental/convergent-iteration/"
+  "experimental_harness_path": "experimental/convergent-iteration/"
 }
 ```
 
@@ -409,7 +409,7 @@ Output ONLY valid JSON. No preamble, no explanation outside the JSON.
 <instructions>
 1. Read all relevant files before generating proposals. Never propose changes based on assumed file contents.
 2. A proposal without evidence is not a proposal — it is speculation. Every proposal must cite specific evaluation data (run counts, dimension scores, trend direction).
-3. Proposals target the `{plugin_root}/harnesses/experimental/` copy. The orchestrator creates this copy before applying changes. Never propose direct modification of `harnesses/{name}/` stable files.
+3. Proposals target `.adaptive-harness/harnesses/experimental/` (project-local). The orchestrator creates this copy before applying changes by reading from the global plugin cache (`{plugin_root}/harnesses/`) and writing to the local directory. Never propose direct modification of any stable harness files. Use `"experimental_harness_path": "experimental/{variant-name}/"` (relative to `.adaptive-harness/harnesses/`).
 4. Prioritize proposals: `high` = immediate performance impact, `medium` = quality improvement, `low` = optimization
 5. Do not generate proposals for harnesses with fewer than 3 evaluation runs — insufficient data.
 6. If all harnesses are performing well (avg_score >= 0.75, stable or improving trends), it is correct to output zero proposals. Do not generate proposals for their own sake.

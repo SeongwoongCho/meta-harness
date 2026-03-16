@@ -367,18 +367,35 @@ This ensures every task leaves an audit trail. Fast-path evals do NOT update har
 
 ### Step 4b: Single Harness Execution (ensemble_required = false)
 
-1. Determine harness file paths:
-   - If the router returned `"experimental": true` with `"experimental_harness_path"`, read files from that path instead of the stable harness directory.
-   - Otherwise, read from `{{PLUGIN_ROOT}}/agents/` and `{{PLUGIN_ROOT}}/harnesses/{selected_harness}/`.
+1. Determine harness file paths using the resolution order below:
 
    ```
    plugin_root = "{{PLUGIN_ROOT}}"
+   local_harnesses_dir = ".adaptive-harness/harnesses"
+
+   def resolve_harness_dir(harness_name, experimental_path=None):
+       """Resolution order (first match wins):
+       1. Local stable override: .adaptive-harness/harnesses/{harness_name}/
+       2. Local experimental:    .adaptive-harness/harnesses/experimental/{variant}/
+       3. Global stable:         {plugin_root}/harnesses/{harness_name}/
+       """
+       local_stable = f"{local_harnesses_dir}/{harness_name}"
+       if path_exists(local_stable):
+           return local_stable, f"{plugin_root}/agents/{harness_name}.md"
+
+       if experimental_path:
+           # experimental_path is 'experimental/{variant}' (relative to local_harnesses_dir)
+           local_exp = f"{local_harnesses_dir}/{experimental_path}"
+           if path_exists(local_exp):
+               return local_exp, f"{local_exp}/agent.md"
+
+       return f"{plugin_root}/harnesses/{harness_name}", f"{plugin_root}/agents/{harness_name}.md"
+
    if router_response.get("experimental"):
-       harness_dir = f"{plugin_root}/{router_response['experimental_harness_path']}"
-       agent_path = f"{harness_dir}/agent.md"  # experimental harnesses keep agent.md locally
+       exp_path = router_response["experimental_harness_path"]  # 'experimental/{variant}'
+       harness_dir, agent_path = resolve_harness_dir(selected_harness, exp_path)
    else:
-       harness_dir = f"{plugin_root}/harnesses/{selected_harness}"
-       agent_path = f"{plugin_root}/agents/{selected_harness}.md"
+       harness_dir, agent_path = resolve_harness_dir(selected_harness)
    ```
 
 2. Read the harness files **in a single parallel tool-call batch** (issue both Read() calls in the same response turn — do NOT read one, wait, then read the other):

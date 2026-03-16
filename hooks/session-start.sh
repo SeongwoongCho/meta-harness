@@ -62,27 +62,38 @@ fi
 
 # --- Fix 6: Apply pending promotion/demotion proposals on session start ---
 PROPOSALS_DIR="${STATE_DIR}/evolution-proposals"
+LOCAL_HARNESSES_DIR="${STATE_DIR}/harnesses"
 if [ -d "$PROPOSALS_DIR" ]; then
-  python3 - "$PROPOSALS_DIR" "$POOL_FILE" "$PLUGIN_ROOT/harnesses" <<'APPLY_PROPOSALS'
+  python3 - "$PROPOSALS_DIR" "$POOL_FILE" "$PLUGIN_ROOT/harnesses" "$LOCAL_HARNESSES_DIR" <<'APPLY_PROPOSALS'
 import json, sys, os, shutil, glob, re
 
 proposals_dir = sys.argv[1]
 pool_file = sys.argv[2]
-harnesses_dir = sys.argv[3]
+harnesses_dir = sys.argv[3]       # global plugin harnesses (read-only source)
+local_harnesses_dir = sys.argv[4] # project-local harnesses (write target)
+
+os.makedirs(local_harnesses_dir, exist_ok=True)
 
 # M3 fix: Whitelist pattern for harness names — only alphanumeric, hyphens, underscores.
 HARNESS_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 # M1 fix: Validate experimental_harness_path — reject absolute paths and traversals.
-def _validate_exp_path(exp_path, harnesses_dir):
-    """Return (is_valid, resolved_path). Rejects absolute paths and directory traversal."""
+def _validate_exp_path(exp_path, local_harnesses_dir):
+    """Return (is_valid, resolved_path). Rejects absolute paths and directory traversal.
+
+    exp_path may be in two formats:
+      - New format: 'experimental/{variant}' (relative to local_harnesses_dir)
+      - Old format: 'harnesses/experimental/{variant}' (legacy, strip leading 'harnesses/')
+    """
     if not exp_path:
         return False, ""
     # Reject absolute paths
     if os.path.isabs(exp_path):
         return False, ""
-    # Resolve the candidate path relative to allowed base (parent of harnesses_dir)
-    allowed_base = os.path.realpath(os.path.dirname(harnesses_dir))
+    # Backward compatibility: strip leading 'harnesses/' prefix if present (old format)
+    if exp_path.startswith("harnesses/"):
+        exp_path = exp_path[len("harnesses/"):]
+    allowed_base = os.path.realpath(local_harnesses_dir)
     candidate = os.path.realpath(os.path.join(allowed_base, exp_path))
     # Must stay strictly within allowed_base
     if not candidate.startswith(allowed_base + os.sep):
@@ -121,8 +132,8 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
 
     # --- Fix 4: Apply content_modification proposals ---
     if ptype == "content_modification" and exp_path:
-        # M1 fix: Validate experimental_harness_path
-        path_ok, dst_harness = _validate_exp_path(exp_path, harnesses_dir)
+        # M1 fix: Validate experimental_harness_path (writes to local_harnesses_dir)
+        path_ok, dst_harness = _validate_exp_path(exp_path, local_harnesses_dir)
         if not path_ok:
             print(f"[adaptive-harness session-start] Rejected proposal {os.path.basename(pf)}: "
                   f"unsafe experimental_harness_path {exp_path!r}", file=sys.stderr)
@@ -131,6 +142,7 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
                 json.dump(proposal, f, indent=2)
             continue
 
+        # Source reads from global plugin harnesses (read-only)
         src_harness = os.path.join(harnesses_dir, harness)
 
         if os.path.isdir(src_harness) and not os.path.exists(dst_harness):
@@ -180,8 +192,8 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
 
     # --- Harness genesis: Create new harness from proposal ---
     elif ptype == "new_harness" and exp_path:
-        # M1 fix: Validate experimental_harness_path
-        path_ok, dst_harness = _validate_exp_path(exp_path, harnesses_dir)
+        # M1 fix: Validate experimental_harness_path (writes to local_harnesses_dir)
+        path_ok, dst_harness = _validate_exp_path(exp_path, local_harnesses_dir)
         if not path_ok:
             print(f"[adaptive-harness session-start] Rejected proposal {os.path.basename(pf)}: "
                   f"unsafe experimental_harness_path {exp_path!r}", file=sys.stderr)
@@ -255,23 +267,25 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
 
     # --- Fix 6: Execute promotion proposals ---
     elif ptype == "promotion":
-        exp_dir = os.path.join(harnesses_dir, "experimental", harness)
-        # Find the experimental variant
-        for exp_candidate in glob.glob(os.path.join(harnesses_dir, "experimental", f"{harness}-*")):
+        # Look for experimental variant in local harnesses first, then global
+        local_exp_base = os.path.join(local_harnesses_dir, "experimental")
+        exp_dir = os.path.join(local_exp_base, harness)
+        for exp_candidate in glob.glob(os.path.join(local_exp_base, f"{harness}-*")):
             if os.path.isdir(exp_candidate):
                 exp_dir = exp_candidate
                 break
 
-        stable_dir = os.path.join(harnesses_dir, harness)
+        # Promote to local stable override (never modifies global plugin cache)
+        local_stable_dir = os.path.join(local_harnesses_dir, harness)
         if os.path.isdir(exp_dir):
-            # Backup current stable
-            backup = stable_dir + ".bak"
-            if os.path.isdir(stable_dir):
+            # Backup current local stable override if present
+            backup = local_stable_dir + ".bak"
+            if os.path.isdir(local_stable_dir):
                 if os.path.exists(backup):
                     shutil.rmtree(backup)
-                shutil.copytree(stable_dir, backup)
-                shutil.rmtree(stable_dir)
-            shutil.copytree(exp_dir, stable_dir)
+                shutil.copytree(local_stable_dir, backup)
+                shutil.rmtree(local_stable_dir)
+            shutil.copytree(exp_dir, local_stable_dir)
             shutil.rmtree(exp_dir)
 
             # Move from experimental to stable in pool
@@ -286,12 +300,19 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
 
     # --- Fix 6: Execute demotion proposals ---
     elif ptype == "demotion":
-        stable_dir = os.path.join(harnesses_dir, harness)
-        exp_dir = os.path.join(harnesses_dir, "experimental", harness + "-demoted")
-        if os.path.isdir(stable_dir) and not os.path.exists(exp_dir):
-            os.makedirs(os.path.join(harnesses_dir, "experimental"), exist_ok=True)
-            shutil.copytree(stable_dir, exp_dir)
+        local_exp_base = os.path.join(local_harnesses_dir, "experimental")
+        local_stable_dir = os.path.join(local_harnesses_dir, harness)
+        exp_dir = os.path.join(local_exp_base, harness + "-demoted")
+        # Only copy if a local stable override exists (don't touch global plugin cache)
+        if os.path.isdir(local_stable_dir) and not os.path.exists(exp_dir):
+            os.makedirs(local_exp_base, exist_ok=True)
+            shutil.copytree(local_stable_dir, exp_dir)
             # Move from stable to experimental in pool
+            if harness in pool.get("stable", {}):
+                entry = pool["stable"].pop(harness)
+                pool["experimental"][harness + "-demoted"] = entry
+        elif not os.path.isdir(local_stable_dir):
+            # No local override — pool-only operation (move entry if present)
             if harness in pool.get("stable", {}):
                 entry = pool["stable"].pop(harness)
                 pool["experimental"][harness + "-demoted"] = entry
