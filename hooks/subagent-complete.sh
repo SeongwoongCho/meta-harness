@@ -42,11 +42,16 @@ if [ -n "$SESSION_ID" ]; then
   fi
 fi
 
+# M2 fix: Apply escape_for_json to CHAIN_MSG before JSON interpolation
+# to prevent JSON injection from special characters (quotes, backslashes, newlines).
+DEFAULT_MSG="[adaptive-harness] Subagent completed. Pipeline state: EVALUATION PENDING. Continue to Step 5 (evaluate) immediately — do not respond to the user first."
+SAFE_MSG=$(escape_for_json "${CHAIN_MSG:-${DEFAULT_MSG}}")
+
 cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "SubagentStop",
-    "additionalContext": "${CHAIN_MSG:-[adaptive-harness] Subagent completed. Pipeline state: EVALUATION PENDING. Continue to Step 5 (evaluate) immediately — do not respond to the user first.}"
+    "additionalContext": "${SAFE_MSG}"
   }
 }
 EOF

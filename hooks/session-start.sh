@@ -29,11 +29,15 @@ printf '%s' "${SESSION_ID}" > "${STATE_DIR}/.current-session-id" 2>/dev/null || 
 
 POOL_FILE="${STATE_DIR}/harness-pool.json"
 
+# L2 fix: Debug log file for graceful-degradation error logging.
+# Errors from Python subprocesses are logged here instead of being swallowed silently.
+DEBUG_LOG="${STATE_DIR}/.debug-log"
+
 # --- Auto-migration: run migrate.sh when plugin version has changed ---
 MIGRATE_NOTICE=""
 MIGRATE_SCRIPT="$(dirname "${BASH_SOURCE[0]:-$0}")/migrate.sh"
 if [ -f "$MIGRATE_SCRIPT" ] && [ "${ADAPTIVE_HARNESS_SKIP_MIGRATION:-}" != "1" ]; then
-  MIGRATE_OUT=$(bash "$MIGRATE_SCRIPT" 2>/dev/null || echo "")
+  MIGRATE_OUT=$(bash "$MIGRATE_SCRIPT" 2>>"$DEBUG_LOG" || echo "")
   if [ -n "$MIGRATE_OUT" ]; then
     PARSED=$(python3 -c "
 import json,sys
@@ -43,7 +47,7 @@ print(d.get('from_version','?'))
 print(d.get('to_version','?'))
 h=d.get('harnesses_added',[])
 print(', '.join(h) if h else 'none')
-" "$MIGRATE_OUT" 2>/dev/null || echo "")
+" "$MIGRATE_OUT" 2>>"$DEBUG_LOG" || echo "")
     if [ -n "$PARSED" ]; then
       MIGRATE_STATUS=$(echo "$PARSED" | sed -n '1p')
       if [ "$MIGRATE_STATUS" = "migrated" ]; then
@@ -60,11 +64,30 @@ fi
 PROPOSALS_DIR="${STATE_DIR}/evolution-proposals"
 if [ -d "$PROPOSALS_DIR" ]; then
   python3 - "$PROPOSALS_DIR" "$POOL_FILE" "$PLUGIN_ROOT/harnesses" <<'APPLY_PROPOSALS'
-import json, sys, os, shutil, glob
+import json, sys, os, shutil, glob, re
 
 proposals_dir = sys.argv[1]
 pool_file = sys.argv[2]
 harnesses_dir = sys.argv[3]
+
+# M3 fix: Whitelist pattern for harness names — only alphanumeric, hyphens, underscores.
+HARNESS_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+# M1 fix: Validate experimental_harness_path — reject absolute paths and traversals.
+def _validate_exp_path(exp_path, harnesses_dir):
+    """Return (is_valid, resolved_path). Rejects absolute paths and directory traversal."""
+    if not exp_path:
+        return False, ""
+    # Reject absolute paths
+    if os.path.isabs(exp_path):
+        return False, ""
+    # Resolve the candidate path relative to allowed base (parent of harnesses_dir)
+    allowed_base = os.path.realpath(os.path.dirname(harnesses_dir))
+    candidate = os.path.realpath(os.path.join(allowed_base, exp_path))
+    # Must stay strictly within allowed_base
+    if not candidate.startswith(allowed_base + os.sep):
+        return False, ""
+    return True, candidate
 
 if not os.path.isfile(pool_file):
     sys.exit(0)
@@ -87,13 +110,28 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
     harness = proposal.get("harness", "")
     exp_path = proposal.get("experimental_harness_path", "")
 
+    # M3 fix: Validate harness name before use in path construction
+    if harness and not HARNESS_NAME_RE.match(harness):
+        print(f"[adaptive-harness session-start] Rejected proposal {os.path.basename(pf)}: "
+              f"invalid harness name {harness!r}", file=sys.stderr)
+        proposal["status"] = "rejected"
+        with open(pf, 'w') as f:
+            json.dump(proposal, f, indent=2)
+        continue
+
     # --- Fix 4: Apply content_modification proposals ---
     if ptype == "content_modification" and exp_path:
+        # M1 fix: Validate experimental_harness_path
+        path_ok, dst_harness = _validate_exp_path(exp_path, harnesses_dir)
+        if not path_ok:
+            print(f"[adaptive-harness session-start] Rejected proposal {os.path.basename(pf)}: "
+                  f"unsafe experimental_harness_path {exp_path!r}", file=sys.stderr)
+            proposal["status"] = "rejected"
+            with open(pf, 'w') as f:
+                json.dump(proposal, f, indent=2)
+            continue
+
         src_harness = os.path.join(harnesses_dir, harness)
-        dst_harness = os.path.join(os.path.dirname(harnesses_dir), exp_path) if not os.path.isabs(exp_path) else exp_path
-        # Resolve relative to plugin root
-        if not os.path.isabs(dst_harness):
-            dst_harness = os.path.join(os.path.dirname(harnesses_dir), exp_path)
 
         if os.path.isdir(src_harness) and not os.path.exists(dst_harness):
             os.makedirs(os.path.dirname(dst_harness.rstrip("/")), exist_ok=True)
@@ -142,9 +180,15 @@ for pf in sorted(glob.glob(os.path.join(proposals_dir, "*.json"))):
 
     # --- Harness genesis: Create new harness from proposal ---
     elif ptype == "new_harness" and exp_path:
-        dst_harness = os.path.join(os.path.dirname(harnesses_dir), exp_path) if not os.path.isabs(exp_path) else exp_path
-        if not os.path.isabs(dst_harness):
-            dst_harness = os.path.join(os.path.dirname(harnesses_dir), exp_path)
+        # M1 fix: Validate experimental_harness_path
+        path_ok, dst_harness = _validate_exp_path(exp_path, harnesses_dir)
+        if not path_ok:
+            print(f"[adaptive-harness session-start] Rejected proposal {os.path.basename(pf)}: "
+                  f"unsafe experimental_harness_path {exp_path!r}", file=sys.stderr)
+            proposal["status"] = "rejected"
+            with open(pf, 'w') as f:
+                json.dump(proposal, f, indent=2)
+            continue
 
         if not os.path.exists(dst_harness):
             os.makedirs(dst_harness, exist_ok=True)
