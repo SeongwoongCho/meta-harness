@@ -6,56 +6,28 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
 PLUGIN_ROOT="$(resolve_plugin_root)"
 SKILL_FILE="${PLUGIN_ROOT}/skills/using-adaptive-harness/SKILL.md"
-PROJECT_ROOT="$(resolve_project_root)" || PROJECT_ROOT="$PWD"
-STATE_DIR="$(state_dir)" || {
-  # state_dir() can return 1 if CWD is inside plugin cache. Emit fallback JSON and exit.
-  cat <<'FALLBACK_SD'
+PROJECT_ROOT="$(resolve_project_root)"
+STATE_DIR="$(state_dir)"
+
+# --- Auto-initialize state directory with --general defaults if missing or broken ---
+if ! ensure_state_dir "$STATE_DIR" "$PLUGIN_ROOT"; then
+  cat <<'INIT_FAIL'
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
-    "additionalContext": "[adaptive-harness] Plugin loaded but state directory could not be resolved. Use /adaptive-harness:init to set up."
+    "additionalContext": "[adaptive-harness] ERROR: Failed to auto-initialize .adaptive-harness state directory. Check write permissions and plugin installation."
   }
 }
-FALLBACK_SD
+INIT_FAIL
   exit 0
-}
+fi
 
 # Generate a stable session ID and create directories
 SESSION_ID="${CLAUDE_SESSION_ID:-session-$(date +%s)-$$}"
 mkdir -p "${STATE_DIR}/sessions/${SESSION_ID}/evidence" 2>/dev/null || true
-
-# Write plugin root path so skills/agents can discover it at runtime
-printf '%s' "${PLUGIN_ROOT}" > "${STATE_DIR}/.plugin-root" 2>/dev/null || true
-mkdir -p "${STATE_DIR}/evaluation-logs" 2>/dev/null || true
-mkdir -p "${STATE_DIR}/evolution-proposals" 2>/dev/null || true
 printf '%s' "${SESSION_ID}" > "${STATE_DIR}/.current-session-id" 2>/dev/null || true
 
-# --- Fix 1: Bootstrap harness-pool.json if it doesn't exist ---
 POOL_FILE="${STATE_DIR}/harness-pool.json"
-if [ ! -f "$POOL_FILE" ]; then
-  HARNESS_DIR="${PLUGIN_ROOT}/harnesses"
-  if [ -d "$HARNESS_DIR" ]; then
-    python3 - "$HARNESS_DIR" "$POOL_FILE" <<'BOOTSTRAP_POOL'
-import json, sys, os
-harnesses_dir, pool_file = sys.argv[1], sys.argv[2]
-pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
-skip = {"experimental", "archived", "__pycache__", "_shared"}
-for name in sorted(os.listdir(harnesses_dir)):
-    full = os.path.join(harnesses_dir, name)
-    if os.path.isdir(full) and name not in skip and not name.startswith("."):
-        pool["stable"][name] = {
-            "weight": 1.0,
-            "total_runs": 0,
-            "successes": 0,
-            "failures": 0,
-            "consecutive_successes": 0
-        }
-with open(pool_file, 'w') as f:
-    json.dump(pool, f, indent=2)
-print(f"[adaptive-harness session-start] Bootstrapped harness-pool.json with {len(pool['stable'])} stable harnesses.", file=sys.stderr)
-BOOTSTRAP_POOL
-  fi
-fi
 
 # --- Auto-migration: run migrate.sh when plugin version has changed ---
 MIGRATE_NOTICE=""

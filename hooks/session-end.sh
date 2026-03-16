@@ -5,8 +5,14 @@
 cat > /dev/null 2>&1 || true
 
 source "$(dirname "${BASH_SOURCE[0]:-$0}")/lib.sh"
+PLUGIN_ROOT="$(resolve_plugin_root)"
 PROJECT_ROOT="$(resolve_project_root)"
 STATE_DIR="$(state_dir)"
+
+# Auto-initialize if state dir is missing or broken; abort silently on failure
+if [ -z "$STATE_DIR" ] || [ ! -d "$STATE_DIR" ]; then
+  ensure_state_dir "$STATE_DIR" "$PLUGIN_ROOT" 2>/dev/null || exit 0
+fi
 POOL_FILE="${STATE_DIR}/harness-pool.json"
 POOL_BAK="${STATE_DIR}/harness-pool.json.bak"
 POOL_TMP="${STATE_DIR}/harness-pool.json.tmp"

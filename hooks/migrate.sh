@@ -63,10 +63,71 @@ fi
 
 echo "[adaptive-harness migrate] Migration needed: ${PROJECT_VERSION} → ${PLUGIN_VERSION}" >&2
 
-# --- Run migration via Python ---
+# --- Repair missing core files before running migration ---
 POOL_FILE="${STATE_DIR}/harness-pool.json"
 CONFIG_FILE="${STATE_DIR}/config.yaml"
 HARNESS_DIR="${PLUGIN_ROOT}/harnesses"
+
+# If config.yaml is missing, write --general defaults before migrating (H5 fix)
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo "[adaptive-harness migrate] config.yaml missing — bootstrapping with --general defaults" >&2
+  python3 - "${CONFIG_FILE}" <<'MIGRATE_CONFIG_EOF'
+import sys, datetime
+path = sys.argv[1]
+ts = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+content = f"""# adaptive-harness project configuration
+# Auto-initialized with --general defaults during migration
+version: "1.0"
+generated_at: "{ts}"
+
+project:
+  domain: "general"
+
+evaluation:
+  primary_metrics:
+    - correctness
+    - completeness
+    - quality
+
+ensemble:
+  mode: auto
+
+evolution:
+  enabled: true
+  promotion_threshold: 5
+  demotion_threshold: 5
+  target_pool: "experimental"
+"""
+with open(path, 'w') as f:
+    f.write(content)
+MIGRATE_CONFIG_EOF
+fi
+
+# If harness-pool.json is missing, bootstrap it from scratch before migrating
+# Uses atomic write pattern: write to .tmp then mv to final (C2 fix)
+if [ ! -f "$POOL_FILE" ] && [ -d "$HARNESS_DIR" ]; then
+  echo "[adaptive-harness migrate] harness-pool.json missing — bootstrapping from harnesses directory" >&2
+  python3 - "$HARNESS_DIR" "$POOL_FILE" <<'MIGRATE_POOL_EOF'
+import json, sys, os
+harnesses_dir, pool_file = sys.argv[1], sys.argv[2]
+pool = {"stable": {}, "experimental": {}, "last_updated": None, "last_merged_session": None}
+skip = {"experimental", "archived", "__pycache__", "_shared"}
+for name in sorted(os.listdir(harnesses_dir)):
+    full = os.path.join(harnesses_dir, name)
+    if os.path.isdir(full) and name not in skip and not name.startswith("."):
+        pool["stable"][name] = {
+            "weight": 1.0, "total_runs": 0, "successes": 0,
+            "failures": 0, "consecutive_successes": 0
+        }
+tmp_file = pool_file + ".tmp"
+with open(tmp_file, 'w') as f:
+    json.dump(pool, f, indent=2)
+os.rename(tmp_file, pool_file)
+print(f"[adaptive-harness migrate] Bootstrapped harness-pool.json with {len(pool['stable'])} harnesses.", file=sys.stderr)
+MIGRATE_POOL_EOF
+fi
+
+# --- Run migration via Python ---
 
 python3 - "$STATE_DIR" "$POOL_FILE" "$CONFIG_FILE" "$HARNESS_DIR" "$PLUGIN_VERSION" "$PROJECT_VERSION" <<'MIGRATE_PY'
 import json
