@@ -781,8 +781,8 @@ On evaluator response:
    ```
    This accumulates evaluation history per harness, enabling the evolution-manager to analyze trends.
 
-6. **Auto-trigger evolution manager every 3 evaluations (Fix 3):**
-   After copying the eval, count files in `.adaptive-harness/evaluation-logs/{selected_harness}/`. If the count is a multiple of 3 (i.e., `count % 3 == 0` and `count >= 3`), spawn the evolution manager:
+6. **Auto-trigger evolution manager every evaluation (Fix 3):**
+   After copying the eval, count files in `.adaptive-harness/evaluation-logs/{selected_harness}/`. Trigger on every evaluation (i.e., `count >= 1`), spawn the evolution manager:
    ```
    Task(
      subagent_type="adaptive-harness:evolution-manager",
